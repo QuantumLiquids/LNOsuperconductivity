@@ -39,7 +39,7 @@ struct CaseParams : public CaseParamsParserBasic {
   std::string Geometry; // Cylinder, Torus, OBC, Rotated, Ladder (useless actually)
   size_t Ly;
   size_t Lx;
-  size_t Numhole;     //Numhole = 0 means quarter filling
+  int Numhole;     //Numhole = 0 means quarter filling. Negative means electron dope
   double t;
   double t_perp;
   double J;

@@ -17,6 +17,7 @@
 #include "myutil.h"
 #include "squarelattice.h"
 #include "tJmodel.h"
+#include <random>
 
 using namespace gqmps2;
 using namespace gqten;
@@ -32,7 +33,7 @@ int main(int argc, char *argv[]) {
   mpi::communicator world;
   CaseParams params(argv[1]);
   size_t Lx = params.Lx, Ly = params.Ly;
-  size_t N = Lx * Ly;
+  size_t N = 2 * Lx * Ly;
   DoubleLayertJModelParamters model_params(params);
   if (world.rank() == 0) {
     model_params.Print();
@@ -91,24 +92,16 @@ int main(int argc, char *argv[]) {
   FiniteMPST mps(sites);
 
   std::vector<long unsigned int> stat_labs(N);
-  size_t site_number_per_hole;
-  if (params.Numhole > 0) {
-    site_number_per_hole = N / params.Numhole;
-  } else {
-    site_number_per_hole = N + 99;
+  for (size_t i = 0; i < N / 2 + params.Numhole; i++) {
+    stat_labs[i] = 2;
   }
-
-  size_t sz_label = 0;
-  size_t hole_num = 0;
-  for (size_t i = 0; i < N; ++i) {
-    if (i % site_number_per_hole == site_number_per_hole - 1 && hole_num < params.Numhole) {
-      stat_labs[i] = 2;
-      hole_num++;
-    } else {
-      stat_labs[i] = sz_label % 2;
-      sz_label++;
-    }
+  for (size_t i = N / 2 + params.Numhole; i < N; i++) {
+    stat_labs[i] = i % 2;
   }
+  std::srand(std::time(nullptr));
+  std::random_device rd;
+  std::mt19937 g(rd());
+  std::shuffle(stat_labs.begin(), stat_labs.end(), g);
 
   gqten::hp_numeric::SetTensorTransposeNumThreads(params.Threads);
   gqten::hp_numeric::SetTensorManipulationThreads(params.Threads);
