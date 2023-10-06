@@ -1,0 +1,26 @@
+{
+  "CaseParams": {
+    "Geometry": "Cylinder",
+    "Lx": 3,
+    "Ly": 6,
+    "t": 1.0,
+    "t2": -0.2,
+    "J": 3.0,
+    "J2": 1.0,
+    "phi": 0,
+    "NumHole": 2,
+    "Sweeps": 5,
+    "Dmin": 10,
+    "Dmax": 10,
+    "CutOff": 1e-9,
+    "LanczErr": 1e-9,
+    "MaxLanczIter": 70,
+    "Threads": 2,
+    "noise": [
+      0.1,
+      0.01
+    ],
+    "Perturbation": 0.0,
+    "wavelength": 4
+  }
+}
