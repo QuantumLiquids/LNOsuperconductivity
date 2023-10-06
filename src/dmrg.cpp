@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
   } else {
     for (size_t i = 0; i < DMRG_time; i++) {
       size_t D = input_D_set[i];
-      if (world.rank() == 1) {
+      if (world.rank() == 0) {
         std::cout << "D_max = " << D << std::endl;
       }
       gqmps2::SweepParams sweep_params(

@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
     params.Threads = max_threads;
   }
 
-  if (world.rank() == 0) {
+  if (world.size() != 0) {
     if (params.Threads > 2) {
       gqten::hp_numeric::SetTensorTransposeNumThreads(params.Threads - 2);
       gqten::hp_numeric::SetTensorManipulationThreads(params.Threads - 2);
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
         params.Dmin, params.Dmax, params.CutOff,
         gqmps2::LanczosParams(params.LanczErr, params.MaxLanczIter)
     );
-    if (world.rank() == 0) {
+    if (world.size() == 1) {
       e0 = gqmps2::TwoSiteFiniteVMPS(mps, mpo, sweep_params);
     } else {
       e0 = gqmps2::TwoSiteFiniteVMPS(mps, mpo, sweep_params, world);
@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
   } else {
     for (size_t i = 0; i < DMRG_time; i++) {
       size_t D = input_D_set[i];
-      if (world.rank() == 1) {
+      if (world.rank() == 0) {
         std::cout << "D_max = " << D << std::endl;
       }
       gqmps2::SweepParams sweep_params(
@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
           D, D, params.CutOff,
           gqmps2::LanczosParams(params.LanczErr, MaxLanczIterSet[i])
       );
-      if (world.rank() == 0) {
+      if (world.size() == 1) {
         e0 = gqmps2::TwoSiteFiniteVMPS(mps, mpo, sweep_params);
       } else {
         e0 = gqmps2::TwoSiteFiniteVMPS(mps, mpo, sweep_params, world);

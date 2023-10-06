@@ -16,7 +16,7 @@ using namespace std;
 int main(int argc, char *argv[]) {
   CaseParams params(argv[1]);
   size_t Lx = params.Lx, Ly = params.Ly;
-  size_t N = Lx * Ly;
+  size_t N = 2 * Lx * Ly;
   DoubleLayertJModelParamters model_params(params);
   model_params.Print();
   clock_t startTime, endTime;

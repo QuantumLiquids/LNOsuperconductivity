@@ -31,7 +31,7 @@ inline void ConstructDoubleLayertJMPOGenerator(
       mpo_gen.AddTerm(J, {sz, sz}, {site1, site2});
       mpo_gen.AddTerm(J / 2, {sp, sm}, {site1, site2});
       mpo_gen.AddTerm(J / 2, {sm, sp}, {site1, site2});
-      mpo_gen.AddTerm(-J / 4, {nf, nf}, {site1, site2});
+//      mpo_gen.AddTerm(-J / 4, {nf, nf}, {site1, site2});
     }
 
     for (const Link &link: lattice.interlayer_links) {
@@ -45,7 +45,7 @@ inline void ConstructDoubleLayertJMPOGenerator(
       mpo_gen.AddTerm(J2, {sz, sz}, {site1, site2});
       mpo_gen.AddTerm(J2 / 2, {sp, sm}, {site1, site2});
       mpo_gen.AddTerm(J2 / 2, {sm, sp}, {site1, site2});
-      mpo_gen.AddTerm(-J2 / 4, {nf, nf}, {site1, site2});
+//      mpo_gen.AddTerm(-J2 / 4, {nf, nf}, {site1, site2});
     }
   } else {
     std::cout << "not support" << std::endl;
