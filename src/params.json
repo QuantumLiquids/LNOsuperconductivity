@@ -1,24 +1,25 @@
 {
   "CaseParams": {
-    "Geometry": "Cylinder",
+    "Geometry": "OBC",
     "Lx": 3,
     "Ly": 3,
-    "t": 1.0,
-    "t_perp": 0.2,
-    "J": 3.0,
-    "J_perp": 6.0,
+    "t": 3.0,
+    "t_perp": 0,
+    "J": 1.0,
+    "J_perp": 3.0,
     "phi": 0,
-    "NumHole": 2,
-    "Sweeps": 5,
-    "Dmin": 10,
-    "Dmax": 10,
+    "NumHole": -1,
+    "Sweeps": 3,
+    "Dmin": 1000,
+    "Dmax": 1000,
     "CutOff": 1e-9,
     "LanczErr": 1e-9,
-    "MaxLanczIter": 70,
+    "MaxLanczIter": 20,
     "Threads": 2,
     "noise": [
       0.1,
-      0.01
+      0.1,
+      0.0
     ],
     "Perturbation": 0.0,
     "wavelength": 4

@@ -35,23 +35,29 @@ int main(int argc, char *argv[]) {
       argc, argv,
       input_D_set);
 
-  size_t DMRG_time = input_D_set.size();
-  std::vector<size_t> MaxLanczIterSet(DMRG_time);
+  std::vector<size_t> Dmin_set, Dmax_set;
   if (has_bond_dimension_parameter) {
-    MaxLanczIterSet.back() = params.MaxLanczIter;
-    if (DMRG_time > 1) {
-      size_t MaxLanczIterSetSpace;
-      MaxLanczIterSet[0] = 3;
-      MaxLanczIterSetSpace = (params.MaxLanczIter - 3) / (DMRG_time - 1);
-      std::cout << "Setting MaxLanczIter as : [" << MaxLanczIterSet[0] << ", ";
-      for (size_t i = 1; i < DMRG_time - 1; i++) {
-        MaxLanczIterSet[i] = MaxLanczIterSet[i - 1] + MaxLanczIterSetSpace;
-        std::cout << MaxLanczIterSet[i] << ", ";
-      }
-      std::cout << MaxLanczIterSet.back() << "]" << std::endl;
-    } else {
-      std::cout << "Setting MaxLanczIter as : [" << MaxLanczIterSet[0] << "]" << std::endl;
+    Dmin_set = input_D_set;
+    Dmax_set = input_D_set;
+  } else {
+    Dmin_set = {params.Dmin};
+    Dmax_set = {params.Dmax};
+  }
+  size_t DMRG_time = Dmax_set.size();
+  std::vector<size_t> MaxLanczIterSet(DMRG_time);
+  MaxLanczIterSet.back() = params.MaxLanczIter;
+  if (DMRG_time > 1) {
+    size_t MaxLanczIterSetSpace;
+    MaxLanczIterSet[0] = 3;
+    MaxLanczIterSetSpace = (params.MaxLanczIter - 3) / (DMRG_time - 1);
+    std::cout << "Setting MaxLanczIter as : [" << MaxLanczIterSet[0] << ", ";
+    for (size_t i = 1; i < DMRG_time - 1; i++) {
+      MaxLanczIterSet[i] = MaxLanczIterSet[i - 1] + MaxLanczIterSetSpace;
+      std::cout << MaxLanczIterSet[i] << ", ";
     }
+    std::cout << MaxLanczIterSet.back() << "]" << std::endl;
+  } else {
+    std::cout << "Setting MaxLanczIter as : [" << MaxLanczIterSet[0] << "]" << std::endl;
   }
 
   clock_t startTime, endTime;
@@ -83,7 +89,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (world.size() != 0) {
-    if (params.Threads > 2) {
+    if (params.Threads > 2 && world.rank() == kMasterRank) {
       gqten::hp_numeric::SetTensorTransposeNumThreads(params.Threads - 2);
       gqten::hp_numeric::SetTensorManipulationThreads(params.Threads - 2);
     } else {
@@ -122,40 +128,32 @@ int main(int argc, char *argv[]) {
     cout << "No mps directory." << endl;
     gqmps2::DirectStateInitMps(mps, stat_labs);
     cout << "Initial mps as direct product state." << endl;
-    mps.Dump(kMpsPath, true);
     if (world.rank() == 0)
-      env.abort(-1);
+      mps.Dump(kMpsPath, true);
   }
 
   double e0;
 
-  if (!has_bond_dimension_parameter) {
-    gqmps2::SweepParams sweep_params(
+
+  for (size_t i = 0; i < DMRG_time; i++) {
+    if (world.rank() == 0) {
+      std::cout << "D_max = " << Dmax_set[i] << std::endl;
+    }
+//    gqmps2::SweepParams sweep_params(
+//        params.Sweeps,
+//        Dmin_set[i], Dmax_set[i], params.CutOff,
+//        gqmps2::LanczosParams(params.LanczErr, MaxLanczIterSet[i])
+//    );
+    gqmps2::TwoSiteVMPSSweepParams sweep_params(
         params.Sweeps,
-        params.Dmin, params.Dmax, params.CutOff,
-        gqmps2::LanczosParams(params.LanczErr, params.MaxLanczIter)
+        Dmin_set[i], Dmax_set[i], params.CutOff,
+        gqmps2::LanczosParams(params.LanczErr, MaxLanczIterSet[i]),
+        params.noise
     );
     if (world.size() == 1) {
       e0 = gqmps2::TwoSiteFiniteVMPS(mps, mpo, sweep_params);
     } else {
       e0 = gqmps2::TwoSiteFiniteVMPS(mps, mpo, sweep_params, world);
-    }
-  } else {
-    for (size_t i = 0; i < DMRG_time; i++) {
-      size_t D = input_D_set[i];
-      if (world.rank() == 0) {
-        std::cout << "D_max = " << D << std::endl;
-      }
-      gqmps2::SweepParams sweep_params(
-          params.Sweeps,
-          D, D, params.CutOff,
-          gqmps2::LanczosParams(params.LanczErr, MaxLanczIterSet[i])
-      );
-      if (world.size() == 1) {
-        e0 = gqmps2::TwoSiteFiniteVMPS(mps, mpo, sweep_params);
-      } else {
-        e0 = gqmps2::TwoSiteFiniteVMPS(mps, mpo, sweep_params, world);
-      }
     }
   }
 

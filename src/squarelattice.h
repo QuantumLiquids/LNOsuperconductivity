@@ -94,6 +94,7 @@ DoubleLayerSquareOBC::DoubleLayerSquareOBC(const size_t Ly, const size_t Lx) :
     DoubleLayerSquareLattice(Ly, Lx) {
   //neasert neighbor links
   intralayer_links.reserve(4 * N); //reserve a little more
+  interlayer_links.reserve(N / 2);
   for (size_t i = 0; i < N; ++i) {
     const size_t y = i % (2 * Ly); //y coordinate of site i
     const size_t x = i / (2 * Ly); //x coordinate of site i
