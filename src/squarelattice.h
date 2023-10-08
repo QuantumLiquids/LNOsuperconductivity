@@ -101,7 +101,7 @@ DoubleLayerSquareOBC::DoubleLayerSquareOBC(const size_t Ly, const size_t Lx) :
     const size_t Tx = y + (2 * Ly) * ((x + 1) % Lx); //x-directional translation site of site i
     const size_t Ty = (y + 2) % (2 * Ly) + (2 * Ly) * x;   //y-directional translation site of site i
 
-    if (y < Ly - 1) {
+    if (y < 2 * (Ly - 1)) {
       intralayer_links.push_back(Link{i, Ty});
     }
     if (x < Lx - 1) {

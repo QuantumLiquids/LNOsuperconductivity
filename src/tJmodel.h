@@ -31,7 +31,10 @@ inline void ConstructDoubleLayertJMPOGenerator(
       mpo_gen.AddTerm(J, {sz, sz}, {site1, site2});
       mpo_gen.AddTerm(J / 2, {sp, sm}, {site1, site2});
       mpo_gen.AddTerm(J / 2, {sm, sp}, {site1, site2});
-//      mpo_gen.AddTerm(-J / 4, {nf, nf}, {site1, site2});
+      mpo_gen.AddTerm(-J / 4, {nf, nf}, {site1, site2});
+#ifndef NDEBUG
+      std::cout << "Add  -t = " << -t1 << ", J = " << J << "between sites" << site1 <<","<<site2<<std::endl;
+#endif
     }
 
     for (const Link &link: lattice.interlayer_links) {
@@ -45,7 +48,8 @@ inline void ConstructDoubleLayertJMPOGenerator(
       mpo_gen.AddTerm(J2, {sz, sz}, {site1, site2});
       mpo_gen.AddTerm(J2 / 2, {sp, sm}, {site1, site2});
       mpo_gen.AddTerm(J2 / 2, {sm, sp}, {site1, site2});
-//      mpo_gen.AddTerm(-J2 / 4, {nf, nf}, {site1, site2});
+      mpo_gen.AddTerm(-J2 / 4, {nf, nf}, {site1, site2});
+      std::cout << "Add  -t_perp = " << -t2 << ", J_perp = " << J2 << "between sites" << site1 << "," << site2 << std::endl;
     }
   } else {
     std::cout << "not support" << std::endl;
