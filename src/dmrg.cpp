@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
   clock_t startTime, endTime;
   startTime = clock();
   OperatorInitial();
-  const SiteVec<TenElemT, U1U1QN> sites = SiteVec<TenElemT, U1U1QN>(N, pb_out);
+  const SiteVec<TenElemT, QNT> sites = SiteVec<TenElemT, QNT>(N, pb_out);
   std::vector<size_t> input_D_set;
   bool has_bond_dimension_parameter = ParserBondDimension(
       argc, argv,
@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
   }
 
 
-  gqmps2::MPOGenerator<TenElemT, U1U1QN> mpo_gen(sites, qn0);
+  gqmps2::MPOGenerator<TenElemT, QNT> mpo_gen(sites, qn0);
 
   if (params.Geometry == "Cylinder") {
     if (Ly < 3) {
@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
   }
 
   auto mat_repr_mpo = mpo_gen.GenMatReprMPO();
-  using FiniteMPST = gqmps2::FiniteMPS<TenElemT, U1U1QN>;
+  using FiniteMPST = gqmps2::FiniteMPS<TenElemT, QNT>;
   FiniteMPST mps(sites);
 
   std::vector<long unsigned int> stat_labs(N);

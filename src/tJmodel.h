@@ -9,7 +9,7 @@
 #include "operators.h"
 
 inline void ConstructDoubleLayertJMPOGenerator(
-    gqmps2::MPOGenerator<TenElemT, U1U1QN> &mpo_gen,
+    gqmps2::MPOGenerator<TenElemT, QNT> &mpo_gen,
     const DoubleLayerSquareLattice &lattice,
     const DoubleLayertJModelParamters &model_params
 ) {
@@ -31,9 +31,9 @@ inline void ConstructDoubleLayertJMPOGenerator(
       mpo_gen.AddTerm(J, {sz, sz}, {site1, site2});
       mpo_gen.AddTerm(J / 2, {sp, sm}, {site1, site2});
       mpo_gen.AddTerm(J / 2, {sm, sp}, {site1, site2});
-      mpo_gen.AddTerm(-J / 4, {nf, nf}, {site1, site2});
+//      mpo_gen.AddTerm(-J / 4, {nf, nf}, {site1, site2});
 #ifndef NDEBUG
-      std::cout << "Add  -t = " << -t1 << ", J = " << J << "between sites" << site1 <<","<<site2<<std::endl;
+      std::cout << "Add  -t = " << -t1 << ", J = " << J << "between sites" << site1 << "," << site2 << std::endl;
 #endif
     }
 
@@ -48,8 +48,11 @@ inline void ConstructDoubleLayertJMPOGenerator(
       mpo_gen.AddTerm(J2, {sz, sz}, {site1, site2});
       mpo_gen.AddTerm(J2 / 2, {sp, sm}, {site1, site2});
       mpo_gen.AddTerm(J2 / 2, {sm, sp}, {site1, site2});
-      mpo_gen.AddTerm(-J2 / 4, {nf, nf}, {site1, site2});
-      std::cout << "Add  -t_perp = " << -t2 << ", J_perp = " << J2 << "between sites" << site1 << "," << site2 << std::endl;
+//      mpo_gen.AddTerm(-J2 / 4, {nf, nf}, {site1, site2});
+#ifndef NDEBUG
+      std::cout << "Add  -t_perp = " << -t2 << ", J_perp = " << J2 << "between sites" << site1 << "," << site2
+                << std::endl;
+#endif
     }
   } else {
     std::cout << "not support" << std::endl;

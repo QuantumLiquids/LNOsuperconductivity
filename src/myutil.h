@@ -17,5 +17,8 @@ std::vector<std::vector<size_t>> GenAllOrderedMomentumPairs(const size_t ly);
 std::vector<std::vector<size_t>> GenAllMomentumPairs(const size_t ly);
 std::vector<std::vector<size_t>> GenAllMomentumPairs3(const size_t ly);
 
+bool ParserMeasureSite(const int argc, char *argv[],
+                       size_t &start,
+                       size_t &end);
 
 #endif //TJMODEL_SRC_MYUTIL_H

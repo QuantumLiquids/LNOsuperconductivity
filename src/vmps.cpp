@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
   clock_t startTime, endTime;
   startTime = clock();
   OperatorInitial();
-  const SiteVec<TenElemT, U1U1QN> sites = SiteVec<TenElemT, U1U1QN>(N, pb_out);
+  const SiteVec<TenElemT, QNT> sites = SiteVec<TenElemT, QNT>(N, pb_out);
   gqmps2::MPO<Tensor> mpo(N);
   const std::string kMpoPath = "mpo";
   const std::string kMpoTenBaseName = "mpo_ten";
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
     exit(0);
   }
 
-  using FiniteMPST = gqmps2::FiniteMPS<TenElemT, U1U1QN>;
+  using FiniteMPST = gqmps2::FiniteMPS<TenElemT, QNT>;
   FiniteMPST mps(sites);
 
   if (params.Threads == 0) {

@@ -2,12 +2,12 @@
     measureSC.cpp
     for measure pair correlation function. memory optimized and parallel version.
     usage:
-        mpirun -n 8 ./measureSC
-    note: processor number must be 4.
+        mpirun -n 16 ./measureSC
+    note: processor number must be 16.
     Optional arguments:
       --start=
       --end=
-    Which are defaultly set as start=Lx/4, end = 3*Lx/4+2
+    Which are set as start=Lx/4, end = 3*Lx/4+2 by default
 */
 #include "gqmps2/gqmps2.h"
 #include "gqten/gqten.h"
@@ -24,45 +24,11 @@
 using std::cout;
 using std::endl;
 using std::vector;
-using FiniteMPST = gqmps2::FiniteMPS<TenElemT, U1U1QN>;
+using FiniteMPST = gqmps2::FiniteMPS<TenElemT, QNT>;
 using gqmps2::SiteVec;
 using gqmps2::MeasureOneSiteOp;
 using gqten::Timer;
 using gqmps2::MeasureElectronPhonon4PointFunction;
-
-// When used to measure, note if should not set start too small to exceed canonical center.
-bool Parser(const int argc, char *argv[],
-            size_t &start,
-            size_t &end) {
-  int nOptionIndex = 1;
-
-  std::string arguement1 = "--start=";
-  std::string arguement2 = "--end=";
-  bool start_argument_has(false), end_argument_has(false);
-  while (nOptionIndex < argc) {
-    if (strncmp(argv[nOptionIndex], arguement1.c_str(), arguement1.size()) == 0) {
-      std::string para_string = &argv[nOptionIndex][arguement1.size()];
-      start = atoi(para_string.c_str());
-      start_argument_has = true;
-    } else if (strncmp(argv[nOptionIndex], arguement2.c_str(), arguement2.size()) == 0) {
-      std::string para_string = &argv[nOptionIndex][arguement2.size()];
-      end = atoi(para_string.c_str());
-      end_argument_has = true;
-    }
-    nOptionIndex++;
-  }
-
-  if (start_argument_has != end_argument_has) {
-    std::cout << "Only setting one start/end argument, exit(1)." << std::endl;
-    exit(1);
-  }
-
-  if (!start_argument_has) {
-    std::cout << "Note: no start/end argument, set it by default (L/4, 3*L/4+2)." << std::endl;
-  }
-
-  return start_argument_has;
-}
 
 int main(int argc, char *argv[]) {
   namespace mpi = boost::mpi;
@@ -73,12 +39,12 @@ int main(int argc, char *argv[]) {
 
   size_t beginx;
   size_t endx;
-  bool start_argument_has = Parser(argc, argv, beginx, endx);
+  bool start_argument_has = ParserMeasureSite(argc, argv, beginx, endx);
 
   CaseParams params(argv[1]);
 
   size_t Lx = params.Lx, Ly = params.Ly;
-  size_t N = Lx * Ly;
+  size_t N = 2 * Lx * Ly;
   if (GetNumofMps() != N) {
     std::cout << "The number of mps files are inconsistent with mps size!" << std::endl;
     exit(1);
@@ -91,29 +57,28 @@ int main(int argc, char *argv[]) {
 
   OperatorInitial();
 
-  const SiteVec<TenElemT, U1U1QN> sites = SiteVec<TenElemT, U1U1QN>(N, pb_out);
+  const SiteVec<TenElemT, QNT> sites = SiteVec<TenElemT, QNT>(N, pb_out);
   FiniteMPST mps(sites);
   gqten::hp_numeric::SetTensorTransposeNumThreads(params.Threads);
   gqten::hp_numeric::SetTensorManipulationThreads(params.Threads);
 
   Timer foursite_timer("measure four site operators");
-  vector<vector<size_t>> xx_fourpoint_sitessetF;
-  vector<vector<size_t>> yy_fourpoint_sitessetF;
-  vector<vector<size_t>> yx_fourpoint_sitessetF;
-  std::vector<size_t> Tx(Lx * Ly), Ty(Lx * Ly);
-  for (size_t i = 0; i < Lx * Ly; ++i) {
-    size_t y = i % Ly, x = i / Ly;
-    Tx[i] = y + Ly * ((x + 1) % Lx);
-    Ty[i] = (y + 1) % Ly + Ly * x;
+  vector<vector<size_t>> xx_fourpoint_sitessetF, yy_fourpoint_sitessetF, yx_fourpoint_sitessetF, zz_fourpoint_sitessetF;
+  std::vector<size_t> Tx(2 * Lx * Ly), Ty(2 * Lx * Ly);
+  for (size_t i = 0; i < N; ++i) {
+    size_t y = i % (2 * Ly), x = i / (2 * Ly);
+    Tx[i] = y + (2 * Ly) * ((x + 1) % Lx);
+    Ty[i] = (y + 2) % (2 * Ly) + (2 * Ly) * x;
   }
 
-  xx_fourpoint_sitessetF.reserve(Ly * (endx - beginx));
-  yx_fourpoint_sitessetF.reserve(Ly * (endx - beginx));
-  yy_fourpoint_sitessetF.reserve(Ly * (endx - beginx));
-  for (size_t y = 0; y < Ly; ++y) {
-    auto site1F = beginx * Ly + y;
+  xx_fourpoint_sitessetF.reserve((2 * Ly) * (endx - beginx));
+  yx_fourpoint_sitessetF.reserve((2 * Ly) * (endx - beginx));
+  yy_fourpoint_sitessetF.reserve((2 * Ly) * (endx - beginx));
+  zz_fourpoint_sitessetF.reserve((Ly) * (endx - beginx));
+  for (size_t y = 0; y < (2 * Ly); ++y) {
+    auto site1F = beginx * (2 * Ly) + y;
     for (size_t x = beginx + 2; x < endx; x = x + 1) {
-      auto site2F = x * Ly + y;
+      auto site2F = x * (2 * Ly) + y;
       vector<size_t> xxsites = {site1F, Tx[site1F], site2F, Tx[site2F]};
       xx_fourpoint_sitessetF.push_back(xxsites);
 
@@ -124,6 +89,11 @@ int main(int argc, char *argv[]) {
       vector<size_t> yxsites = {site1F, Ty[site1F], site2F, Tx[site2F]};
       sort(yxsites.begin(), yxsites.end());
       yx_fourpoint_sitessetF.push_back(yxsites);
+
+      if (y % 2 == 0) {
+        vector<size_t> zzsites = {site1F, site1F + 1, site2F, site2F + 1};
+        zz_fourpoint_sitessetF.push_back(zzsites);
+      }
     }
   }
 
@@ -140,21 +110,37 @@ int main(int argc, char *argv[]) {
   }
 
   if (world.rank() == 0) {
-    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_a, yy_fourpoint_sitessetF, Ly, "scsyya" + file_name_postfix);
+    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_a, yy_fourpoint_sitessetF, (2*Ly), "scsyya" + file_name_postfix);
   } else if (world.rank() == 1) {
-    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_b, yy_fourpoint_sitessetF, Ly, "scsyyb" + file_name_postfix);
+    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_b, yy_fourpoint_sitessetF, (2*Ly), "scsyyb" + file_name_postfix);
   } else if (world.rank() == 2) {
-    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_c, yy_fourpoint_sitessetF, Ly, "scsyyc" + file_name_postfix);
+    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_c, yy_fourpoint_sitessetF, (2*Ly), "scsyyc" + file_name_postfix);
   } else if (world.rank() == 3) {
-    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_d, yy_fourpoint_sitessetF, Ly, "scsyyd" + file_name_postfix);
+    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_d, yy_fourpoint_sitessetF, (2*Ly), "scsyyd" + file_name_postfix);
   } else if (world.rank() == 4) {
-    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_a, yx_fourpoint_sitessetF, Ly, "scsyxa" + file_name_postfix);
+    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_a, yx_fourpoint_sitessetF, (2*Ly), "scsyxa" + file_name_postfix);
   } else if (world.rank() == 5) {
-    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_b, yx_fourpoint_sitessetF, Ly, "scsyxb" + file_name_postfix);
+    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_b, yx_fourpoint_sitessetF, (2*Ly), "scsyxb" + file_name_postfix);
   } else if (world.rank() == 6) {
-    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_c, yx_fourpoint_sitessetF, Ly, "scsyxc" + file_name_postfix);
+    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_c, yx_fourpoint_sitessetF, (2*Ly), "scsyxc" + file_name_postfix);
   } else if (world.rank() == 7) {
-    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_d, yx_fourpoint_sitessetF, Ly, "scsyxd" + file_name_postfix);
+    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_d, yx_fourpoint_sitessetF, (2*Ly), "scsyxd" + file_name_postfix);
+  } else if (world.rank() == 8) {
+    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_a, xx_fourpoint_sitessetF, (2*Ly), "scsxxa" + file_name_postfix);
+  } else if (world.rank() == 9) {
+    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_b, xx_fourpoint_sitessetF, (2*Ly), "scsxxb" + file_name_postfix);
+  } else if (world.rank() == 10) {
+    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_c, xx_fourpoint_sitessetF, (2*Ly), "scsxxc" + file_name_postfix);
+  } else if (world.rank() == 11) {
+    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_d, xx_fourpoint_sitessetF, (2*Ly), "scsxxd" + file_name_postfix);
+  } else if (world.rank() == 12) {
+    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_a, zz_fourpoint_sitessetF, Ly, "scszza" + file_name_postfix);
+  } else if (world.rank() == 13) {
+    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_b, zz_fourpoint_sitessetF, Ly, "scszzb" + file_name_postfix);
+  } else if (world.rank() == 14) {
+    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_c, zz_fourpoint_sitessetF, Ly, "scszzc" + file_name_postfix);
+  } else if (world.rank() == 15) {
+    MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_d, zz_fourpoint_sitessetF, Ly, "scszzd" + file_name_postfix);
   }
   cout << "measured SC correlation function.<====" << endl;
   foursite_timer.PrintElapsed();

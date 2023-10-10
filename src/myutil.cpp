@@ -220,3 +220,36 @@ std::vector<std::vector<size_t>> GenAllMomentumPairs3(const size_t ly) {
   }
   return momentum_pairs;
 }
+
+bool ParserMeasureSite(const int argc, char *argv[],
+            size_t &start,
+            size_t &end) {
+  int nOptionIndex = 1;
+
+  std::string arguement1 = "--start=";
+  std::string arguement2 = "--end=";
+  bool start_argument_has(false), end_argument_has(false);
+  while (nOptionIndex < argc) {
+    if (strncmp(argv[nOptionIndex], arguement1.c_str(), arguement1.size()) == 0) {
+      std::string para_string = &argv[nOptionIndex][arguement1.size()];
+      start = atoi(para_string.c_str());
+      start_argument_has = true;
+    } else if (strncmp(argv[nOptionIndex], arguement2.c_str(), arguement2.size()) == 0) {
+      std::string para_string = &argv[nOptionIndex][arguement2.size()];
+      end = atoi(para_string.c_str());
+      end_argument_has = true;
+    }
+    nOptionIndex++;
+  }
+
+  if (start_argument_has != end_argument_has) {
+    std::cout << "Only setting one start/end argument, exit(1)." << std::endl;
+    exit(1);
+  }
+
+  if (!start_argument_has) {
+    std::cout << "Note: no start/end argument, set it by default (L/4, 3*L/4+2)." << std::endl;
+  }
+
+  return start_argument_has;
+}
