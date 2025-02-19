@@ -187,7 +187,7 @@ int main(int argc, char *argv[]) {
   }
 
   //t_para Horizontal hopping
-  for (size_t x = 0; x < 2 * Lx; x += 2) {
+  for (size_t x = 0; x < 2 * Lx - 2; x += 2) {
     for (size_t y = 0; y < (2 * Ly); y++) {
       size_t site1 = x * (2 * Ly) + y;
       size_t site2 = site1 + (4 * Ly);
@@ -212,6 +212,18 @@ int main(int argc, char *argv[]) {
         //PBC winding code here
 
       }
+    }
+  }
+  // perturbation hopping
+  for (size_t x = 0; x < 2 * Lx - 1; x++) {
+    for (size_t y = 0; y < 2 * Ly; y++) {
+      size_t site1 = x * (2 * Ly) + y;
+      size_t site2 = (x + 1) * (2 * Ly) + y;
+      TenElemT t_noise = params.PA;
+      mpo_gen.AddTerm(-t_noise, ops.bupcF, site1, ops.bupa, site2, ops.f);
+      mpo_gen.AddTerm(t_noise, ops.bupaF, site1, ops.bupc, site2, ops.f);
+      mpo_gen.AddTerm(-t_noise, ops.bdnc, site1, ops.Fbdna, site2, ops.f);
+      mpo_gen.AddTerm(t_noise, ops.bdna, site1, ops.Fbdnc, site2, ops.f);
     }
   }
 
