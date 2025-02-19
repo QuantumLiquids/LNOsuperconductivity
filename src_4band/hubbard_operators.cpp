@@ -38,8 +38,10 @@ HubbardOperators::HubbardOperators()
   id({3, 3}) = 1;
   sx({1, 2}) = 0.5;
   sx({2, 1}) = 0.5;
+#ifndef USE_REAL
   sy({1, 2}) = std::complex<double>(0, -0.5);
   sy({2, 1}) = std::complex<double>(0, 0.5);
+#endif
 
   // Initialize the fermionic operator
   f({0, 0}) = 1;

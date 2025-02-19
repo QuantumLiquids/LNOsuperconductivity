@@ -70,6 +70,7 @@ if (QLMPS_USE_GPU)
     find_package(CUTENSOR REQUIRED)
 
     file(GLOB_RECURSE TEST_SOURCES src/*.cpp)
+    file(GLOB_RECURSE TEST_SOURCES src_4band/*.cpp)
     message(STATUS "TEST_SOURCES" ${TEST_SOURCES})
     # Treat all .cc files in tests/ as CUDA files
     set_source_files_properties(${TEST_SOURCES} PROPERTIES LANGUAGE CUDA)
