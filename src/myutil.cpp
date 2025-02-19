@@ -1,10 +1,10 @@
-#include "gqmps2/gqmps2.h"
+#include "qlmps/qlmps.h"
 #include "myutil.h"
 #include <random>
 
-using gqmps2::kMpsPath;
-using gqmps2::kMpsTenBaseName;
-using gqmps2::kGQTenFileSuffix;
+using qlmps::kMpsPath;
+using qlmps::kMpsTenBaseName;
+using qlmps::kGQTenFileSuffix;
 
 //number of mps file in default mps path("./mps")
 size_t GetNumofMps() {

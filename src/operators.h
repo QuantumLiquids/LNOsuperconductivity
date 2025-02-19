@@ -3,11 +3,11 @@
 #define TJMODEL_SRC_OPERATORS_H
 
 
-#include "gqten/gqten.h"
+#include "qlten/qlten.h"
 #include "gqdouble.h"
 
 
-#if SYMMETRY_LEVLE == 0
+#if SYMMETRY_LEVEL == 0
 extern Tensor sz, sp,sm, id;
 extern Tensor f, bupc, bupa, bdnc, bdna;
 extern Tensor  nf, nup, ndn;

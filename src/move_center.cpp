@@ -4,16 +4,16 @@
  */
 
 #include "gqdouble.h"
-#include "gqmps2/gqmps2.h"
+#include "qlmps/qlmps.h"
 #include <iostream>
 #include <fstream>
 #include <vector>
 #include "myutil.h"
 
-using namespace gqmps2;
-using namespace gqten;
+using namespace qlmps;
+using namespace qlten;
 using namespace std;
-using FiniteMPST = gqmps2::FiniteMPS<TenElemT, U1U1QN>;
+using FiniteMPST = qlmps::FiniteMPS<TenElemT, QNT>;
 
 int Parser(const int argc, char *argv[],
            size_t &from,
@@ -33,14 +33,13 @@ int main(int argc, char *argv[]) {
   std::cout << "to = " << to << std::endl;
   std::cout << "thread = " << thread << std::endl;
 
-  gqten::hp_numeric::SetTensorTransposeNumThreads(thread);
-  gqten::hp_numeric::SetTensorManipulationThreads(thread);
+  qlten::hp_numeric::SetTensorManipulationThreads(thread);
 
   const size_t N = GetNumofMps();
   const string temp_path = kRuntimeTempPath;
-  const SiteVec<TenElemT, U1U1QN> sites = SiteVec<TenElemT, U1U1QN>(N, pb_out);
+  const SiteVec<TenElemT, QNT> sites = SiteVec<TenElemT, QNT>(N, pb_out);
 
-  FiniteMPS<TenElemT, U1U1QN> mps(sites);
+  FiniteMPS<TenElemT, QNT> mps(sites);
 
   std::string mps_path = kMpsPath;
   mps.LoadTen(from, GenMPSTenName(mps_path, from));

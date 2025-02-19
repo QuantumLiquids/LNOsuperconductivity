@@ -9,26 +9,26 @@
       --end=
     Which are set as start=Lx/4, end = 3*Lx/4+2 by default
 */
-#include "gqmps2/gqmps2.h"
-#include "gqten/gqten.h"
+#include "qlmps/qlmps.h"
+#include "qlten/qlten.h"
 #include <ctime>
 #include "gqdouble.h"
 #include "operators.h"
 #include "params_case.h"
 #include "myutil.h"
 #include "my_measure.h"
-#include "gqten/utility/timer.h"
+#include "qlten/utility/timer.h"
 
 #include "boost/mpi.hpp"
 
 using std::cout;
 using std::endl;
 using std::vector;
-using FiniteMPST = gqmps2::FiniteMPS<TenElemT, QNT>;
-using gqmps2::SiteVec;
-using gqmps2::MeasureOneSiteOp;
-using gqten::Timer;
-using gqmps2::MeasureElectronPhonon4PointFunction;
+using FiniteMPST = qlmps::FiniteMPS<TenElemT, QNT>;
+using qlmps::SiteVec;
+using qlmps::MeasureOneSiteOp;
+using qlten::Timer;
+using qlmps::MeasureElectronPhonon4PointFunction;
 
 int main(int argc, char *argv[]) {
   namespace mpi = boost::mpi;
@@ -59,8 +59,8 @@ int main(int argc, char *argv[]) {
 
   const SiteVec<TenElemT, QNT> sites = SiteVec<TenElemT, QNT>(N, pb_out);
   FiniteMPST mps(sites);
-  gqten::hp_numeric::SetTensorTransposeNumThreads(params.Threads);
-  gqten::hp_numeric::SetTensorManipulationThreads(params.Threads);
+
+  qlten::hp_numeric::SetTensorManipulationThreads(params.Threads);
 
   Timer foursite_timer("measure four site operators");
   vector<vector<size_t>> xx_fourpoint_sitessetF, yy_fourpoint_sitessetF, yx_fourpoint_sitessetF, zz_fourpoint_sitessetF;
@@ -109,37 +109,37 @@ int main(int argc, char *argv[]) {
     file_name_postfix = "";
   }
 
-  if (world.rank() == 0) {
+  if (rank == 0) {
     MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_a, yy_fourpoint_sitessetF, (2*Ly), "scsyya" + file_name_postfix);
-  } else if (world.rank() == 1) {
+  } else if (rank == 1) {
     MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_b, yy_fourpoint_sitessetF, (2*Ly), "scsyyb" + file_name_postfix);
-  } else if (world.rank() == 2) {
+  } else if (rank == 2) {
     MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_c, yy_fourpoint_sitessetF, (2*Ly), "scsyyc" + file_name_postfix);
-  } else if (world.rank() == 3) {
+  } else if (rank == 3) {
     MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_d, yy_fourpoint_sitessetF, (2*Ly), "scsyyd" + file_name_postfix);
-  } else if (world.rank() == 4) {
+  } else if (rank == 4) {
     MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_a, yx_fourpoint_sitessetF, (2*Ly), "scsyxa" + file_name_postfix);
-  } else if (world.rank() == 5) {
+  } else if (rank == 5) {
     MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_b, yx_fourpoint_sitessetF, (2*Ly), "scsyxb" + file_name_postfix);
-  } else if (world.rank() == 6) {
+  } else if (rank == 6) {
     MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_c, yx_fourpoint_sitessetF, (2*Ly), "scsyxc" + file_name_postfix);
-  } else if (world.rank() == 7) {
+  } else if (rank == 7) {
     MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_d, yx_fourpoint_sitessetF, (2*Ly), "scsyxd" + file_name_postfix);
-  } else if (world.rank() == 8) {
+  } else if (rank == 8) {
     MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_a, xx_fourpoint_sitessetF, (2*Ly), "scsxxa" + file_name_postfix);
-  } else if (world.rank() == 9) {
+  } else if (rank == 9) {
     MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_b, xx_fourpoint_sitessetF, (2*Ly), "scsxxb" + file_name_postfix);
-  } else if (world.rank() == 10) {
+  } else if (rank == 10) {
     MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_c, xx_fourpoint_sitessetF, (2*Ly), "scsxxc" + file_name_postfix);
-  } else if (world.rank() == 11) {
+  } else if (rank == 11) {
     MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_d, xx_fourpoint_sitessetF, (2*Ly), "scsxxd" + file_name_postfix);
-  } else if (world.rank() == 12) {
+  } else if (rank == 12) {
     MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_a, zz_fourpoint_sitessetF, Ly, "scszza" + file_name_postfix);
-  } else if (world.rank() == 13) {
+  } else if (rank == 13) {
     MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_b, zz_fourpoint_sitessetF, Ly, "scszzb" + file_name_postfix);
-  } else if (world.rank() == 14) {
+  } else if (rank == 14) {
     MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_c, zz_fourpoint_sitessetF, Ly, "scszzc" + file_name_postfix);
-  } else if (world.rank() == 15) {
+  } else if (rank == 15) {
     MeasureElectronPhonon4PointFunction(mps, sc_phys_ops_d, zz_fourpoint_sitessetF, Ly, "scszzd" + file_name_postfix);
   }
   cout << "measured SC correlation function.<====" << endl;

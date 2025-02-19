@@ -1,15 +1,15 @@
 #ifndef TJ_MODEL_H
 #define TJ_MODEL_H
 
-#include "gqmps2/one_dim_tn/mpo/mpo.h"
-#include "gqmps2/one_dim_tn/mpo/mpogen/mpogen.h"
+#include "qlmps/one_dim_tn/mpo/mpo.h"
+#include "qlmps/one_dim_tn/mpo/mpogen/mpogen.h"
 #include "gqdouble.h"
 #include "squarelattice.h"
 #include "params_case.h"
 #include "operators.h"
 
 inline void ConstructDoubleLayertJMPOGenerator(
-    gqmps2::MPOGenerator<TenElemT, QNT> &mpo_gen,
+    qlmps::MPOGenerator<TenElemT, QNT> &mpo_gen,
     const DoubleLayerSquareLattice &lattice,
     const DoubleLayertJModelParamters &model_params
 ) {

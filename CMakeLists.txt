@@ -6,128 +6,134 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/")
 set(CMAKE_SOURCE_DIR "${PROJECT_SOURCE_DIR}/src/")
 
+option(RealCode "tensor element type double or complex" OFF)
+if (RealCode)
+    add_definitions(-DUSE_REAL=1)
+else ()
+    add_definitions(-DUSE_COMPLEX=1)
+endif ()
+
+
 # Build type.
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif ()
 
-#if(NOT PHYSICAL_MODEL)
-#    set(PHYSICAL_MODEL Fermion)
-#endif()
-
 if (${CMAKE_BUILD_TYPE} MATCHES Debug)
     set(CMAKE_VERBOSE_MAKEFILE ON)
 endif ()
 
-option(GQTEN_TIMING_MODE "Timing mode." OFF)
-if (GQTEN_TIMING_MODE)
-    add_definitions(-DGQTEN_TIMING_MODE)
+option(QLTEN_TIMING_MODE "Timing mode." OFF)
+if (QLTEN_TIMING_MODE)
+    add_definitions(-DQLTEN_TIMING_MODE)
 endif ()
 
-option(GQMPS2_TIMING_MODE "Timing mode." OFF)
-if (GQMPS2_TIMING_MODE)
-    add_definitions(-DGQMPS2_TIMING_MODE)
+option(QLMPS_TIMING_MODE "Timing mode." OFF)
+if (QLMPS_TIMING_MODE)
+    add_definitions(-DQLMPS_TIMING_MODE)
 endif ()
 
-option(GQTEN_MPI_TIMING_MODE "Timing mode." OFF)
-if (GQTEN_MPI_TIMING_MODE)
-    add_definitions(-DGQTEN_MPI_TIMING_MODE)
+option(QLTEN_MPI_TIMING_MODE "Timing mode." OFF)
+if (QLTEN_MPI_TIMING_MODE)
+    add_definitions(-DQLTEN_MPI_TIMING_MODE)
 endif ()
 
-option(GQMPS2_MPI_TIMING_MODE "Timing mode." OFF)
-if (GQMPS2_MPI_TIMING_MODE)
-    add_definitions(-DGQMPS2_MPI_TIMING_MODE)
+option(QLMPS_MPI_TIMING_MODE "Timing mode." OFF)
+if (QLMPS_MPI_TIMING_MODE)
+    add_definitions(-DQLMPS_MPI_TIMING_MODE)
 endif ()
 
 option(COMPILE_FIX_CODE "compile the fixing code" OFF)
 
-option(HIGHER_SYMMETRY "1 or 2 particle conservation." OFF)
-if (HIGHER_SYMMETRY)
-    add_definitions(-DSYMMETRY_LEVLE=1)
-else ()
-    add_definitions(-DSYMMETRY_LEVLE=0)
-endif ()
 # Compilation and linking control.
 set(CMAKE_CXX_STANDARD 17)
 add_definitions(-Wall -g)
 
+option(QLMPS_USE_GPU "Use GPU" OFF)
 
-if (APPLE)
-    if (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
-        set(MATH_LIB_COMPILE_FLAGS "-I$ENV{MKLROOT}/include")
-        #Need test
-        set(MATH_LIB_LINK_FLAGS $ENV{MKLROOT}/lib/libmkl_intel_lp64.a $ENV{MKLROOT}/lib/libmkl_intel_thread.a $ENV{MKLROOT}/lib/libmkl_core.a -liomp5 -lpthread -lm -ldl)
-    endif ()
-    if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-        set(MATH_LIB_COMPILE_FLAGS -m64 -I$ENV{MKLROOT}/include)
-        # May not work
-        set(MATH_LIB_LINK_FLAGS $ENV{MKLROOT}/lib/libmkl_intel_lp64.a $ENV{MKLROOT}/lib/libmkl_intel_thread.a $ENV{MKLROOT}/lib/libmkl_core.a -L$ENV{MKLROOT}/lib -L$ENV{CMPLR_ROOT}/mac/compiler/lib/ -liomp5 -lpthread -lm -ldl)
-    endif ()
-    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        set(MATH_LIB_COMPILE_FLAGS -m64 -I$ENV{MKLROOT}/include)
-        # Note as of Intel oneAPI 2021.2, "source /opt/intel/oneapi/compiler/latest/env/vars.sh"
-        set(MATH_LIB_LINK_FLAGS $ENV{MKLROOT}/lib/libmkl_intel_lp64.a $ENV{MKLROOT}/lib/libmkl_intel_thread.a $ENV{MKLROOT}/lib/libmkl_core.a -L$ENV{MKLROOT}/lib -L$ENV{CMPLR_ROOT}/mac/compiler/lib/ -Wl, -rpath $ENV{CMPLR_ROOT}/mac/compiler/lib/libiomp5.dylib -liomp5 -lpthread -lm -ldl)
-    endif ()
-elseif (UNIX)
-    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "~/.local/")
-    message("CMAKE_MODULE_PATH=${CMAKE_MODULE_PATH}")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/") # HPTT/cutensor
 
-    #UNIX include APPLE, but we except it here
-    if (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
-        set(MATH_LIB_COMPILE_FLAGS "-I$ENV{MKLROOT}/include")
-        set(MATH_LIB_LINK_FLAGS -Wl,--start-group $ENV{MKLROOT}/lib/intel64/libmkl_intel_lp64.a $ENV{MKLROOT}/lib/intel64/libmkl_intel_thread.a $ENV{MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lpthread -lm -ldl)
-    endif ()
-    if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-        set(MATH_LIB_COMPILE_FLAGS -m64 -I$ENV{MKLROOT}/include)
-        # Link the Intel's OpenMP library to avoid performance issue when the library calls the MKL's gesdd function.
-        set(MATH_LIB_LINK_FLAGS -Wl,--start-group $ENV{MKLROOT}/lib/intel64/libmkl_intel_lp64.a $ENV{MKLROOT}/lib/intel64/libmkl_intel_thread.a $ENV{MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -L$ENV{MKLROOT}/lib/intel64 -liomp5 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_rt -lmkl_core -lpthread -Wl,--no-as-needed -ldl)
-    endif ()
-    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        set(MATH_LIB_COMPILE_FLAGS -m64 -I$ENV{MKLROOT}/include)
-        set(MATH_LIB_LINK_FLAGS -Wl,--start-group $ENV{MKLROOT}/lib/intel64/libmkl_intel_lp64.a $ENV{MKLROOT}/lib/intel64/libmkl_intel_thread.a $ENV{MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -L$ENV{MKLROOT}/lib/intel64 -liomp5 -lpthread -lm -ldl)
-    endif ()
+if (QLMPS_USE_GPU)
+    add_definitions(-DUSE_GPU=1)
+
+    # Enable CUDA language support
+    enable_language(CUDA)
+    find_package(CUDAToolkit REQUIRED)  # Modern CUDA Toolkit detection
+
+    include_directories(${CUDAToolkit_INCLUDE_DIRS})
+    message(STATUS "CUDA_INCLUDE_DIRS: '${CUDAToolkit_INCLUDE_DIRS}'")
+
+    # Set CUDA architectures
+    set(CMAKE_CUDA_ARCHITECTURES 70 80) # For V100 & A100, adjust if needed
+    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -lineinfo -Xcompiler=-fPIC")
+
+    find_package(CUTENSOR REQUIRED)
+
+    file(GLOB_RECURSE TEST_SOURCES src/*.cpp)
+    message(STATUS "TEST_SOURCES" ${TEST_SOURCES})
+    # Treat all .cc files in tests/ as CUDA files
+    set_source_files_properties(${TEST_SOURCES} PROPERTIES LANGUAGE CUDA)
+else ()
+    find_package(hptt)
+    message(STATUS "HPTT Lib : " "${hptt_LIBRARY}")
 endif ()
 
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
+    set(BLA_VENDOR Intel10_64lp)   #FOR VENDOR CHOICE: https://cmake.org/cmake/help/latest/module/FindBLAS.html
+    set(BLAS_INCLUDE_DIR "$ENV{MKLROOT}/include")
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "arm64") # (e.g., Apple Silicon)
+    add_definitions(-DUSE_OPENBLAS)
+    set(BLA_VENDOR OpenBLAS)
+    set(OpenBLAS_ROOT "/opt/homebrew/opt/openblas/") #work for homebrew installed openblas in MacOSX
+    set(Lapack_ROOT "/opt/homebrew/opt/lapack")
+    set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${OpenBLAS_ROOT} ${Lapack_ROOT}) # For find
+    set(BLAS_INCLUDE_DIR "${OpenBLAS_ROOT}/include")
+endif ()
 
-find_path(TENSOR_HEADER_PATH "gqten")
-find_path(MPS2_HEADER_PATH "gqmps2")
-find_package(hptt)
-find_package(Boost
-        1.76.0
-        REQUIRED
-        COMPONENTS serialization mpi)
+FIND_PACKAGE(BLAS REQUIRED)
+FIND_PACKAGE(LAPACK REQUIRED)
 find_package(MPI REQUIRED)
-#set omp flag
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
-    set(OMP_FLAGS -qopenmp)
-elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(OMP_FLAGS -fopenmp)
-elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    set(OMP_FLAGS -fopenmp)
+find_package(OpenMP REQUIRED)
+
+find_path(TENSOR_HEADER_PATH "qlten")
+find_path(MPS_HEADER_PATH "qlmps")
+
+
+# Intel MKL multi-thread may conflict with other compiler's OpenMP
+# Close OpenMP if using MKL with other compiler
+if (NOT BLA_VENDOR STREQUAL "Intel10_64lp" OR CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+    find_package(OpenMP REQUIRED)
+    link_libraries(OpenMP::OpenMP_CXX)
 endif ()
 
-#find openmp?
-add_compile_options(${MATH_LIB_COMPILE_FLAGS} ${OMP_FLAGS})
-
-include_directories(${MPS2_HEADER_PATH}
-        ${TENSOR_HEADER_PATH}
-        ${hptt_INCLUDE_DIR}
-        ${Boost_INCLUDE_DIR}
+include_directories(
+        ${BLAS_INCLUDE_DIR}
         ${MPI_CXX_HEADER_DIR}
-)
+        ${TENSOR_HEADER_PATH}
+        ${MPS_HEADER_PATH})
 
-link_libraries(
-        ${hptt_LIBRARY}
-        ${MATH_LIB_LINK_FLAGS}
-        Boost::serialization
-        Boost::mpi
-        ${MPI_CXX_LINK_FLAGS}
-        ${MPI_mpi_LIBRARY}
-)
+link_libraries(BLAS::BLAS
+        LAPACK::LAPACK
+        MPI::MPI_CXX)
 
-add_executable(mpogen src/mpogen.cpp src/operators.cpp)
-add_executable(vmps src/vmps.cpp src/myutil.cpp src/operators.cpp)
-add_executable(dmrg src/dmrg.cpp src/myutil.cpp src/operators.cpp)
-add_executable(measure1 src/measure1.cpp src/myutil.cpp src/operators.cpp)
-add_executable(measure2 src/measure2.cpp src/myutil.cpp src/operators.cpp)
-add_executable(measureSC src/measureSC.cpp src/myutil.cpp src/operators.cpp)
+if (NOT QLMPS_USE_GPU)
+    include_directories(${hptt_INCLUDE_DIR})
+    link_libraries(${hptt_LIBRARY})
+else ()
+    include_directories(${CUTENSOR_INCLUDE_DIR})
+    link_libraries(
+            CUDA::cublas_static
+            CUDA::cusolver_static
+            ${CUTENSOR_LIBRARY}
+    )
+endif ()
+
+#
+#add_executable(mpogen src/mpogen.cpp src/operators.cpp)
+#add_executable(vmps src/vmps.cpp src/myutil.cpp src/operators.cpp)
+#add_executable(dmrg src/dmrg.cpp src/myutil.cpp src/operators.cpp)
+#add_executable(measure1 src/measure1.cpp src/myutil.cpp src/operators.cpp)
+#add_executable(measure2 src/measure2.cpp src/myutil.cpp src/operators.cpp)
+#add_executable(measureSC src/measureSC.cpp src/myutil.cpp src/operators.cpp)
+
+add_executable(dmrg4band src_4band/dmrg.cpp src_4band/myutil.cpp src_4band/hubbard_operators.cpp)

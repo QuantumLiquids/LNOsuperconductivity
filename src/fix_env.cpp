@@ -1,5 +1,5 @@
 #include "gqdouble.h"
-#include "gqmps2/gqmps2.h"
+#include "qlmps/qlmps.h"
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -9,8 +9,8 @@ using std::ifstream;
 using std::ofstream;
 using std::string;
 using std::vector;
-using namespace gqmps2;
-using namespace gqten;
+using namespace qlmps;
+using namespace qlten;
 using namespace std;
 int ParserFixMpsArgs(const int argc, char *argv[],
                      size_t &site,
@@ -19,8 +19,8 @@ int ParserFixMpsArgs(const int argc, char *argv[],
 
 int main(int argc, char *argv[]) {
   std::cout << "This program used to fix environment tensors around the specific site" << std::endl;
-  std::cout << "The input must include the relevant files: renv*.gqten, lenv*.gqten, mpo_ten*.gqten" << std::endl;
-  std::cout << "The output is the file renv*.gqten, lenv*.gqten" << std::endl;
+  std::cout << "The input must include the relevant files: renv*.qlten, lenv*.qlten, mpo_ten*.qlten" << std::endl;
+  std::cout << "The output is the file renv*.qlten, lenv*.qlten" << std::endl;
 
   size_t site(0), thread(0);
   bool load_mps;
@@ -30,8 +30,8 @@ int main(int argc, char *argv[]) {
   std::cout << "site = " << site << std::endl;
   std::cout << "thread = " << thread << std::endl;
 
-  gqten::hp_numeric::SetTensorTransposeNumThreads(thread);
-  gqten::hp_numeric::SetTensorManipulationThreads(thread);
+
+  qlten::hp_numeric::SetTensorManipulationThreads(thread);
   const size_t N = GetNumofMps();
   const string temp_path = kRuntimeTempPath;
   std::string mps_path = kMpsPath;
@@ -44,8 +44,8 @@ int main(int argc, char *argv[]) {
         kMpoTenBaseName + std::to_string(i) + "." + kGQTenFileSuffix;
     mpo.LoadTen(i, filename);
   }
-  const SiteVec<TenElemT, U1U1QN> sites(N, pb_out);
-  FiniteMPS<TenElemT, U1U1QN> mps(sites);
+  const SiteVec<TenElemT, QNT> sites(N, pb_out);
+  FiniteMPS<TenElemT, QNT> mps(sites);
 
   int left_start_env, right_start_env;
   for (left_start_env = site; left_start_env >= 0; left_start_env--) {
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
     lenv({0, 0, 0}) = 1;
     mps.dealloc(0);
     std::string file = GenEnvTenName("l", 0, temp_path);
-    WriteGQTensorTOFile(lenv, file);
+    WriteQLTensorTOFile(lenv, file);
     left_start_env = 0;
   }
   size_t from = left_start_env + 1;
@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
     } else {
       lenv = UpdateSiteLenvs(lenv, mps[i - 1], mpo[i - 1]);
     }
-    WriteGQTensorTOFile(lenv, file);
+    WriteQLTensorTOFile(lenv, file);
     std::cout << "Grown and Dumped the tensor " << file << std::endl;
     mps.dealloc(i - 1);
   }
@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
     renv({0, 0, 0}) = 1;
     mps.dealloc(N - 1);
     string file = GenEnvTenName("r", 0, temp_path);
-    WriteGQTensorTOFile(renv, file);
+    WriteQLTensorTOFile(renv, file);
     from = 1;
   }
 
@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
       renv = UpdateSiteRenvs(renv, mps[N - i], mpo[N - i]);
     }
 
-    WriteGQTensorTOFile(renv, file);
+    WriteQLTensorTOFile(renv, file);
     std::cout << "Grown and Dumped the tensor " << file << std::endl;
     mps.dealloc(N - i);
   }

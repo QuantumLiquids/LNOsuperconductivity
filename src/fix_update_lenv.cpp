@@ -4,9 +4,9 @@
  */
 
 #include "gqdouble.h"
-// #include "gqmps2/algorithm/lanczos_solver.h"
-// #include "gqmps2/algorithm/lanczos_solver_impl.h"
-#include "gqmps2/gqmps2.h"
+// #include "qlmps/algorithm/lanczos_solver.h"
+// #include "qlmps/algorithm/lanczos_solver_impl.h"
+#include "qlmps/qlmps.h"
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -16,8 +16,8 @@ using std::ifstream;
 using std::ofstream;
 using std::string;
 using std::vector;
-using namespace gqmps2;
-using namespace gqten;
+using namespace qlmps;
+using namespace qlten;
 using namespace std;
 
 
@@ -30,8 +30,8 @@ int Parser(const int argc, char *argv[],
  *
  * @example
  * ./fix_update_renv --thread=24  --from=10 --to=35
- * which uses 24 threads, update from the lenv10.gqten (note you require to prepare lenv9.gqten and other mps mpo tensors),
- * and update to lenv35.gqten (and lenv36.gqten will not get);
+ * which uses 24 threads, update from the lenv10.qlten (note you require to prepare lenv9.qlten and other mps mpo tensors),
+ * and update to lenv35.qlten (and lenv36.qlten will not get);
  *
  * the `from` lenv will be generated, and `to` won't.
  *
@@ -49,16 +49,16 @@ int main(int argc, char *argv[]){
   std::cout << "thread = " << thread << std::endl;
 
 
-  gqten::hp_numeric::SetTensorTransposeNumThreads(thread);
-  gqten::hp_numeric::SetTensorManipulationThreads(thread);
+
+  qlten::hp_numeric::SetTensorManipulationThreads(thread);
 
   const size_t N = GetNumofMps();
   using TenT = Tensor;
   const string temp_path = kRuntimeTempPath;
 
-  SiteVec<TenElemT, U1U1QN> sites=SiteVec<TenElemT, U1U1QN>(N, pb_out);
+  SiteVec<TenElemT, QNT> sites=SiteVec<TenElemT, QNT>(N, pb_out);
 
-  FiniteMPS<TenElemT, U1U1QN> mps(sites);
+  FiniteMPS<TenElemT, QNT> mps(sites);
   MPO<Tensor> mpo(N);
   const std::string kMpoPath = "mpo";
   const std::string kMpoTenBaseName = "mpo_ten";
@@ -81,7 +81,7 @@ int main(int argc, char *argv[]){
     lenv({0, 0, 0}) = 1;
     mps.dealloc(0);
     std::string file = GenEnvTenName("l", 0, temp_path);
-    WriteGQTensorTOFile(lenv, file);
+    WriteQLTensorTOFile(lenv, file);
     from = 1;
   }
 
@@ -118,7 +118,7 @@ int main(int argc, char *argv[]){
       lenv = std::move(UpdateSiteLenvs(lenv, mps[i-1], mpo[i-1]));
     }
 
-    WriteGQTensorTOFile(lenv, file);
+    WriteQLTensorTOFile(lenv, file);
     mps.dealloc(i - 1);
   }
 

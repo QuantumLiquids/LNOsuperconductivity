@@ -7,10 +7,8 @@
 */
 
 
-#include "gqmps2/gqmps2.h"
-#include "gqten/gqten.h"
-#include <time.h>
-#include <stdlib.h>
+#include "qlmps/qlmps.h"
+#include "qlten/qlten.h"
 #include "gqdouble.h"
 #include "operators.h"
 #include "params_case.h"
@@ -19,23 +17,22 @@
 #include "tJmodel.h"
 #include <random>
 
-using namespace gqmps2;
-using namespace gqten;
 using namespace std;
 
 int main(int argc, char *argv[]) {
-  namespace mpi = boost::mpi;
-  mpi::environment env(mpi::threading::multiple);
-  if (env.thread_level() < mpi::threading::multiple) {
-    std::cout << "thread level of env is not right." << std::endl;
-    env.abort(-1);
-  }
-  mpi::communicator world;
+  using namespace qlmps;
+  using namespace qlten;
+  MPI_Init(nullptr, nullptr);
+  MPI_Comm comm = MPI_COMM_WORLD;
+  int rank, mpi_size;
+  MPI_Comm_size(comm, &mpi_size);
+  MPI_Comm_rank(comm, &rank);
+
   CaseParams params(argv[1]);
   size_t Lx = params.Lx, Ly = params.Ly;
   size_t N = 2 * Lx * Ly;
   DoubleLayertJModelParamters model_params(params);
-  if (world.rank() == 0) {
+  if (rank == 0) {
     model_params.Print();
   }
   clock_t startTime, endTime;
@@ -66,8 +63,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-
-  gqmps2::MPOGenerator<TenElemT, QNT> mpo_gen(sites, qn0);
+  qlmps::MPOGenerator<TenElemT, QNT> mpo_gen(sites, qn0);
 
   if (params.Geometry == "Cylinder") {
     if (Ly < 3) {
@@ -88,7 +84,7 @@ int main(int argc, char *argv[]) {
   }
 
   auto mat_repr_mpo = mpo_gen.GenMatReprMPO();
-  using FiniteMPST = gqmps2::FiniteMPS<TenElemT, QNT>;
+  using FiniteMPST = qlmps::FiniteMPS<TenElemT, QNT>;
   FiniteMPST mps(sites);
 
   std::vector<long unsigned int> stat_labs(N);
@@ -103,52 +99,52 @@ int main(int argc, char *argv[]) {
   std::mt19937 g(rd());
   std::shuffle(stat_labs.begin(), stat_labs.end(), g);
 
-  gqten::hp_numeric::SetTensorTransposeNumThreads(params.Threads);
-  gqten::hp_numeric::SetTensorManipulationThreads(params.Threads);
+  qlten::hp_numeric::SetTensorManipulationThreads(params.Threads);
 
   if (IsPathExist(kMpsPath)) {
     if (N == GetNumofMps()) {
       cout << "The number of mps files is consistent with mps size." << endl;
       cout << "Directly use mps from files." << endl;
     } else {
-      gqmps2::DirectStateInitMps(mps, stat_labs);
+      qlmps::DirectStateInitMps(mps, stat_labs);
       cout << "Initial mps as direct product state." << endl;
-      if (world.rank() == 0)
+      if (rank == 0)
         mps.Dump(kMpsPath, true);
     }
   } else {
-    gqmps2::DirectStateInitMps(mps, stat_labs);
+    qlmps::DirectStateInitMps(mps, stat_labs);
     cout << "Initial mps as direct product state." << endl;
-    if (world.rank() == 0)
+    if (rank == 0)
       mps.Dump(kMpsPath, true);
   }
   double e0;
   if (!has_bond_dimension_parameter) {
-    gqmps2::SweepParams sweep_params(
+    qlmps::FiniteVMPSSweepParams sweep_params(
         params.Sweeps,
         params.Dmin, params.Dmax, params.CutOff,
-        gqmps2::LanczosParams(params.LanczErr, params.MaxLanczIter)
+        qlmps::LanczosParams(params.LanczErr, params.MaxLanczIter)
     );
-    e0 = gqmps2::FiniteDMRG(mps, mat_repr_mpo, sweep_params, world);
+    e0 = qlmps::FiniteDMRG(mps, mat_repr_mpo, sweep_params, comm);
   } else {
     for (size_t i = 0; i < DMRG_time; i++) {
       size_t D = input_D_set[i];
-      if (world.rank() == 0) {
+      if (rank == 0) {
         std::cout << "D_max = " << D << std::endl;
       }
-      gqmps2::SweepParams sweep_params(
+      qlmps::FiniteVMPSSweepParams sweep_params(
           params.Sweeps,
           D, D, params.CutOff,
-          gqmps2::LanczosParams(params.LanczErr, MaxLanczIterSet[i])
+          qlmps::LanczosParams(params.LanczErr, MaxLanczIterSet[i])
       );
-      e0 = gqmps2::FiniteDMRG(mps, mat_repr_mpo, sweep_params, world);
+      e0 = qlmps::FiniteDMRG(mps, mat_repr_mpo, sweep_params, comm);
     }
   }
-  if (world.rank() == 0) {
+  if (rank == 0) {
     std::cout << "E0/site: " << e0 / N << std::endl;
     endTime = clock();
     cout << "CPU Time : " << (double) (endTime - startTime) / CLOCKS_PER_SEC << "s" << endl;
   }
+  MPI_Finalize();
   return 0;
 }
 

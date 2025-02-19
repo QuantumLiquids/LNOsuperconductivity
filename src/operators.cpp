@@ -1,6 +1,6 @@
 #include "gqdouble.h"
 
-#if SYMMETRY_LEVLE == 0
+#if SYMMETRY_LEVEL == 0
 Tensor sz = Tensor({pb_in, pb_out});
 Tensor sp = Tensor({pb_in, pb_out});
 Tensor sm = Tensor({pb_in, pb_out});
@@ -121,7 +121,7 @@ void OperatorInitial() {
   }
 }
 
-#elif SYMMETRY_LEVLE == 1
+#elif SYMMETRY_LEVEL == 1
 
 Tensor sz1 = Tensor({pb_in_layer1, pb_out_layer1});
 Tensor sp1 = Tensor({pb_in_layer1, pb_out_layer1});

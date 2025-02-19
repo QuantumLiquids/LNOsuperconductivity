@@ -14,32 +14,32 @@
     Which are set as start=Lx/4, end = 3*Lx/4+2 by default
 */
 
-#include "gqmps2/gqmps2.h"
-#include "gqten/gqten.h"
+#include "qlmps/qlmps.h"
+#include "qlten/qlten.h"
 #include <ctime>
 #include "gqdouble.h"
 #include "operators.h"
 #include "params_case.h"
 #include "myutil.h"
 #include "my_measure.h"
-#include "gqten/utility/timer.h"
-
-#include "boost/mpi.hpp"
+#include "qlten/utility/timer.h"
 
 using std::cout;
 using std::endl;
 using std::vector;
-using FiniteMPST = gqmps2::FiniteMPS<TenElemT, QNT>;
-using gqmps2::SiteVec;
-using gqmps2::MeasureTwoSiteOp;
-using gqten::Timer;
-using gqmps2::MeasureGroupTask;
-using gqmps2::kMpsPath;
+using FiniteMPST = qlmps::FiniteMPS<TenElemT, QNT>;
+using qlmps::SiteVec;
+using qlmps::MeasureTwoSiteOp;
+using qlten::Timer;
+using qlmps::MeasureGroupTask;
+using qlmps::kMpsPath;
 
 int main(int argc, char *argv[]) {
-  namespace mpi = boost::mpi;
-  mpi::environment env;
-  mpi::communicator world;
+  MPI_Init(nullptr, nullptr);
+  MPI_Comm comm = MPI_COMM_WORLD;
+  int rank, mpi_size;
+  MPI_Comm_size(comm, &mpi_size);
+  MPI_Comm_rank(comm, &rank);
   clock_t startTime, endTime;
   startTime = clock();
 
@@ -65,11 +65,10 @@ int main(int argc, char *argv[]) {
 
   const SiteVec<TenElemT, QNT> sites = SiteVec<TenElemT, QNT>(N, pb_out);
   FiniteMPST mps(sites);
-  gqten::hp_numeric::SetTensorTransposeNumThreads(params.Threads);
-  gqten::hp_numeric::SetTensorManipulationThreads(params.Threads);
+
+  qlten::hp_numeric::SetTensorManipulationThreads(params.Threads);
 
   Timer two_site_timer("measure two site operators");
-
 
   std::vector<MeasureGroupTask> measure_tasks;
   measure_tasks.reserve(N);
@@ -94,18 +93,18 @@ int main(int argc, char *argv[]) {
   }
 
   Timer two_site_measure_timer("measure spin_ structure factors");
-  MeasureTwoSiteOp(mps, kMpsPath, sz, sz, measure_tasks, "zzsf", world);
-  if (world.rank() == 0) {
+  MeasureTwoSiteOp(mps, kMpsPath, sz, sz, measure_tasks, "zzsf", comm);
+  if (rank == 0) {
     std::cout << "measured sz sz correlation." << std::endl;
   }
-  world.barrier();
-  MeasureTwoSiteOp(mps, kMpsPath, sp, sm, measure_tasks, "pmsf", world);
-  MeasureTwoSiteOp(mps, kMpsPath, sm, sp, measure_tasks, "mpsf", world);
-  MeasureTwoSiteOp(mps, kMpsPath, nf, nf, measure_tasks, "nfnf", world);
+  MPI_Barrier(comm);
+  MeasureTwoSiteOp(mps, kMpsPath, sp, sm, measure_tasks, "pmsf", comm);
+  MeasureTwoSiteOp(mps, kMpsPath, sm, sp, measure_tasks, "mpsf", comm);
+  MeasureTwoSiteOp(mps, kMpsPath, nf, nf, measure_tasks, "nfnf", comm);
   MeasureTwoSiteOp(mps, kMpsPath, bupc, bupa, measure_tasks, "bupcbupa",
-                   world, f);  //directly equal to the single-particle correlatin function
+                   comm, f);  //directly equal to the single-particle correlatin function
   MeasureTwoSiteOp(mps, kMpsPath, bdnc, bdna, measure_tasks, "bupcbupa",
-                   world, f);  //directly equal to the single-particle correlatin function
+                   comm, f);  //directly equal to the single-particle correlatin function
   two_site_measure_timer.PrintElapsed();
 
   endTime = clock();

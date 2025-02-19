@@ -7,8 +7,8 @@
 * Usage: mpirun -n 3 ./measureS params.json
 */
 
-#include "gqmps2/gqmps2.h"
-#include "gqten/gqten.h"
+#include "qlmps/qlmps.h"
+#include "qlten/qlten.h"
 #include <ctime>
 #include "gqdouble.h"
 #include "operators.h"
@@ -16,21 +16,21 @@
 #include "myutil.h"
 #include "my_measure.h"
 
-using namespace gqmps2;
-using namespace gqten;
+using namespace qlmps;
+using namespace qlten;
 using namespace std;
 
 //forward declaration
 template<typename TenElemT, typename QNT>
-MPO<GQTensor<TenElemT, QNT>> MpoSquare(const MPO<GQTensor<TenElemT, QNT>> &);
+MPO<QLTensor<TenElemT, QNT>> MpoSquare(const MPO<QLTensor<TenElemT, QNT>> &);
 
 template<typename TenElemT, typename QNT>
-MPO<GQTensor<TenElemT, QNT>> MpoProduct(const MPO<GQTensor<TenElemT, QNT>> &,
-                                        const MPO<GQTensor<TenElemT, QNT>> &);
+MPO<QLTensor<TenElemT, QNT>> MpoProduct(const MPO<QLTensor<TenElemT, QNT>> &,
+                                        const MPO<QLTensor<TenElemT, QNT>> &);
 
 template<typename TenElemT, typename QNT>
 TenElemT ExpectationValue(FiniteMPS<TenElemT, QNT>,
-                          const MPO<GQTensor<TenElemT, QNT>> &,
+                          const MPO<QLTensor<TenElemT, QNT>> &,
                           const std::string);
 int main(int argc, char *argv[]) {
   namespace mpi = boost::mpi;
@@ -44,15 +44,15 @@ int main(int argc, char *argv[]) {
 
   clock_t startTime, endTime;
   startTime = clock();
-  gqten::hp_numeric::SetTensorTransposeNumThreads(params.Threads);
-  gqten::hp_numeric::SetTensorManipulationThreads(params.Threads);
 
-  const SiteVec<TenElemT, U1U1QN> sites = SiteVec<TenElemT, U1U1QN>(N, pb_out);
-  using FiniteMPST = gqmps2::FiniteMPS<TenElemT, U1U1QN>;
+  qlten::hp_numeric::SetTensorManipulationThreads(params.Threads);
+
+  const SiteVec<TenElemT, QNT> sites = SiteVec<TenElemT, QNT>(N, pb_out);
+  using FiniteMPST = qlmps::FiniteMPS<TenElemT, QNT>;
   FiniteMPST mps(sites);
-  gqmps2::MPOGenerator<TenElemT, U1U1QN> Sp(sites, qn0);
-  gqmps2::MPOGenerator<TenElemT, U1U1QN> Sm(sites, qn0);
-  gqmps2::MPOGenerator<TenElemT, U1U1QN> Sz(sites, qn0);
+  qlmps::MPOGenerator<TenElemT, QNT> Sp(sites, qn0);
+  qlmps::MPOGenerator<TenElemT, QNT> Sm(sites, qn0);
+  qlmps::MPOGenerator<TenElemT, QNT> Sz(sites, qn0);
   OperatorInitial();
   for (size_t i = 0; i < N; i++) {
     Sz.AddTerm(1.0, sz, i);
@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
   auto SmSp = MpoProduct(Sm_mpo, Sp_mpo);
 
   TenElemT res_sz2, res_spsm, res_smsp;
-  if (world.rank() == 0) {
+  if (rank == 0) {
     res_sz2 = ExpectationValue(mps, Sz_square, kMpsPath);
     std::cout << "Sz square = " << res_sz2 << std::endl;
     world.recv(1, 15, res_spsm);
@@ -77,10 +77,10 @@ int main(int argc, char *argv[]) {
     std::cout << "Sm*Sp = " << res_smsp << std::endl;
     auto S_square = res_sz2 + (res_spsm + res_smsp) / 2.0;
     std::cout << "S^2 = " << S_square << std::endl;
-  } else if (world.rank() == 1) {
+  } else if (rank == 1) {
     res_spsm = ExpectationValue(mps, SpSm, kMpsPath);
     world.send(0, 15, res_spsm);
-  } else if (world.rank() == 2) {
+  } else if (rank == 2) {
     res_smsp = ExpectationValue(mps, SmSp, kMpsPath);
     world.send(0, 16, res_smsp);
   }
@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
 }
 
 template<typename TenElemT, typename QNT>
-MPO<GQTensor<TenElemT, QNT>> MpoSquare(const MPO<GQTensor<TenElemT, QNT>> &mpo) {
+MPO<QLTensor<TenElemT, QNT>> MpoSquare(const MPO<QLTensor<TenElemT, QNT>> &mpo) {
 
 /*
  *     2          2         2            2
@@ -106,8 +106,8 @@ MPO<GQTensor<TenElemT, QNT>> MpoSquare(const MPO<GQTensor<TenElemT, QNT>> &mpo) 
  *     1          1        1             1
  *
  */
-  using Tensor = GQTensor<TenElemT, QNT>;
-  MPO<GQTensor<TenElemT, QNT>> res = mpo;
+  using Tensor = QLTensor<TenElemT, QNT>;
+  MPO<QLTensor<TenElemT, QNT>> res = mpo;
   size_t N = mpo.size();
   for (size_t i = 0; i < N; i++) {
     res[i] = Tensor();
@@ -123,9 +123,9 @@ MPO<GQTensor<TenElemT, QNT>> MpoSquare(const MPO<GQTensor<TenElemT, QNT>> &mpo) 
 
 template<typename TenElemT, typename QNT>
 TenElemT ExpectationValue(FiniteMPS<TenElemT, QNT> mps,
-                          const MPO<GQTensor<TenElemT, QNT>> &mpo,
+                          const MPO<QLTensor<TenElemT, QNT>> &mpo,
                           const std::string mps_path) {
-  using TenT = GQTensor<TenElemT, QNT>;
+  using TenT = QLTensor<TenElemT, QNT>;
   auto N = mps.size();
 
   TenT renv;
@@ -163,8 +163,8 @@ TenElemT ExpectationValue(FiniteMPS<TenElemT, QNT> mps,
 }
 
 template<typename TenElemT, typename QNT>
-MPO<GQTensor<TenElemT, QNT>> MpoProduct(const MPO<GQTensor<TenElemT, QNT>> &mpo1,
-                                        const MPO<GQTensor<TenElemT, QNT>> &mpo2) {
+MPO<QLTensor<TenElemT, QNT>> MpoProduct(const MPO<QLTensor<TenElemT, QNT>> &mpo1,
+                                        const MPO<QLTensor<TenElemT, QNT>> &mpo2) {
 
 /*
  *     2          2         2            2
@@ -179,8 +179,8 @@ MPO<GQTensor<TenElemT, QNT>> MpoProduct(const MPO<GQTensor<TenElemT, QNT>> &mpo1
  *     1          1        1             1
  *
  */
-  using Tensor = GQTensor<TenElemT, QNT>;
-  MPO<GQTensor<TenElemT, QNT>> res = mpo1;
+  using Tensor = QLTensor<TenElemT, QNT>;
+  MPO<QLTensor<TenElemT, QNT>> res = mpo1;
   size_t N = mpo1.size();
   for (size_t i = 0; i < N; i++) {
     res[i] = Tensor();
