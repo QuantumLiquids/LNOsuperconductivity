@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
   double U = params.U;
   if (rank == 0) {
     std::cout << "System size = (" << Lx << "," << Ly << ")" << std::endl;
-    std::cout << "The number of electron sites =" << Lx * Ly << std::endl;
+    std::cout << "The number of electron sites =" << N << std::endl;
     std::cout << "Model parameter: t1 :" << t1 << ", t2 :" << t2
               << ", U : " << U
               << ", J_H : " << J_H

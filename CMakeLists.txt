@@ -137,4 +137,7 @@ endif ()
 #add_executable(measure2 src/measure2.cpp src/myutil.cpp src/operators.cpp)
 #add_executable(measureSC src/measureSC.cpp src/myutil.cpp src/operators.cpp)
 
-add_executable(dmrg4band src_4band/dmrg.cpp src_4band/myutil.cpp src_4band/hubbard_operators.cpp)
+add_library(4band_common_objects OBJECT src_4band/myutil.cpp src_4band/hubbard_operators.cpp)
+
+add_executable(dmrg4band src_4band/dmrg.cpp $<TARGET_OBJECTS:4band_common_objects>)
+add_executable(measure4band1 src_4band/measure1.cpp $<TARGET_OBJECTS:4band_common_objects>)
