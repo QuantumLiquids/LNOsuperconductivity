@@ -39,7 +39,15 @@ int main(int argc, char *argv[]) {
   MeasureOneSiteOp(mps, kMpsPath, {ops.sz, ops.nf}, {"sz", "nf"});
   std::cout << "measured one point function.<====" << std::endl;
   one_site_timer.PrintElapsed();
-
+  size_t ref_site = 0;
+  auto szsz_corr = MeasureTwoSiteOpGroup(mps, kMpsPath, ops.sz, ops.sz, ref_site);
+  DumpMeasuRes(szsz_corr, "sz" + std::to_string(ref_site) + "sz");
+  auto spsm_corr = MeasureTwoSiteOpGroup(mps, kMpsPath, ops.sp, ops.sm, ref_site);
+  DumpMeasuRes(spsm_corr, "sp" + std::to_string(ref_site) + "sm");
+  auto smsp_corr = MeasureTwoSiteOpGroup(mps, kMpsPath, ops.sm, ops.sp, ref_site);
+  DumpMeasuRes(smsp_corr, "sm" + std::to_string(ref_site) + "sp");
+  auto nn_corr = MeasureTwoSiteOpGroup(mps, kMpsPath, ops.nf, ops.nf, ref_site);
+  DumpMeasuRes(nn_corr, "nf" + std::to_string(ref_site) + "nf");
   endTime = clock();
   std::cout << "CPU Time : " << (double) (endTime - startTime) / CLOCKS_PER_SEC << "s" << std::endl;
   return 0;
