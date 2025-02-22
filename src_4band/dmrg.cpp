@@ -189,12 +189,20 @@ int main(int argc, char *argv[]) {
   //t_para Horizontal hopping
   for (size_t x = 0; x < 2 * Lx - 2; x += 2) {
     for (size_t y = 0; y < (2 * Ly); y++) {
+      size_t y_phy = y % Ly; // physical value of y
+      size_t x_phy = x / 2;// physical value of 2
+      double t_eff;
+      if ((x_phy + y_phy) % 2 == 0) {
+        t_eff = (1 + params.delta);
+      } else {
+        t_eff = (1 - params.delta);
+      }
       size_t site1 = x * (2 * Ly) + y;
       size_t site2 = site1 + (4 * Ly);
-      mpo_gen.AddTerm(-t1, ops.bupcF, site1, ops.bupa, site2, ops.f);
-      mpo_gen.AddTerm(t1, ops.bupaF, site1, ops.bupc, site2, ops.f);
-      mpo_gen.AddTerm(-t1, ops.bdnc, site1, ops.Fbdna, site2, ops.f);
-      mpo_gen.AddTerm(t1, ops.bdna, site1, ops.Fbdnc, site2, ops.f);
+      mpo_gen.AddTerm(-t_eff, ops.bupcF, site1, ops.bupa, site2, ops.f);
+      mpo_gen.AddTerm(t_eff, ops.bupaF, site1, ops.bupc, site2, ops.f);
+      mpo_gen.AddTerm(-t_eff, ops.bdnc, site1, ops.Fbdna, site2, ops.f);
+      mpo_gen.AddTerm(t_eff, ops.bdna, site1, ops.Fbdnc, site2, ops.f);
     }
   }
 
@@ -202,12 +210,20 @@ int main(int argc, char *argv[]) {
   for (size_t x = 0; x < 2 * Lx; x += 2) {
     for (size_t y = 0; y < (2 * Ly); y++) {
       if (y % Ly < Ly - 1) { // OBC
+        size_t y_phy = y % Ly; // physical value of y
+        size_t x_phy = x / 2;// physical value of 2
+        double t_eff;
+        if ((x_phy + y_phy) % 2 == 0) {
+          t_eff = (1 + params.delta);
+        } else {
+          t_eff = (1 - params.delta);
+        }
         size_t site1 = x * (2 * Ly) + y;
         size_t site2 = site1 + 1;
-        mpo_gen.AddTerm(-t1, ops.bupcF, site1, ops.bupa, site2, ops.f);
-        mpo_gen.AddTerm(t1, ops.bupaF, site1, ops.bupc, site2, ops.f);
-        mpo_gen.AddTerm(-t1, ops.bdnc, site1, ops.Fbdna, site2, ops.f);
-        mpo_gen.AddTerm(t1, ops.bdna, site1, ops.Fbdnc, site2, ops.f);
+        mpo_gen.AddTerm(-t_eff, ops.bupcF, site1, ops.bupa, site2, ops.f);
+        mpo_gen.AddTerm(t_eff, ops.bupaF, site1, ops.bupc, site2, ops.f);
+        mpo_gen.AddTerm(-t_eff, ops.bdnc, site1, ops.Fbdna, site2, ops.f);
+        mpo_gen.AddTerm(t_eff, ops.bdna, site1, ops.Fbdnc, site2, ops.f);
       } else if (Ly > 2) { // y% Ly == Ly-1
         //PBC winding code here
 

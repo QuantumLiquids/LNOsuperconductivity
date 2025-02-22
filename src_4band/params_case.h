@@ -12,6 +12,7 @@ struct CaseParams : public CaseParamsParserBasic {
     t2 = ParseDouble("t2");
     Jh = ParseDouble("Jh");
     U = ParseDouble("U");
+    delta = ParseDouble("delta");
     noise = ParseDoubleVec("noise");
     NumEle1 = ParseInt("NumEle1");
     NumEle2 = ParseInt("NumEle2");
@@ -41,6 +42,7 @@ struct CaseParams : public CaseParamsParserBasic {
   double t2;   // t_perp
   double Jh;   //Hund's coupling
   double U;
+  double delta;
   double mu1;  //chemical potential
   double mu2;  //chemical potential
   size_t Sweeps;
