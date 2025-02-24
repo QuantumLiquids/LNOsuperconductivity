@@ -252,6 +252,10 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  if (params.PinningField) {
+    mpo_gen.AddTerm(1.0, ops.sz, 0); // d_x^2-y^2 orbital
+  }
+
   auto mro = mpo_gen.GenMatReprMPO(true);
   if (rank == 0)
     std::cout << "MRO generated." << std::endl;

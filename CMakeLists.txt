@@ -141,3 +141,4 @@ add_library(4band_common_objects OBJECT src_4band/myutil.cpp src_4band/hubbard_o
 
 add_executable(dmrg4band src_4band/dmrg.cpp $<TARGET_OBJECTS:4band_common_objects>)
 add_executable(measure4band1 src_4band/measure1.cpp $<TARGET_OBJECTS:4band_common_objects>)
+add_executable(measure4bandSC src_4band/measureSC_fix_ref.cpp $<TARGET_OBJECTS:4band_common_objects>)

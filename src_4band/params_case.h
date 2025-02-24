@@ -26,6 +26,7 @@ struct CaseParams : public CaseParamsParserBasic {
     MaxLanczIter = ParseInt("MaxLanczIter");
     TotalThreads = ParseInt("TotalThreads");
     Perturbation = ParseBool("Perturbation");
+    PinningField = ParseBool("PinningField");
     if (Perturbation) {
       PA = ParseDouble("PerturbationAmplitude");
       PerturbationPeriod = ParseInt("PerturbationPeriod");
@@ -56,6 +57,7 @@ struct CaseParams : public CaseParamsParserBasic {
   size_t TotalThreads;
   std::vector<double> noise;
   bool Perturbation;
+  bool PinningField;
   double PA;
   size_t PerturbationPeriod;
 };

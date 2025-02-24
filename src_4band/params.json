@@ -10,6 +10,7 @@
     "NumEle1": 18,
     "NumEle2": 18,
     "delta": 0.3,
+    "PinningField": true,
     "mu1": 2,
     "mu2": 1.5,
     "Sweeps": 2,
