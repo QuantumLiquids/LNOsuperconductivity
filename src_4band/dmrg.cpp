@@ -193,9 +193,9 @@ int main(int argc, char *argv[]) {
       size_t x_phy = x / 2;// physical value of 2
       double t_eff;
       if ((x_phy + y_phy) % 2 == 0) {
-        t_eff = (1 + params.delta);
+        t_eff = t1 * (1 + params.delta);
       } else {
-        t_eff = (1 - params.delta);
+        t_eff = t1 * (1 - params.delta);
       }
       size_t site1 = x * (2 * Ly) + y;
       size_t site2 = site1 + (4 * Ly);
@@ -214,9 +214,9 @@ int main(int argc, char *argv[]) {
         size_t x_phy = x / 2;// physical value of 2
         double t_eff;
         if ((x_phy + y_phy) % 2 == 0) {
-          t_eff = (1 + params.delta);
+          t_eff = t1 * (1 + params.delta);
         } else {
-          t_eff = (1 - params.delta);
+          t_eff = t1 * (1 - params.delta);
         }
         size_t site1 = x * (2 * Ly) + y;
         size_t site2 = site1 + 1;
