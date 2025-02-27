@@ -48,20 +48,21 @@ int main(int argc, char *argv[]) {
   CaseParams params(argv[1]);
 
 #ifndef USE_GPU
-  if (rank == 0 && mpi_size > 1 && params.TotalThreads > 2) {
-    qlten::hp_numeric::SetTensorManipulationThreads(params.TotalThreads - 2);
-  } else {
-    qlten::hp_numeric::SetTensorManipulationThreads(params.TotalThreads);
-  }
+  qlten::hp_numeric::SetTensorManipulationThreads(params.TotalThreads);
 #endif
 
   /******** Model parameter ********/
   size_t Lx = params.Lx, Ly = params.Ly;
+  if(Lx < Ly){
+    std::swap(Lx, Ly);
+    std::swap(params.Lx, params.Ly);
+    std::cout << "Swap Lx and Ly" << std::endl;
+  }
   if (Ly != 2) {
     std::cout << "Do not support Ly : " << Ly << std::endl;
     exit(1);
   }
-  size_t N = 4 * Lx * Ly;//two orbital
+  size_t N = 4 * Lx * Ly;//two orbital, two layer
   double t1 = params.t1, t2 = params.t2, J_H = params.Jh;
   double U = params.U;
   if (rank == 0) {
@@ -174,7 +175,7 @@ int main(int argc, char *argv[]) {
       mpo_gen.AddTerm(-J_H / 2.0, ops.sm, site1, ops.sp, site2);
     }
   }
-  //t_perp hopping
+  //t_perp hopping in d_z^2 orbital
   for (size_t x = 1; x < 2 * Lx; x += 2) {
     for (size_t y = 0; y < Ly; y++) {
       size_t site1 = x * (2 * Ly) + y;
@@ -186,7 +187,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  //t_para Horizontal hopping
+  //t_para Horizontal hopping in d_x^2-y^2 orbital
   for (size_t x = 0; x < 2 * Lx - 2; x += 2) {
     for (size_t y = 0; y < (2 * Ly); y++) {
       size_t y_phy = y % Ly; // physical value of y
@@ -206,12 +207,12 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  //t_para Vertical hopping
+  //t_para Vertical hopping in d_x^2-y^2 orbital
   for (size_t x = 0; x < 2 * Lx; x += 2) {
     for (size_t y = 0; y < (2 * Ly); y++) {
       if (y % Ly < Ly - 1) { // OBC
         size_t y_phy = y % Ly; // physical value of y
-        size_t x_phy = x / 2;// physical value of 2
+        size_t x_phy = x / 2;  // physical value of 2
         double t_eff;
         if ((x_phy + y_phy) % 2 == 0) {
           t_eff = t1 * (1 + params.delta);
@@ -230,11 +231,23 @@ int main(int argc, char *argv[]) {
       }
     }
   }
-  // perturbation hopping
+  // perturbation hopping between d_z^2 and d_x^2-y^2 orbital
   for (size_t x = 0; x < 2 * Lx - 1; x++) {
     for (size_t y = 0; y < 2 * Ly; y++) {
       size_t site1 = x * (2 * Ly) + y;
       size_t site2 = (x + 1) * (2 * Ly) + y;
+      TenElemT t_noise = params.PA;
+      mpo_gen.AddTerm(-t_noise, ops.bupcF, site1, ops.bupa, site2, ops.f);
+      mpo_gen.AddTerm(t_noise, ops.bupaF, site1, ops.bupc, site2, ops.f);
+      mpo_gen.AddTerm(-t_noise, ops.bdnc, site1, ops.Fbdna, site2, ops.f);
+      mpo_gen.AddTerm(t_noise, ops.bdna, site1, ops.Fbdnc, site2, ops.f);
+    }
+  }
+  // pertubative interlayer hopping in d_x^2-y^2 orbital
+  for(size_t x = 0; x < 2 * Lx; x += 2) {
+    for(size_t y = 0; y < Ly; y++){
+      size_t site1 = x * (2 * Ly) + y;
+      size_t site2 = site1 + Ly;
       TenElemT t_noise = params.PA;
       mpo_gen.AddTerm(-t_noise, ops.bupcF, site1, ops.bupa, site2, ops.f);
       mpo_gen.AddTerm(t_noise, ops.bupaF, site1, ops.bupc, site2, ops.f);
