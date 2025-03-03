@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
 
   /******** Model parameter ********/
   size_t Lx = params.Lx, Ly = params.Ly;
-  if(Lx < Ly){
+  if (Lx < Ly) {
     std::swap(Lx, Ly);
     std::swap(params.Lx, params.Ly);
     std::cout << "Swap Lx and Ly" << std::endl;
@@ -122,21 +122,33 @@ int main(int argc, char *argv[]) {
       //0: double occupancy; 1: spin up; 2: spin down; 3: empty
       std::vector<size_t> stat_labs1(N / 2, 3), stat_labs2(N / 2, 3); // d_x^2-y^2, d_z^2
 
-      if (params.NumEle1 <= N / 2 && params.NumEle2 <= N / 2 && params.NumEle1 % 2 == 0 && params.NumEle2 % 2 == 0) {
-        std::fill(stat_labs1.begin(), stat_labs1.begin() + params.NumEle1 / 2, 1); // orbital 1, spin up
-        std::fill(stat_labs1.begin() + params.NumEle1 / 2,
-                  stat_labs1.begin() + params.NumEle1,
-                  2); //orbital 2, spin down
+      // if (params.NumEle1 <= N / 2 && params.NumEle2 <= N / 2 && params.NumEle1 % 2 == 0 && params.NumEle2 % 2 == 0) {
+      //   std::fill(stat_labs1.begin(), stat_labs1.begin() + params.NumEle1 / 2, 1); // orbital 1, spin up
+      //   std::fill(stat_labs1.begin() + params.NumEle1 / 2,
+      //             stat_labs1.begin() + params.NumEle1,
+      //             2); //orbital 2, spin down
 
-        std::fill(stat_labs2.begin(), stat_labs2.begin() + params.NumEle2 / 2, 1); // orbital 2, spin up
-        std::fill(stat_labs2.begin() + params.NumEle2 / 2,
-                  stat_labs2.begin() + params.NumEle2,
-                  2); //orbital 2, spin down
+      //   std::fill(stat_labs2.begin(), stat_labs2.begin() + params.NumEle2 / 2, 1); // orbital 2, spin up
+      //   std::fill(stat_labs2.begin() + params.NumEle2 / 2,
+      //             stat_labs2.begin() + params.NumEle2,
+      //             2); //orbital 2, spin down
 
-      } else {
-        std::cout << "Do not support num electrons!" << std::endl;
-        exit(1);
-      }
+      // } else {
+      //   std::cout << "Do not support num electrons!" << std::endl;
+      //   exit(1);
+      // }
+
+      // d_x^2-y^2 quarter filling, d_z^2 half filling
+      std::fill(stat_labs1.begin(), stat_labs1.begin() + N / 8, 1); // orbital 1, spin up
+      std::fill(stat_labs1.begin() + N / 8,
+                stat_labs1.begin() + N / 4,
+                2); //orbital 2, spin down
+
+      std::fill(stat_labs2.begin(), stat_labs2.begin() + N / 4, 1); // orbital 2, spin up
+      std::fill(stat_labs2.begin() + N / 4,
+                stat_labs2.end(),
+                2); //orbital 2, spin down
+
       std::shuffle(stat_labs1.begin(), stat_labs1.end(), std::random_device());
       std::shuffle(stat_labs2.begin(), stat_labs2.end(), std::random_device());
       std::vector<size_t> stat_labs(N);
@@ -244,8 +256,8 @@ int main(int argc, char *argv[]) {
     }
   }
   // pertubative interlayer hopping in d_x^2-y^2 orbital
-  for(size_t x = 0; x < 2 * Lx; x += 2) {
-    for(size_t y = 0; y < Ly; y++){
+  for (size_t x = 0; x < 2 * Lx; x += 2) {
+    for (size_t y = 0; y < Ly; y++) {
       size_t site1 = x * (2 * Ly) + y;
       size_t site2 = site1 + Ly;
       TenElemT t_noise = params.PA;
