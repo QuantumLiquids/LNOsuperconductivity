@@ -182,9 +182,9 @@ int main(int argc, char *argv[]) {
     for (size_t y = 0; y < 2 * Ly; y++) {
       size_t site1 = x * (2 * Ly) + y;
       size_t site2 = (x + 1) * (2 * Ly) + y;
-      mpo_gen.AddTerm(-J_H, ops.sz, site1, ops.sz, site2);
-      mpo_gen.AddTerm(-J_H / 2.0, ops.sp, site1, ops.sm, site2);
-      mpo_gen.AddTerm(-J_H / 2.0, ops.sm, site1, ops.sp, site2);
+      mpo_gen.AddTerm(-2 * J_H, ops.sz, site1, ops.sz, site2);
+      mpo_gen.AddTerm(-J_H, ops.sp, site1, ops.sm, site2);
+      mpo_gen.AddTerm(-J_H, ops.sm, site1, ops.sp, site2);
     }
   }
   //t_perp hopping in d_z^2 orbital
