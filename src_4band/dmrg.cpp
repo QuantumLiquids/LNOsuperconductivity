@@ -278,7 +278,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (params.PinningField) {
-    mpo_gen.AddTerm(1.0, ops.sz, 0); // d_x^2-y^2 orbital
+    mpo_gen.AddTerm(1.0, ops.sz, 2 * Ly); // d_z^2 orbital
   }
 
   auto mro = mpo_gen.GenMatReprMPO(true);
