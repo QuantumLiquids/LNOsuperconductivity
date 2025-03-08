@@ -3,7 +3,7 @@
  *
  */
 
-#include "gqdouble.h"
+#include "tJ_type_hilbert_space.h"
 // #include "qlmps/algorithm/lanczos_solver.h"
 // #include "qlmps/algorithm/lanczos_solver_impl.h"
 #include "qlmps/qlmps.h"
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]){
   const std::string kMpoTenBaseName = "mpo_ten";
   for(size_t i= N-1; i > N-to;i--){
     std::string filename = kMpoPath + "/" +
-        kMpoTenBaseName + std::to_string(i) + "." + kGQTenFileSuffix;
+        kMpoTenBaseName + std::to_string(i) + "." + kQLTenFileSuffix;
     mpo.LoadTen(i,filename);
   }
 

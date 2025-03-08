@@ -11,7 +11,7 @@
 * for the case start direction = r ,  start site = left site when do two site update.
 * TODO: still doesn't work. Find and fix bug(s).
 */
-#include "gqdouble.h"
+#include "tJ_type_hilbert_space.h"
 #include <time.h>
 #include <vector>
 #include <stdlib.h>     // system
@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
   if (IsPathExist(kMpoPath)) {
     for (size_t i = 0; i < mpo.size(); i++) {
       std::string filename = kMpoPath + "/" +
-          kMpoTenBaseName + std::to_string(i) + "." + kGQTenFileSuffix;
+          kMpoTenBaseName + std::to_string(i) + "." + kQLTenFileSuffix;
       mpo.LoadTen(i, filename);
     }
     cout << "FiniteMPO loaded." << endl;

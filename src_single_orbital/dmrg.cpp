@@ -9,8 +9,8 @@
 
 #include "qlmps/qlmps.h"
 #include "qlten/qlten.h"
-#include "gqdouble.h"
-#include "operators.h"
+#include "tJ_type_hilbert_space.h"
+#include "tJ_operators.h"
 #include "params_case.h"
 #include "myutil.h"
 #include "squarelattice.h"
@@ -94,7 +94,7 @@ int main(int argc, char *argv[]) {
   for (size_t i = N / 2 + params.Numhole; i < N; i++) {
     stat_labs[i] = i % 2;
   }
-  std::srand(std::time(nullptr));
+
   std::random_device rd;
   std::mt19937 g(rd());
   std::shuffle(stat_labs.begin(), stat_labs.end(), g);
@@ -139,11 +139,31 @@ int main(int argc, char *argv[]) {
       e0 = qlmps::FiniteDMRG(mps, mat_repr_mpo, sweep_params, comm);
     }
   }
-  if (rank == 0) {
+  if (rank == kMPIMasterRank) {
     std::cout << "E0/site: " << e0 / N << std::endl;
     endTime = clock();
     cout << "CPU Time : " << (double) (endTime - startTime) / CLOCKS_PER_SEC << "s" << endl;
   }
+  MPI_Barrier(comm);
+#if SYM_LEVEL == 0
+  if (rank == kMPIMasterRank) {
+    Timer one_site_timer("measure one site operators");
+    MeasureOneSiteOp(mps, kMpsPath, {nf, sz}, {"nf", "sz"});
+    cout << "measured one point function.<====" << endl;
+    one_site_timer.PrintElapsed();
+
+    size_t ref_site = 0;
+    auto szsz_corr = MeasureTwoSiteOpGroup(mps, kMpsPath, sz, sz, ref_site);
+    DumpMeasuRes(szsz_corr, "sz" + std::to_string(ref_site) + "sz");
+    auto spsm_corr = MeasureTwoSiteOpGroup(mps, kMpsPath, sp, sm, ref_site);
+    DumpMeasuRes(spsm_corr, "sp" + std::to_string(ref_site) + "sm");
+    auto smsp_corr = MeasureTwoSiteOpGroup(mps, kMpsPath, sm, sp, ref_site);
+    DumpMeasuRes(smsp_corr, "sm" + std::to_string(ref_site) + "sp");
+    auto nn_corr = MeasureTwoSiteOpGroup(mps, kMpsPath, nf, nf, ref_site);
+    DumpMeasuRes(nn_corr, "nf" + std::to_string(ref_site) + "nf");
+  }
+
+#endif
   MPI_Finalize();
   return 0;
 }

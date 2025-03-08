@@ -4,14 +4,14 @@
 
 using qlmps::kMpsPath;
 using qlmps::kMpsTenBaseName;
-using qlmps::kGQTenFileSuffix;
+using qlmps::kQLTenFileSuffix;
 
 //number of mps file in default mps path("./mps")
 size_t GetNumofMps() {
   size_t NumberOfMpsFile = 0;
   for (NumberOfMpsFile = 0; NumberOfMpsFile < 1e5; NumberOfMpsFile++) {
     std::string file;
-    file = kMpsPath + "/" + kMpsTenBaseName + std::to_string(NumberOfMpsFile) + "." + kGQTenFileSuffix;
+    file = kMpsPath + "/" + kMpsTenBaseName + std::to_string(NumberOfMpsFile) + "." + kQLTenFileSuffix;
     std::ifstream ifs(file, std::ifstream::binary);
     if (ifs.good()) {
       ifs.close();

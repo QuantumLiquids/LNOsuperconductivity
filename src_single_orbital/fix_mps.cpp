@@ -3,7 +3,7 @@
  *
  */
 
-#include "gqdouble.h"
+#include "tJ_type_hilbert_space.h"
 // #include "qlmps/algorithm/lanczos_solver.h"
 // #include "qlmps/algorithm/lanczos_solver_impl.h"
 #include "qlmps/qlmps.h"
@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
   std::cout << "Load renv, lenv, and mpo tensors" << "\n";
 
   bool new_code;
-  if (lenv.GetIndexes()[0].GetDir() == GQTenIndexDirType::OUT) {
+  if (lenv.GetIndexes()[0].GetDir() == QLTenIndexDirType::OUT) {
     new_code = false;
   } else {
     new_code = true;

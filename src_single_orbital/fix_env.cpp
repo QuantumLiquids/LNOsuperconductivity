@@ -1,4 +1,4 @@
-#include "gqdouble.h"
+#include "tJ_type_hilbert_space.h"
 #include "qlmps/qlmps.h"
 #include <iostream>
 #include <fstream>
@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
   const std::string kMpoTenBaseName = "mpo_ten";
   for (size_t i = 0; i < N; i++) {
     std::string filename = kMpoPath + "/" +
-        kMpoTenBaseName + std::to_string(i) + "." + kGQTenFileSuffix;
+        kMpoTenBaseName + std::to_string(i) + "." + kQLTenFileSuffix;
     mpo.LoadTen(i, filename);
   }
   const SiteVec<TenElemT, QNT> sites(N, pb_out);

@@ -1,5 +1,5 @@
-#ifndef TJMODEL_SRC_GQDOUBLE_H
-#define TJMODEL_SRC_GQDOUBLE_H
+#ifndef TJMODEL_SRC_QLDOUBLE_H
+#define TJMODEL_SRC_QLDOUBLE_H
 
 #include "qlten/qlten.h"
 
@@ -51,16 +51,16 @@ const IndexT pb_out_layer1 = IndexT({
                                         QNSctT(QNT("N1", 1, "N2", 0, "Sz", 1), 1),
                                         QNSctT(QNT("N1", 1, "N2", 0, "Sz", -1), 1),
                                         QNSctT(QNT("N1", 0, "N2", 0, "Sz", 0), 1)},
-                                    GQTenIndexDirType::OUT
+                                    QLTenIndexDirType::OUT
 );
 
 const IndexT pb_out_layer2 = IndexT({
                                         QNSctT(QNT("N1", 0, "N2", 1, "Sz", 1), 1),
                                         QNSctT(QNT("N1", 0, "N2", -1, "Sz", -1), 1),
                                         QNSctT(QNT("N1", 0, "N2", 0, "Sz", 0), 1)},
-                                    GQTenIndexDirType::OUT
+                                    QLTenIndexDirType::OUT
 );
 const auto pb_in_layer1 = qlten::InverseIndex(pb_out_layer1);
 const auto pb_in_layer2 = qlten::InverseIndex(pb_out_layer2);
 #endif
-#endif // TJMODEL_SRC_GQDOUBLE_H
+#endif // TJMODEL_SRC_QLDOUBLE_H

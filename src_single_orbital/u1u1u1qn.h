@@ -13,8 +13,8 @@
  Compatible in reading and writing  QN<U1QNVal, U1QNVal, U1QNVal> data.
 */
 
-#ifndef GQTEN_GQTENSOR_SPECIAL_QN_U1QNT_H
-#define GQTEN_GQTENSOR_SPECIAL_QN_U1QNT_H
+#ifndef QLTEN_QLTENSOR_SPECIAL_QN_U1QNT_H
+#define QLTEN_QLTENSOR_SPECIAL_QN_U1QNT_H
 
 #include "qlten/framework/vec_hash.h"   //_HASH_XXPRIME_1...
 #include "qlten/qltensor/qn/qn.h"   //QNCardVec
@@ -192,4 +192,4 @@ inline size_t Hash(const U1QNT &qn) { return qn.Hash(); }
 
 }//special_qn
 }//qlten
-#endif //GQTEN_GQTENSOR_SPECIAL_QN_U1QNT_H
+#endif //QLTEN_QLTENSOR_SPECIAL_QN_U1QNT_H

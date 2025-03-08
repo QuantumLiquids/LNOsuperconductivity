@@ -3,10 +3,10 @@
 
 #include "qlmps/one_dim_tn/mpo/mpo.h"
 #include "qlmps/one_dim_tn/mpo/mpogen/mpogen.h"
-#include "gqdouble.h"
+#include "tJ_type_hilbert_space.h"
 #include "squarelattice.h"
 #include "params_case.h"
-#include "operators.h"
+#include "tJ_operators.h"
 
 inline void ConstructDoubleLayertJMPOGenerator(
     qlmps::MPOGenerator<TenElemT, QNT> &mpo_gen,

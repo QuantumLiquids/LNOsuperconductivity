@@ -13,8 +13,8 @@
 @file two_site_update_finite_vmps_mpi_impl_continue.h
 @brief Two-site update finite size vMPS with MPI Parallel, continue
 */
-#ifndef GQMPS2_ALGO_MPI_VMPS_TWO_SITE_UPDATE_NOISED_FINITE_VMPS_MPI_IMPL2_H
-#define GQMPS2_ALGO_MPI_VMPS_TWO_SITE_UPDATE_NOISED_FINITE_VMPS_MPI_IMPL2_H
+#ifndef QLMPS2_ALGO_MPI_VMPS_TWO_SITE_UPDATE_NOISED_FINITE_VMPS_MPI_IMPL2_H
+#define QLMPS2_ALGO_MPI_VMPS_TWO_SITE_UPDATE_NOISED_FINITE_VMPS_MPI_IMPL2_H
 
 #include <cstdlib>
 #include "qlten/qlten.h"
@@ -56,7 +56,7 @@ inline void LoadRelatedTensOnTwoSiteAlgWhenLeftMoving(
  *       For the other threads used to read/dump tensors.
  */
 template<typename TenElemT, typename QNT>
-inline GQTEN_Double TwoSiteFiniteVMPS2(
+inline QLTEN_Double TwoSiteFiniteVMPS2(
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<QLTensor<TenElemT, QNT>> &mpo,
     SweepParams &sweep_params,
@@ -64,7 +64,7 @@ inline GQTEN_Double TwoSiteFiniteVMPS2(
     const size_t start_site,
     const char start_direction
 ) {
-  GQTEN_Double e0(0.0);
+  QLTEN_Double e0(0.0);
   if (rank == kMasterRank) {
     e0 = MasterTwoSiteFiniteVMPS2(mps, mpo, sweep_params, world, start_site, start_direction);
   } else {
@@ -74,7 +74,7 @@ inline GQTEN_Double TwoSiteFiniteVMPS2(
 }
 
 template<typename TenElemT, typename QNT>
-GQTEN_Double MasterTwoSiteFiniteVMPS2(
+QLTEN_Double MasterTwoSiteFiniteVMPS2(
     FiniteMPS<TenElemT, QNT> &mps,
     const MPO<QLTensor<TenElemT, QNT>> &mpo,
     SweepParams &sweep_params,
@@ -326,7 +326,7 @@ double MasterTwoSiteFiniteVMPSUpdate2(
 ) {
   //master
   Timer update_timer("two_site_fvmps_update");
-#ifdef GQMPS2_TIMING_MODE
+#ifdef QLMPS2_TIMING_MODE
   Timer initialize_timer("two_site_fvmps_setup_and_initial_state");
 #endif
   // Assign some parameters
@@ -364,7 +364,7 @@ double MasterTwoSiteFiniteVMPSUpdate2(
 
   auto init_state = new TenT;
   Contract(&mps[lsite_idx], &mps[rsite_idx], init_state_ctrct_axes, init_state);
-#ifdef GQMPS2_TIMING_MODE
+#ifdef QLMPS2_TIMING_MODE
   initialize_timer.PrintElapsed();
 #endif
   Timer lancz_timer("two_site_fvmps_lancz");
@@ -379,21 +379,21 @@ double MasterTwoSiteFiniteVMPSUpdate2(
       sweep_params.lancz_params,
       world
   );
-#ifdef GQMPS2_TIMING_MODE
+#ifdef QLMPS2_TIMING_MODE
   auto lancz_elapsed_time = lancz_timer.PrintElapsed();
 #else
   auto lancz_elapsed_time = lancz_timer.Elapsed();
 #endif
 
   // SVD and measure entanglement entropy
-#ifdef GQMPS2_TIMING_MODE
+#ifdef QLMPS2_TIMING_MODE
   Timer svd_timer("two_site_fvmps_svd");
 #endif
 
   TenT u, vt;
-  using DTenT = QLTensor<GQTEN_Double, QNT>;
+  using DTenT = QLTensor<QLTEN_Double, QNT>;
   DTenT s;
-  GQTEN_Double actual_trunc_err;
+  QLTEN_Double actual_trunc_err;
   size_t D;
   MasterBroadcastOrder(svd, world);
   MPISVDMaster(
@@ -406,12 +406,12 @@ double MasterTwoSiteFiniteVMPSUpdate2(
   delete lancz_res.gs_vec;
   auto ee = MeasureEE(s, D);
 
-#ifdef GQMPS2_TIMING_MODE
+#ifdef QLMPS2_TIMING_MODE
   svd_timer.PrintElapsed();
 #endif
 
   // Update MPS local tensor
-#ifdef GQMPS2_TIMING_MODE
+#ifdef QLMPS2_TIMING_MODE
   Timer update_mps_ten_timer("two_site_fvmps_update_mps_ten");
 #endif
 
@@ -428,12 +428,12 @@ double MasterTwoSiteFiniteVMPSUpdate2(
     default:assert(false);
   }
 
-#ifdef GQMPS2_TIMING_MODE
+#ifdef QLMPS2_TIMING_MODE
   update_mps_ten_timer.PrintElapsed();
 #endif
 
   // Update environment tensors
-#ifdef GQMPS2_TIMING_MODE
+#ifdef QLMPS2_TIMING_MODE
   Timer update_env_ten_timer("two_site_fvmps_update_env_ten");
 #endif
 
@@ -451,7 +451,7 @@ double MasterTwoSiteFiniteVMPSUpdate2(
     default:assert(false);
   }
 
-#ifdef GQMPS2_TIMING_MODE
+#ifdef QLMPS2_TIMING_MODE
   update_env_ten_timer.PrintElapsed();
 #endif
 

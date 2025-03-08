@@ -4,7 +4,7 @@ project(LNOSuperconductivity)
 set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/")
-set(CMAKE_SOURCE_DIR "${PROJECT_SOURCE_DIR}/src/")
+set(CMAKE_SOURCE_DIR "${PROJECT_SOURCE_DIR}/src_single_orbital/;${PROJECT_SOURCE_DIR}/src_4band/")
 
 option(RealCode "tensor element type double or complex" OFF)
 if (RealCode)
@@ -69,7 +69,7 @@ if (QLMPS_USE_GPU)
 
     find_package(CUTENSOR REQUIRED)
 
-    file(GLOB_RECURSE TEST_SOURCES src/*.cpp)
+    file(GLOB_RECURSE TEST_SOURCES src_single_orbital/*.cpp)
     file(GLOB_RECURSE TEST_SOURCES src_4band/*.cpp)
     message(STATUS "TEST_SOURCES" ${TEST_SOURCES})
     # Treat all .cc files in tests/ as CUDA files
@@ -130,12 +130,12 @@ else ()
 endif ()
 
 #
-#add_executable(mpogen src/mpogen.cpp src/operators.cpp)
-#add_executable(vmps src/vmps.cpp src/myutil.cpp src/operators.cpp)
-#add_executable(dmrg src/dmrg.cpp src/myutil.cpp src/operators.cpp)
-#add_executable(measure1 src/measure1.cpp src/myutil.cpp src/operators.cpp)
-#add_executable(measure2 src/measure2.cpp src/myutil.cpp src/operators.cpp)
-#add_executable(measureSC src/measureSC.cpp src/myutil.cpp src/operators.cpp)
+#add_executable(mpogen src_single_orbital/mpogen.cpp src_single_orbital/operators.cpp)
+#add_executable(vmps src_single_orbital/vmps.cpp src_single_orbital/myutil.cpp src_single_orbital/operators.cpp)
+add_executable(dmrg_single_orbital src_single_orbital/dmrg.cpp src_single_orbital/myutil.cpp src_single_orbital/tJ_operators.cpp)
+#add_executable(measure1 src_single_orbital/measure1.cpp src_single_orbital/myutil.cpp src_single_orbital/operators.cpp)
+#add_executable(measure2 src_single_orbital/measure2.cpp src_single_orbital/myutil.cpp src_single_orbital/operators.cpp)
+#add_executable(measureSC src_single_orbital/measureSC.cpp src_single_orbital/myutil.cpp src_single_orbital/operators.cpp)
 
 add_library(4band_common_objects OBJECT src_4band/myutil.cpp src_4band/hubbard_operators.cpp)
 

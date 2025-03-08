@@ -4,7 +4,7 @@
 
 
 #include "qlten/qlten.h"
-#include "gqdouble.h"
+#include "tJ_type_hilbert_space.h"
 
 
 #if SYMMETRY_LEVEL == 0

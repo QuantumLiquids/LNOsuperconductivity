@@ -12,8 +12,8 @@
 
 #include "qlmps/qlmps.h"
 #include "qlten/qlten.h"
-#include "gqdouble.h"
-#include "operators.h"
+#include "tJ_type_hilbert_space.h"
+#include "tJ_operators.h"
 #include "params_case.h"
 #include "myutil.h"
 #include "my_measure.h"

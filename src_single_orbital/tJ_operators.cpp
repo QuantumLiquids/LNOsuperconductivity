@@ -1,4 +1,4 @@
-#include "gqdouble.h"
+#include "tJ_type_hilbert_space.h"
 
 #if SYMMETRY_LEVEL == 0
 Tensor sz = Tensor({pb_in, pb_out});
