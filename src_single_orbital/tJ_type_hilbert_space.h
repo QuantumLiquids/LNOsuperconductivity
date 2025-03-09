@@ -2,6 +2,9 @@
 #define TJMODEL_SRC_QLDOUBLE_H
 
 #include "qlten/qlten.h"
+#ifndef SYMMETRY_LEVLE
+#define SYMMETRY_LEVLE 0
+#endif
 
 #if SYMMETRY_LEVEL == 0
 using QNT = qlten::special_qn::U1U1QN;

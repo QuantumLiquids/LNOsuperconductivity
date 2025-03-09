@@ -5,7 +5,7 @@
 #include <cstdlib>
 #include <vector>
 #include <tuple>
-#include <assert.h>
+#include <cassert>
 
 using std::vector;
 using std::tuple;
@@ -33,7 +33,6 @@ class DoubleLayerSquareLattice {
   vector<Link> intralayer_links;      //ordered by smaller number site to larger number site
   vector<Link> interlayer_links;
 };
-
 
 /** Square lattice cylinder
  *
@@ -92,7 +91,7 @@ class DoubleLayerSquareOBC : public DoubleLayerSquareLattice {
 
 DoubleLayerSquareOBC::DoubleLayerSquareOBC(const size_t Ly, const size_t Lx) :
     DoubleLayerSquareLattice(Ly, Lx) {
-  //neasert neighbor links
+  //nearest neighbor links
   intralayer_links.reserve(4 * N); //reserve a little more
   interlayer_links.reserve(N / 2);
   for (size_t i = 0; i < N; ++i) {
@@ -210,7 +209,6 @@ DoubleLayerSquareTorus::DoubleLayerSquareTorus(const size_t Ly, const size_t Lx)
     intralayer_links.push_back(Link{i, Ty});
 
     intralayer_links.push_back(Link{i, Tx});
-
 
     if (y % 2 == 0) {
       size_t Tz = i + 1;

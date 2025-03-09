@@ -23,6 +23,8 @@ struct CaseParams : public CaseParamsParserBasic {
     t_perp = ParseDouble("t_perp");
     J = ParseDouble("J");
     J_perp = ParseDouble("J_perp");
+    delta = ParseDouble("delta");
+    pinning_field = ParseBool("PinningField");
 //    phi = ParseDouble("phi");
     Sweeps = ParseInt("Sweeps");
     Dmin = ParseInt("Dmin");
@@ -44,7 +46,9 @@ struct CaseParams : public CaseParamsParserBasic {
   double t_perp;
   double J;
   double J_perp;
+  double delta;
   double phi = 0;     // twist boundary condition, Phys. Rev. B 107, 075127 Eq.(5)
+  bool pinning_field;
   size_t Sweeps;
   size_t Dmin;
   size_t Dmax;
@@ -64,15 +68,19 @@ struct DoubleLayertJModelParamters {
                               const double t_perp,
                               const double J,
                               const double J_perp,
-                              const double phi
-  ) : t(t), t_perp(t_perp), J(J), J_perp(J_perp), phi(phi) {}
+                              const double phi,
+                              const double delta,
+                              const bool pinning_field
+  ) : t(t), t_perp(t_perp), J(J), J_perp(J_perp), phi(phi), delta(delta), pinning_field(pinning_field) {}
 
   DoubleLayertJModelParamters(CaseParams &params) :
       DoubleLayertJModelParamters(params.t,
                                   params.t_perp,
                                   params.J,
                                   params.J_perp,
-                                  params.phi
+                                  params.phi,
+                                  params.delta,
+                                  params.pinning_field
       ) {}
 
   inline void Print(void) {
@@ -82,7 +90,9 @@ struct DoubleLayertJModelParamters {
     cout << "interlayer hopping t_perp = " << t_perp << "\n";
     cout << "intralayer NN super-exchange J  = " << J << "\n";
     cout << "interlayer super-exchange J_perp = " << J_perp << "\n";
+    cout << "Hopping anisotropy = " << delta << "\n";
     cout << "Twist angle phi = " << phi << "\n";
+    cout << "Whether introducing the pinning field = " << pinning_field << "\n";
   }
 
   double t;
@@ -90,6 +100,8 @@ struct DoubleLayertJModelParamters {
   double J;
   double J_perp;
   double phi = 0;
+  double delta;
+  bool pinning_field;
 };
 
 #endif //TJMODEL_SRC_PARAMS_CASE_H

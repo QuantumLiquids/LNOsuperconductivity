@@ -14,7 +14,7 @@
 #include "params_case.h"
 #include "myutil.h"
 #include "squarelattice.h"
-#include "tJmodel.h"
+#include "double_layer_tJmodel.h"
 #include <random>
 
 using namespace std;
