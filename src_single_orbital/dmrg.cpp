@@ -99,7 +99,9 @@ int main(int argc, char *argv[]) {
   std::mt19937 g(rd());
   std::shuffle(stat_labs.begin(), stat_labs.end(), g);
 
+#ifndef USE_GPU
   qlten::hp_numeric::SetTensorManipulationThreads(params.Threads);
+#endif
 
   if (IsPathExist(kMpsPath)) {
     if (N == GetNumofMps()) {

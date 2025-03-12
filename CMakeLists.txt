@@ -69,8 +69,12 @@ if (QLMPS_USE_GPU)
 
     find_package(CUTENSOR REQUIRED)
 
-    file(GLOB_RECURSE TEST_SOURCES src_single_orbital/*.cpp)
-    file(GLOB_RECURSE TEST_SOURCES src_4band/*.cpp)
+
+    file(GLOB_RECURSE SINGLE_ORBITAL_SOURCES src_single_orbital/*.cpp)
+    file(GLOB_RECURSE FOUR_BAND_SOURCES src_4band/*.cpp)
+
+    set(TEST_SOURCES ${SINGLE_ORBITAL_SOURCES} ${FOUR_BAND_SOURCES})
+
     message(STATUS "TEST_SOURCES" ${TEST_SOURCES})
     # Treat all .cc files in tests/ as CUDA files
     set_source_files_properties(${TEST_SOURCES} PROPERTIES LANGUAGE CUDA)
