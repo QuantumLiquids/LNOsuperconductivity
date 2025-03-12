@@ -67,7 +67,19 @@ if (QLMPS_USE_GPU)
     set(CMAKE_CUDA_ARCHITECTURES 70 80) # For V100 & A100, adjust if needed
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -lineinfo -Xcompiler=-fPIC")
 
-    find_package(CUTENSOR REQUIRED)
+    # Attempt to find cuTENSOR in standard system paths (nvhpc case)
+    find_library(CUTENSOR_LIBRARY cutensor)
+    find_path(CUTENSOR_INCLUDE_DIR cutensor.h)
+    if (CUTENSOR_LIBRARY AND CUTENSOR_INCLUDE_DIR)
+        message(STATUS "Found cuTENSOR in system: ${CUTENSOR_LIBRARY}")
+        include_directories(${CUTENSOR_INCLUDE_DIR})
+    else ()
+        message(STATUS "cuTENSOR not found in system. Searching in user directory...")
+        # Use custom FindCUTENSOR.cmake from project's cmake directory
+        list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/")
+        find_package(CUTENSOR REQUIRED)
+        include_directories(${CUTENSOR_INCLUDE_DIR})
+    endif ()
 
 
     file(GLOB_RECURSE SINGLE_ORBITAL_SOURCES src_single_orbital/*.cpp)
