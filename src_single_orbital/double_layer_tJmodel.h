@@ -4,7 +4,7 @@
 #include "qlmps/one_dim_tn/mpo/mpo.h"
 #include "qlmps/one_dim_tn/mpo/mpogen/mpogen.h"
 #include "tJ_type_hilbert_space.h"
-#include "squarelattice.h"
+#include "double_layer_squarelattice.h"
 #include "params_case.h"
 #include "tJ_operators.h"
 

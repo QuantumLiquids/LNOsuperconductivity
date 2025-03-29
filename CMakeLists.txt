@@ -66,7 +66,7 @@ if (QLMPS_USE_GPU)
     # Set CUDA architectures
     set(CMAKE_CUDA_ARCHITECTURES 70 80) # For V100 & A100, adjust if needed
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -lineinfo -Xcompiler=-fPIC")
- # -----------------------------------------------------------
+    # -----------------------------------------------------------
     # Attempt to find cuTENSOR in the same base directory as cuBLAS
     # -----------------------------------------------------------
     # Extract the CUDA Toolkit root path (e.g., /usr/local/cuda or HPC SDK's CUDA dir)
@@ -79,25 +79,25 @@ if (QLMPS_USE_GPU)
         string(REGEX REPLACE "/cuda/.*" "" HPC_SDK_ROOT "${CUDA_TOOLKIT_ROOT}")
         set(CUTENSOR_HPC_INC_DIR "${HPC_SDK_ROOT}/math_libs/include")
         set(CUTENSOR_HPC_LIB_DIR "${HPC_SDK_ROOT}/math_libs/lib64")
-    else()
+    else ()
         # For non-HPC SDK installations, check sibling directories
         set(CUTENSOR_HPC_INC_DIR "${CUDA_TOOLKIT_ROOT}/include")
         set(CUTENSOR_HPC_LIB_DIR "${CUDA_TOOLKIT_ROOT}/lib64")
-    endif()
+    endif ()
 
     # Search for cuTENSOR header (account for subdirectory)
     find_path(CUTENSOR_INCLUDE_DIR
-        NAMES cutensor.h
-        HINTS ${CUTENSOR_HPC_INC_DIR}
-        PATH_SUFFIXES cutensor  # Header is in a subdirectory
-        DOC "cuTENSOR include directory"
+            NAMES cutensor.h
+            HINTS ${CUTENSOR_HPC_INC_DIR}
+            PATH_SUFFIXES cutensor  # Header is in a subdirectory
+            DOC "cuTENSOR include directory"
     )
 
     # Search for cuTENSOR library
     find_library(CUTENSOR_LIBRARY
-        NAMES cutensor
-        HINTS ${CUTENSOR_HPC_LIB_DIR}
-        DOC "cuTENSOR library"
+            NAMES cutensor
+            HINTS ${CUTENSOR_HPC_LIB_DIR}
+            DOC "cuTENSOR library"
     )
 
     if (CUTENSOR_INCLUDE_DIR AND CUTENSOR_LIBRARY)
@@ -178,7 +178,7 @@ endif ()
 #
 #add_executable(mpogen src_single_orbital/mpogen.cpp src_single_orbital/operators.cpp)
 #add_executable(vmps src_single_orbital/vmps.cpp src_single_orbital/myutil.cpp src_single_orbital/operators.cpp)
-add_executable(dmrg_single_orbital src_single_orbital/dmrg.cpp src_single_orbital/myutil.cpp src_single_orbital/tJ_operators.cpp)
+add_executable(dmrg_single_orbital src_single_orbital/dmrg_single_orbital_double_layer.cpp src_single_orbital/myutil.cpp src_single_orbital/tJ_operators.cpp)
 #add_executable(measure1 src_single_orbital/measure1.cpp src_single_orbital/myutil.cpp src_single_orbital/operators.cpp)
 #add_executable(measure2 src_single_orbital/measure2.cpp src_single_orbital/myutil.cpp src_single_orbital/operators.cpp)
 #add_executable(measureSC src_single_orbital/measureSC.cpp src_single_orbital/myutil.cpp src_single_orbital/operators.cpp)
@@ -188,3 +188,6 @@ add_library(4band_common_objects OBJECT src_4band/myutil.cpp src_4band/hubbard_o
 add_executable(dmrg4band src_4band/dmrg.cpp $<TARGET_OBJECTS:4band_common_objects>)
 add_executable(measure4band1 src_4band/measure1.cpp $<TARGET_OBJECTS:4band_common_objects>)
 add_executable(measure4bandSC src_4band/measureSC_fix_ref.cpp $<TARGET_OBJECTS:4band_common_objects>)
+
+add_executable(dmrg_ani_tJ src_single_orbital_single_layer/dmrg_single_orbital_single_layer.cpp src_single_orbital/myutil.cpp src_single_orbital_single_layer/tJ_operators.cpp)
+add_executable(measure1_ani_tJ src_single_orbital_single_layer/measure1.cpp src_single_orbital/myutil.cpp src_single_orbital_single_layer/tJ_operators.cpp)

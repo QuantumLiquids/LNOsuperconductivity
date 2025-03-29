@@ -13,7 +13,7 @@
 #include "tJ_operators.h"
 #include "params_case.h"
 #include "myutil.h"
-#include "squarelattice.h"
+#include "double_layer_squarelattice.h"
 #include "double_layer_tJmodel.h"
 #include <random>
 
