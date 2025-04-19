@@ -6,7 +6,6 @@
 #include "tJ_type_hilbert_space.h"
 #include "double_layer_squarelattice.h"
 #include "params_case.h"
-#include "tJ_operators.h"
 
 inline void ConstructDoubleLayertJMPOGenerator(
     qlmps::MPOGenerator<TenElemT, QNT> &mpo_gen,
@@ -19,20 +18,15 @@ inline void ConstructDoubleLayertJMPOGenerator(
       J2 = model_params.J_perp,
       phi = model_params.phi,
       delta = model_params.delta;
-  OperatorInitial();
+  qlmps::tJOperators<TenElemT, QNT> ops;
   if (std::fabs(phi) < 1e-15) {
     if (std::fabs(delta) < 1e-15) {
       for (const Link &link : lattice.intralayer_links) {
         size_t site1 = std::get<0>(link);
         size_t site2 = std::get<1>(link);
         assert(site1 < site2);
-        mpo_gen.AddTerm(-t1, {bupc, bupa}, {site1, site2}, {f});
-        mpo_gen.AddTerm(-t1, {bdnc, bdna}, {site1, site2}, {f});
-        mpo_gen.AddTerm(-t1, {bupa, bupc}, {site1, site2}, {f});
-        mpo_gen.AddTerm(-t1, {bdna, bdnc}, {site1, site2}, {f});
-        mpo_gen.AddTerm(J, {sz, sz}, {site1, site2});
-        mpo_gen.AddTerm(J / 2, {sp, sm}, {site1, site2});
-        mpo_gen.AddTerm(J / 2, {sm, sp}, {site1, site2});
+        qlmps::AddTJHoppingTerms(mpo_gen, TenElemT(t1), site1, site2, ops);
+        qlmps::AddHeisenbergCoupling(mpo_gen, J, site1, site2, ops);
 //      mpo_gen.AddTerm(-J / 4, {nf, nf}, {site1, site2});
 #ifndef NDEBUG
         std::cout << "Add  -t = " << -t1 << ", J = " << J << "between sites" << site1 << "," << site2 << std::endl;
@@ -55,13 +49,8 @@ inline void ConstructDoubleLayertJMPOGenerator(
           t_eff = t1 * (1 - delta);
           J_eff = J * (1 - delta) * (1 - delta);
         }
-        mpo_gen.AddTerm(-t_eff, {bupc, bupa}, {site1, site2}, {f});
-        mpo_gen.AddTerm(-t_eff, {bdnc, bdna}, {site1, site2}, {f});
-        mpo_gen.AddTerm(-t_eff, {bupa, bupc}, {site1, site2}, {f});
-        mpo_gen.AddTerm(-t_eff, {bdna, bdnc}, {site1, site2}, {f});
-        mpo_gen.AddTerm(J_eff, {sz, sz}, {site1, site2});
-        mpo_gen.AddTerm(J_eff / 2, {sp, sm}, {site1, site2});
-        mpo_gen.AddTerm(J_eff / 2, {sm, sp}, {site1, site2});
+        qlmps::AddTJHoppingTerms(mpo_gen, TenElemT(t_eff), site1, site2, ops);
+        qlmps::AddHeisenbergCoupling(mpo_gen, J_eff, site1, site2, ops);
 //      mpo_gen.AddTerm(-J_eff / 4, {nf, nf}, {site1, site2});
 #ifndef NDEBUG
         std::cout << "Add  -t = " << -t_eff << ", J = " << J_eff << "between sites" << site1 << "," << site2
@@ -74,13 +63,8 @@ inline void ConstructDoubleLayertJMPOGenerator(
       size_t site1 = std::get<0>(link);
       size_t site2 = std::get<1>(link);
       assert(site1 < site2);
-      mpo_gen.AddTerm(-t2, {bupc, bupa}, {site1, site2}, {f});
-      mpo_gen.AddTerm(-t2, {bdnc, bdna}, {site1, site2}, {f});
-      mpo_gen.AddTerm(-t2, {bupa, bupc}, {site1, site2}, {f});
-      mpo_gen.AddTerm(-t2, {bdna, bdnc}, {site1, site2}, {f});
-      mpo_gen.AddTerm(J2, {sz, sz}, {site1, site2});
-      mpo_gen.AddTerm(J2 / 2, {sp, sm}, {site1, site2});
-      mpo_gen.AddTerm(J2 / 2, {sm, sp}, {site1, site2});
+      qlmps::AddTJHoppingTerms(mpo_gen, TenElemT(t2), site1, site2, ops);
+      qlmps::AddHeisenbergCoupling(mpo_gen, J2, site1, site2, ops);
 //      mpo_gen.AddTerm(-J2 / 4, {nf, nf}, {site1, site2});
 #ifndef NDEBUG
       std::cout << "Add  -t_perp = " << -t2 << ", J_perp = " << J2 << "between sites" << site1 << "," << site2
@@ -88,7 +72,7 @@ inline void ConstructDoubleLayertJMPOGenerator(
 #endif
     }
     if (model_params.pinning_field) {
-      mpo_gen.AddTerm(1.0, sz, 0);
+      mpo_gen.AddTerm(1.0, ops.sz, 0);
     }
   } else {
     std::cout << "not support" << std::endl;

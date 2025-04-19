@@ -11,7 +11,6 @@
 #include "qlten/qlten.h"
 #include <ctime>
 #include "../src_single_orbital/tJ_type_hilbert_space.h"
-#include "tJ_operators.h"
 #include "../src_single_orbital/params_case.h"
 #include "../src_single_orbital/myutil.h"
 #include "squarelattice.h"

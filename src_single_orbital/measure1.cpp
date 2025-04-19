@@ -13,7 +13,7 @@
 #include "qlmps/qlmps.h"
 #include "qlten/qlten.h"
 #include "tJ_type_hilbert_space.h"
-#include "tJ_operators.h"
+
 #include "params_case.h"
 #include "myutil.h"
 #include "my_measure.h"
@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
 
   qlten::hp_numeric::SetTensorManipulationThreads(params.Threads);
 
-  OperatorInitial();
+  qlmps::tJOperators<TenElemT, QNT>  ops;
 #if SYMMETRY_LEVEL == 0
   const SiteVec<TenElemT, QNT> sites = SiteVec<TenElemT, QNT>(N, pb_out);
 #elif SYMMETRY_LEVEL == 1

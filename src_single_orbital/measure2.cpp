@@ -18,7 +18,7 @@
 #include "qlten/qlten.h"
 #include <ctime>
 #include "tJ_type_hilbert_space.h"
-#include "tJ_operators.h"
+
 #include "params_case.h"
 #include "myutil.h"
 #include "my_measure.h"
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
     endx = beginx + Lx / 2 + 2;
   }
 
-  OperatorInitial();
+  qlmps::tJOperators<TenElemT, QNT>  ops;
 
   const SiteVec<TenElemT, QNT> sites = SiteVec<TenElemT, QNT>(N, pb_out);
   FiniteMPST mps(sites);

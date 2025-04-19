@@ -4,7 +4,6 @@
  */
 #include "qlmps/qlmps.h"
 #include "./hilbert_space.h"
-#include "./hubbard_operators.h"
 #include "./myutil.h"
 #include "./params_case.h"
 
@@ -84,7 +83,7 @@ int main(int argc, char *argv[]) {
   clock_t startTime, endTime;
   startTime = clock();
 
-  HubbardOperators ops;
+  qlmps::HubbardOperators<TenElemT, QNT> ops;
   const SiteVec<TenElemT, QNT> sites = SiteVec<TenElemT, QNT>(N, pb_out);
 
   std::vector<size_t> input_D_set;

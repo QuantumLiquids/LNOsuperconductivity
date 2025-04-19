@@ -178,16 +178,16 @@ endif ()
 #
 #add_executable(mpogen src_single_orbital/mpogen.cpp src_single_orbital/operators.cpp)
 #add_executable(vmps src_single_orbital/vmps.cpp src_single_orbital/myutil.cpp src_single_orbital/operators.cpp)
-add_executable(dmrg_single_orbital src_single_orbital/dmrg_single_orbital_double_layer.cpp src_single_orbital/myutil.cpp src_single_orbital/tJ_operators.cpp)
+add_executable(dmrg_single_orbital src_single_orbital/dmrg_single_orbital_double_layer.cpp src_single_orbital/myutil.cpp)
 #add_executable(measure1 src_single_orbital/measure1.cpp src_single_orbital/myutil.cpp src_single_orbital/operators.cpp)
 #add_executable(measure2 src_single_orbital/measure2.cpp src_single_orbital/myutil.cpp src_single_orbital/operators.cpp)
 #add_executable(measureSC src_single_orbital/measureSC.cpp src_single_orbital/myutil.cpp src_single_orbital/operators.cpp)
 
-add_library(4band_common_objects OBJECT src_4band/myutil.cpp src_4band/hubbard_operators.cpp)
+add_library(4band_common_objects OBJECT src_4band/myutil.cpp)
 
 add_executable(dmrg4band src_4band/dmrg.cpp $<TARGET_OBJECTS:4band_common_objects>)
 add_executable(measure4band1 src_4band/measure1.cpp $<TARGET_OBJECTS:4band_common_objects>)
 add_executable(measure4bandSC src_4band/measureSC_fix_ref.cpp $<TARGET_OBJECTS:4band_common_objects>)
 
-add_executable(dmrg_ani_tJ src_single_orbital_single_layer/dmrg_single_orbital_single_layer.cpp src_single_orbital/myutil.cpp src_single_orbital_single_layer/tJ_operators.cpp)
-add_executable(measure1_ani_tJ src_single_orbital_single_layer/measure1.cpp src_single_orbital/myutil.cpp src_single_orbital_single_layer/tJ_operators.cpp)
+add_executable(dmrg_ani_tJ src_single_orbital_single_layer/dmrg_single_orbital_single_layer.cpp src_single_orbital/myutil.cpp)
+add_executable(measure1_ani_tJ src_single_orbital_single_layer/measure1.cpp src_single_orbital/myutil.cpp)

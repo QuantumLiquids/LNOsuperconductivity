@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
     endx = start + Lx / 2 + 2;
   }
 
-  HubbardOperators ops;
+  qlmps::HubbardOperators<TenElemT, QNT>  ops;
 
   const SiteVec<TenElemT, U1U1QN> sites = SiteVec<TenElemT, U1U1QN>(N, pb_out);
   FiniteMPST mps(sites);

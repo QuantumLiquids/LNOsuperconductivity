@@ -10,7 +10,6 @@
 #include "qlmps/qlmps.h"
 #include "qlten/qlten.h"
 #include "../src_single_orbital/tJ_type_hilbert_space.h"
-#include "tJ_operators.h"
 #include "../src_single_orbital/params_case.h"
 #include "../src_single_orbital/myutil.h"
 
@@ -31,7 +30,7 @@ int main(int argc, char *argv[]) {
 #ifndef USE_GPU
   qlten::hp_numeric::SetTensorManipulationThreads(params.Threads);
 #endif
-  tJOperators ops;
+  qlmps::tJOperators<TenElemT, QNT> ops;
   const SiteVec<TenElemT, QNT> sites = SiteVec<TenElemT, QNT>(N, pb_out);
 
   using FiniteMPST = qlmps::FiniteMPS<TenElemT, QNT>;

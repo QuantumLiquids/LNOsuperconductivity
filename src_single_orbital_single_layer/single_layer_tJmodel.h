@@ -6,7 +6,6 @@
 #include "../src_single_orbital/tJ_type_hilbert_space.h"
 #include "squarelattice.h"
 #include "../src_single_orbital/params_case.h"
-#include "tJ_operators.h"
 
 struct tJModelParamters {
  public :
@@ -43,7 +42,7 @@ inline void ConstructAnitJMPOGenerator(
     std::cout << "Note well define for Ly : " << lattice.Ly << std::endl;
   }
 
-  tJOperators ops;
+  qlmps::tJOperators<TenElemT, QNT> ops;
   // We assume the tilted lattice.
   for (const Link &link : lattice.nearest_neighbor_links) {
     size_t site1 = std::get<0>(link);

@@ -11,7 +11,7 @@
 #include "qlten/qlten.h"
 #include <ctime>
 #include "tJ_type_hilbert_space.h"
-#include "tJ_operators.h"
+
 #include "params_case.h"
 #include "myutil.h"
 #include "my_measure.h"
@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
   qlmps::MPOGenerator<TenElemT, QNT> Sp(sites, qn0);
   qlmps::MPOGenerator<TenElemT, QNT> Sm(sites, qn0);
   qlmps::MPOGenerator<TenElemT, QNT> Sz(sites, qn0);
-  OperatorInitial();
+  qlmps::tJOperators<TenElemT, QNT>  ops;
   for (size_t i = 0; i < N; i++) {
     Sz.AddTerm(1.0, sz, i);
     Sp.AddTerm(1.0, sp, i);

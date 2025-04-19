@@ -47,6 +47,5 @@ const IndexT pb_out = IndexT({QNSctT(TrivialRepQN(), 4)},
 #endif
 const auto pb_in = qlten::InverseIndex(pb_out);
 
-void OperatorInitial();
 
 #endif //HILBERT_SPACE_H

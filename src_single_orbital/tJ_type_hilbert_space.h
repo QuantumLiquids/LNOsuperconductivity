@@ -12,7 +12,7 @@ using QNT = qlten::special_qn::U1U1QN;
 
 #include "./u1u1u1qn.h"
 
-using QNT = qlten::special_qn::U1QNT;
+using QNT = qlten::special_qn::U1U1U1QN;
 #else
 #error Unsupported SYMMETRY_LEVEL
 #endif
@@ -65,5 +65,6 @@ const IndexT pb_out_layer2 = IndexT({
 );
 const auto pb_in_layer1 = qlten::InverseIndex(pb_out_layer1);
 const auto pb_in_layer2 = qlten::InverseIndex(pb_out_layer2);
+
 #endif
 #endif // TJMODEL_SRC_QLDOUBLE_H

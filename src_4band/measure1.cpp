@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
 #ifndef USE_GPU
   qlten::hp_numeric::SetTensorManipulationThreads(params.TotalThreads);
 #endif
-  HubbardOperators ops;
+  qlmps::HubbardOperators<TenElemT, QNT>  ops;
 
   const SiteVec<TenElemT, QNT> sites = SiteVec<TenElemT, QNT>(N, pb_out);
 
