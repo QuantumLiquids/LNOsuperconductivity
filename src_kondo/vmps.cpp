@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
 //    mpo_gen.AddTerm(Jz, Sz, i + 1, Sz, i + 3);
   }
 
-  for (size_t i = 0; i < N; i++) {
+  for (size_t i = 0; i < N; i+=2) {
     mpo_gen.AddTerm(U, hubbard_ops.nf, i);
   }
 
@@ -131,7 +131,7 @@ int main(int argc, char *argv[]) {
   for (size_t i = ref_site + 2; i < N; i += 2) {
     target_sites.push_back(i);
   }
-  
+
   std::ostringstream oss;
   oss << "Jk" << Jk << "U" << U;
   std::string file_postfix = oss.str();
