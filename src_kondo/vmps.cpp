@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
   MPI_Comm_rank(comm, &rank);
 
   CaseParams params(argv[1]);
-  size_t L = params.L;
+  size_t L = params.L; // L should be even number, for N/4 should on electron site for measure
   double t = params.t, Jk = params.JK, U = params.U;
 
   size_t N = 2 * L;
@@ -126,6 +126,35 @@ int main(int argc, char *argv[]) {
     std::cout << "\n";
     std::cout << "middle " << ee_list[L] << std::endl;
   }
+  size_t ref_site = N / 4;
+  std::vector<size_t> target_sites;
+  for (size_t i = ref_site; i < N; i += 2) {
+    target_sites.push_back(i);
+  }
+
+  std::string file_postfix = "Jk" + std::to_string(Jk) + "U" + std::to_string(U);
+  if (rank % mpi_size == 0) {
+    MeasuRes<TenElemT> measu_res = MeasureTwoSiteOpGroup(mps,
+                                                         kMpsPath,
+                                                         hubbard_ops.sz, hubbard_ops.sz,
+                                                         ref_site, target_sites);
+    DumpMeasuRes(measu_res, "szsz"  + file_postfix);
+  }
+  if (rank % mpi_size == 1) {
+    MeasuRes<TenElemT> measu_res = MeasureTwoSiteOpGroup(mps,
+                                                         kMpsPath,
+                                                         hubbard_ops.sp, hubbard_ops.sm,
+                                                         ref_site, target_sites);
+    DumpMeasuRes(measu_res, "spsm"  + file_postfix);
+  }
+  if (rank % mpi_size == 2) {
+    MeasuRes<TenElemT> measu_res = MeasureTwoSiteOpGroup(mps,
+                                                         kMpsPath,
+                                                         hubbard_ops.sm, hubbard_ops.sp,
+                                                         ref_site, target_sites);
+    DumpMeasuRes(measu_res, "smsp" + file_postfix);
+  }
+
   MPI_Finalize();
   return 0;
 }
