@@ -133,21 +133,21 @@ int main(int argc, char *argv[]) {
   }
 
   std::string file_postfix = "Jk" + std::to_string(Jk) + "U" + std::to_string(U);
-  if (rank % mpi_size == 0) {
+  if (0 % mpi_size == rank) {
     MeasuRes<TenElemT> measu_res = MeasureTwoSiteOpGroup(mps,
                                                          kMpsPath,
                                                          hubbard_ops.sz, hubbard_ops.sz,
                                                          ref_site, target_sites);
     DumpMeasuRes(measu_res, "szsz"  + file_postfix);
   }
-  if (rank % mpi_size == 1) {
+  if (1 % mpi_size == rank) {
     MeasuRes<TenElemT> measu_res = MeasureTwoSiteOpGroup(mps,
                                                          kMpsPath,
                                                          hubbard_ops.sp, hubbard_ops.sm,
                                                          ref_site, target_sites);
     DumpMeasuRes(measu_res, "spsm"  + file_postfix);
   }
-  if (rank % mpi_size == 2) {
+  if (2 % mpi_size == rank) {
     MeasuRes<TenElemT> measu_res = MeasureTwoSiteOpGroup(mps,
                                                          kMpsPath,
                                                          hubbard_ops.sm, hubbard_ops.sp,
