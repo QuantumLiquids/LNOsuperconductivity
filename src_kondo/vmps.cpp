@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
     std::copy(ee_list.begin(), ee_list.end(), std::ostream_iterator<double>(std::cout, " "));
 
     std::cout << "\n";
-    std::cout << ee_list[L] << std::endl;
+    std::cout << "middle " << ee_list[L] << std::endl;
   }
   MPI_Finalize();
   return 0;
