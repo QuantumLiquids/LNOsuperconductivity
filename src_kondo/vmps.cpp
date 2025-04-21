@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
       mps.Dump(kMpsPath, true);
   }
 
-  for (size_t i = 9; i < params.Dmax.size(); i++) {
+  for (size_t i = 0; i < params.Dmax.size(); i++) {
     if (rank == 0) {
       std::cout << "D_max = " << params.Dmax[i] << std::endl;
     }

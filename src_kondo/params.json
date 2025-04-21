@@ -4,8 +4,6 @@
     "t": 1,
     "Jk": 0.3,
     "U": 1,
-    "NumEle1": 18,
-    "NumEle2": 18,
     "Sweeps": 2,
     "Dmin": 10,
     "Dmax": [
