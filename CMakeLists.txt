@@ -191,3 +191,5 @@ add_executable(measure4bandSC src_4band/measureSC_fix_ref.cpp $<TARGET_OBJECTS:4
 
 add_executable(dmrg_ani_tJ src_single_orbital_single_layer/dmrg_single_orbital_single_layer.cpp src_single_orbital/myutil.cpp)
 add_executable(measure1_ani_tJ src_single_orbital_single_layer/measure1.cpp src_single_orbital/myutil.cpp)
+
+add_executable(kondo_chain_vmps src_kondo/vmps.cpp src_single_orbital/myutil.cpp)

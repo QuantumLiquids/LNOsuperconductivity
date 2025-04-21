@@ -10,7 +10,6 @@
 #include "qlten/qlten.h"
 #include <ctime>
 #include "hilbert_space.h"
-#include "hubbard_operators.h"
 #include "params_case.h"
 #include "myutil.h"
 
