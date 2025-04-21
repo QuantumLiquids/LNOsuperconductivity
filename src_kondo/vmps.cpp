@@ -128,11 +128,14 @@ int main(int argc, char *argv[]) {
   }
   size_t ref_site = N / 4;
   std::vector<size_t> target_sites;
-  for (size_t i = ref_site; i < N; i += 2) {
+  for (size_t i = ref_site + 2; i < N; i += 2) {
     target_sites.push_back(i);
   }
+  
+  std::ostringstream oss;
+  oss << "Jk" << Jk << "U" << U;
+  std::string file_postfix = oss.str();
 
-  std::string file_postfix = "Jk" + std::to_string(Jk) + "U" + std::to_string(U);
   if (0 % mpi_size == rank) {
     MeasuRes<TenElemT> measu_res = MeasureTwoSiteOpGroup(mps,
                                                          kMpsPath,
