@@ -5,7 +5,7 @@
 
 #include "qlten/qlten.h"
 #include "qlmps/qlmps.h"
-#include "kondo_hilbert_space.h"
+#include "../src_kondo/kondo_hilbert_space.h"
 #include "./params_case.h"
 #include "../src_single_orbital/myutil.h"
 
@@ -21,10 +21,10 @@ int main(int argc, char *argv[]) {
   MPI_Comm_rank(comm, &rank);
 
   CaseParams params(argv[1]);
-  size_t L = params.L; // L should be even number, for N/4 should on electron site for measure
+  size_t Lx = params.Lx; // L should be even number, for N/4 should on electron site for measure
   double t = params.t, Jk = params.JK, U = params.U;
-
-  size_t N = 2 * L;
+  double t2 = params.t2;
+  size_t N = 4 * Lx;
 
   clock_t startTime, endTime;
   startTime = clock();
@@ -39,16 +39,41 @@ int main(int argc, char *argv[]) {
 
   HubbardOperators<TenElemT, QNT> hubbard_ops;
   SpinOneHalfOperatorsU1U1 local_spin_ops;
-  for (size_t i = 0; i < N - 2; i = i + 2) {
-    size_t site1 = i, site2 = i + 2;
-    mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2);
-    mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2);
-    mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2);
-    mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2);
-//    mpo_gen.AddTerm(Jz, Sz, i + 1, Sz, i + 3);
+  auto f = hubbard_ops.f;
+  for (size_t i = 0; i < N - 4; i = i + 2) {
+    size_t site1 = i, site2 = i + 4;
+    mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, {site1 + 2});
+    mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, {site1 + 2});
+    mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, {site1 + 2});
+    mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, {site1 + 2});
+  }
+  size_t di_for_t2(0);
+  size_t second_leg_start_site(0);
+  if (params.Geometry == "OBC") {
+    di_for_t2 = 8;
+    second_leg_start_site = 6;
+  } else {
+    di_for_t2 = 4;
+    second_leg_start_site = 2;
   }
 
-  for (size_t i = 0; i < N; i+=2) {
+  for (size_t i = 0; i < N - 6; i += di_for_t2) {
+    size_t site1 = i, site2 = i + 6;
+    mpo_gen.AddTerm(-t2, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, {site1 + 2, site1 + 4});
+    mpo_gen.AddTerm(t2, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, {site1 + 2, site1 + 4});
+    mpo_gen.AddTerm(-t2, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, {site1 + 2, site1 + 4});
+    mpo_gen.AddTerm(t2, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, {site1 + 2, site1 + 4});
+  }
+
+  for (size_t i = second_leg_start_site; i < N - 2; i = i + di_for_t2) {
+    size_t site1 = i, site2 = i + 2;
+    mpo_gen.AddTerm(-t2, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2);
+    mpo_gen.AddTerm(t2, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2);
+    mpo_gen.AddTerm(-t2, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2);
+    mpo_gen.AddTerm(t2, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2);
+  }
+
+  for (size_t i = 0; i < N; i += 2) {
     mpo_gen.AddTerm(U, hubbard_ops.nupndn, i);
   }
 
@@ -65,11 +90,11 @@ int main(int argc, char *argv[]) {
 
   qlten::hp_numeric::SetTensorManipulationThreads(params.Threads);
 
-  std::vector<size_t> elec_labs(L);
+  std::vector<size_t> elec_labs(2 * Lx);
   //electron quarter filling
-  std::fill(elec_labs.begin(), elec_labs.begin() + L / 4, hubbard_site.spin_up);
-  std::fill(elec_labs.begin() + L / 4, elec_labs.begin() + L / 2, hubbard_site.spin_down);
-  std::fill(elec_labs.begin() + L / 2, elec_labs.end(), hubbard_site.empty);
+  std::fill(elec_labs.begin(), elec_labs.begin() + Lx / 2, hubbard_site.spin_up);
+  std::fill(elec_labs.begin() + Lx / 2, elec_labs.begin() + Lx, hubbard_site.spin_down);
+  std::fill(elec_labs.begin() + Lx, elec_labs.end(), hubbard_site.empty);
   std::random_device rd;
   std::mt19937 g(rd());
   std::shuffle(elec_labs.begin(), elec_labs.end(), g);
@@ -124,7 +149,7 @@ int main(int argc, char *argv[]) {
     std::copy(ee_list.begin(), ee_list.end(), std::ostream_iterator<double>(std::cout, " "));
 
     std::cout << "\n";
-    std::cout << "middle " << ee_list[L] << std::endl;
+    std::cout << "middle " << ee_list[2 * Lx] << std::endl;
   }
   size_t ref_site = N / 4;
   std::vector<size_t> target_sites;
@@ -141,14 +166,14 @@ int main(int argc, char *argv[]) {
                                                          kMpsPath,
                                                          hubbard_ops.sz, hubbard_ops.sz,
                                                          ref_site, target_sites);
-    DumpMeasuRes(measu_res, "szsz"  + file_postfix);
+    DumpMeasuRes(measu_res, "szsz" + file_postfix);
   }
   if (1 % mpi_size == rank) {
     MeasuRes<TenElemT> measu_res = MeasureTwoSiteOpGroup(mps,
                                                          kMpsPath,
                                                          hubbard_ops.sp, hubbard_ops.sm,
                                                          ref_site, target_sites);
-    DumpMeasuRes(measu_res, "spsm"  + file_postfix);
+    DumpMeasuRes(measu_res, "spsm" + file_postfix);
   }
   if (2 % mpi_size == rank) {
     MeasuRes<TenElemT> measu_res = MeasureTwoSiteOpGroup(mps,
