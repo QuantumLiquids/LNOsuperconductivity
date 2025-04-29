@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
   }
 
   std::ostringstream oss;
-  oss << "Jk" << Jk << "U" << U;
+  oss << "t2" << t2 << "Jk" << Jk << "U" << U;
   std::string file_postfix = oss.str();
 
   if (0 % mpi_size == rank) {
