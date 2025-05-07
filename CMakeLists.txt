@@ -194,3 +194,5 @@ add_executable(measure1_ani_tJ src_single_orbital_single_layer/measure1.cpp src_
 
 add_executable(kondo_chain_vmps src_kondo/vmps.cpp src_single_orbital/myutil.cpp)
 add_executable(kondo_ladder_vmps src_kondo_two_leg/vmps.cpp src_single_orbital/myutil.cpp)
+add_executable(kondo_ladder_vmpsJk0 src_kondo_two_leg/vmps_Jk0.cpp src_single_orbital/myutil.cpp)
+add_executable(kondo_ladder_dmrgJk0 src_kondo_two_leg/dmrg_Jk0.cpp src_single_orbital/myutil.cpp)
