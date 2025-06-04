@@ -25,6 +25,14 @@ int main(int argc, char *argv[]) {
   double t = params.t, Jk = params.JK, U = params.U;
 
   size_t N = 2 * L;
+  /*** Print Model Parameter Info ***/
+  if (rank == 0) {
+    cout << "L = " << L << endl;
+    cout << "N = " << N << endl;
+    cout << "t = " << t << endl;
+    cout << "Jk = " << Jk << endl;
+    cout << "U = " << U << endl;
+  }
 
   clock_t startTime, endTime;
   startTime = clock();

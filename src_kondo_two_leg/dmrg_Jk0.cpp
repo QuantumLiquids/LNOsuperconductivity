@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
     mpo_gen.AddTerm(t2, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2);
   }
 
-  for (size_t i = 0; i < N; i += 2) {
+  for (size_t i = 0; i < N; i += 1) {
     mpo_gen.AddTerm(U, hubbard_ops.nupndn, i);
   }
 
@@ -162,6 +162,16 @@ int main(int argc, char *argv[]) {
                                                          hubbard_ops.sm, hubbard_ops.sp,
                                                          ref_site, target_sites);
     DumpMeasuRes(measu_res, "smsp" + file_postfix);
+  }
+  if (3 % mpi_size == rank) {
+    MeasuRes<TenElemT> measu_res = MeasureTwoSiteOpGroup(mps,
+                                                         kMpsPath,
+                                                         hubbard_ops.nf, hubbard_ops.nf,
+                                                         ref_site, target_sites);
+    DumpMeasuRes(measu_res, "nn" + file_postfix);
+  }
+  if (4 % mpi_size == rank) {
+    MeasureOneSiteOp(mps, kMpsPath, hubbard_ops.nf, "nf" + file_postfix);
   }
 
   MPI_Finalize();

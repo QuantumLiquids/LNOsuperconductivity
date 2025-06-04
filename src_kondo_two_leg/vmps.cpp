@@ -25,6 +25,16 @@ int main(int argc, char *argv[]) {
   double t = params.t, Jk = params.JK, U = params.U;
   double t2 = params.t2;
   size_t N = 4 * Lx;
+  /*** Print the model parameter Info ***/
+  if (rank == 0) {
+    cout << "Lx = " << Lx << endl;
+    cout << "N = " << N << endl;
+    cout << "t = " << t << endl;
+    cout << "t2 = " << t2 << endl;
+    cout << "Jk = " << Jk << endl;
+    cout << "U = " << U << endl;
+    cout << "Geometry = " << params.Geometry << endl;
+  }
 
   clock_t startTime, endTime;
   startTime = clock();
