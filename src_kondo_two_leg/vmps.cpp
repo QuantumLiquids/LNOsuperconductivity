@@ -167,30 +167,42 @@ int main(int argc, char *argv[]) {
     target_sites.push_back(i);
   }
 
+  mps.Load();
+  mps.Centralize(0);
+  mps.Dump();
+
   std::ostringstream oss;
-  oss << "t2" << t2 << "Jk" << Jk << "U" << U;
+  oss << "t2" << t2 << "Jk" << Jk << "U" << U << "Lx" << Lx << "D" << params.Dmax.back();
   std::string file_postfix = oss.str();
 
-  if (0 % mpi_size == rank) {
-    MeasuRes<TenElemT> measu_res = MeasureTwoSiteOpGroup(mps,
-                                                         kMpsPath,
-                                                         hubbard_ops.sz, hubbard_ops.sz,
-                                                         ref_site, target_sites);
-    DumpMeasuRes(measu_res, "szsz" + file_postfix);
+  // Two-site correlation measurements
+  using OpT = Tensor;
+  std::vector<std::tuple<std::string, const OpT &, const OpT &>> meas_ops = {
+      {"szsz", hubbard_ops.sz, hubbard_ops.sz},
+      {"spsm", hubbard_ops.sp, hubbard_ops.sm},
+      {"smsp", hubbard_ops.sm, hubbard_ops.sp},
+      {"nfnf", hubbard_ops.nf, hubbard_ops.nf}
+  };
+  for (size_t i = 0; i < meas_ops.size(); ++i) {
+    if (i % mpi_size == rank) {
+      const auto &[label, op1, op2] = meas_ops[i];
+      auto measu_res = MeasureTwoSiteOpGroup(mps, kMpsPath, op1, op2, ref_site, target_sites);
+      DumpMeasuRes(measu_res, label + file_postfix);
+    }
   }
-  if (1 % mpi_size == rank) {
-    MeasuRes<TenElemT> measu_res = MeasureTwoSiteOpGroup(mps,
-                                                         kMpsPath,
-                                                         hubbard_ops.sp, hubbard_ops.sm,
-                                                         ref_site, target_sites);
-    DumpMeasuRes(measu_res, "spsm" + file_postfix);
-  }
-  if (2 % mpi_size == rank) {
-    MeasuRes<TenElemT> measu_res = MeasureTwoSiteOpGroup(mps,
-                                                         kMpsPath,
-                                                         hubbard_ops.sm, hubbard_ops.sp,
-                                                         ref_site, target_sites);
-    DumpMeasuRes(measu_res, "smsp" + file_postfix);
+
+  // One-site local measurements on all even sites (extended electrons)
+  std::vector<size_t> even_sites;
+  for (size_t i = 0; i < N; i += 2) even_sites.push_back(i);
+
+  std::vector<QLTensor<TenElemT, QNT>> one_site_ops = {hubbard_ops.sz, hubbard_ops.nf};
+  std::vector<std::string> one_site_labels = {"sz_local", "nf_local"};
+
+  auto one_site_measu = MeasureOneSiteOp(mps, kMpsPath, one_site_ops, even_sites, one_site_labels);
+  for (size_t i = 0; i < one_site_labels.size(); ++i) {
+    if ((i + meas_ops.size()) % mpi_size == rank) {
+      DumpMeasuRes(one_site_measu[i], one_site_labels[i] + file_postfix);
+    }
   }
 
   MPI_Finalize();
