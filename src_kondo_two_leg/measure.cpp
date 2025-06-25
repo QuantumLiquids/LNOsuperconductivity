@@ -1,5 +1,5 @@
 //
-// Created by 王昊昕 on 19/4/2025.
+// Created by 王昊昕 on 25/6/2025.
 //
 
 
@@ -45,123 +45,17 @@ int main(int argc, char *argv[]) {
     if (i % 2 == 1) pb_set[i] = pb_outL;   // odd site is localized electron
   }
   const SiteVec<TenElemT, QNT> sites = SiteVec<TenElemT, QNT>(pb_set);
-  auto mpo_gen = MPOGenerator<TenElemT, QNT>(sites);
 
   HubbardOperators<TenElemT, QNT> hubbard_ops;
   auto &ops = hubbard_ops;
   SpinOneHalfOperatorsU1U1 local_spin_ops;
   auto f = hubbard_ops.f;
-  for (size_t i = 0; i < N - 4; i = i + 2) {
-    size_t site1 = i, site2 = i + 4;
-    mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, {site1 + 2});
-    mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, {site1 + 2});
-    mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, {site1 + 2});
-    mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, {site1 + 2});
-  }
-  size_t di_for_t2(0);
-  size_t second_leg_start_site(0);
-  if (params.Geometry == "OBC") {
-    di_for_t2 = 8;
-    second_leg_start_site = 6;
-  } else {
-    di_for_t2 = 4;
-    second_leg_start_site = 2;
-  }
-
-  for (size_t i = 0; i < N - 6; i += di_for_t2) {
-    size_t site1 = i, site2 = i + 6;
-    mpo_gen.AddTerm(-t2, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, {site1 + 2, site1 + 4});
-    mpo_gen.AddTerm(t2, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, {site1 + 2, site1 + 4});
-    mpo_gen.AddTerm(-t2, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, {site1 + 2, site1 + 4});
-    mpo_gen.AddTerm(t2, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, {site1 + 2, site1 + 4});
-  }
-
-  for (size_t i = second_leg_start_site; i < N - 2; i = i + di_for_t2) {
-    size_t site1 = i, site2 = i + 2;
-    mpo_gen.AddTerm(-t2, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2);
-    mpo_gen.AddTerm(t2, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2);
-    mpo_gen.AddTerm(-t2, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2);
-    mpo_gen.AddTerm(t2, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2);
-  }
-
-  for (size_t i = 0; i < N; i += 2) {
-    mpo_gen.AddTerm(U, hubbard_ops.nupndn, i);
-  }
-
-  for (size_t i = 0; i < N; i = i + 2) {
-    mpo_gen.AddTerm(Jk, hubbard_ops.sz, i, local_spin_ops.sz, i + 1);
-    mpo_gen.AddTerm(Jk / 2, hubbard_ops.sp, i, local_spin_ops.sm, i + 1);
-    mpo_gen.AddTerm(Jk / 2, hubbard_ops.sm, i, local_spin_ops.sp, i + 1);
-  }
-
-  qlmps::MPO<Tensor> mpo = mpo_gen.Gen();
 
   using FiniteMPST = qlmps::FiniteMPS<TenElemT, QNT>;
   FiniteMPST mps(sites);
 
   qlten::hp_numeric::SetTensorManipulationThreads(params.Threads);
 
-  std::vector<size_t> elec_labs(2 * Lx);
-  //electron quarter filling
-  std::fill(elec_labs.begin(), elec_labs.begin() + Lx / 2, hubbard_site.spin_up);
-  std::fill(elec_labs.begin() + Lx / 2, elec_labs.begin() + Lx, hubbard_site.spin_down);
-  std::fill(elec_labs.begin() + Lx, elec_labs.end(), hubbard_site.empty);
-  std::random_device rd;
-  std::mt19937 g(rd());
-  std::shuffle(elec_labs.begin(), elec_labs.end(), g);
-
-  std::vector<size_t> stat_labs(N);
-  for (size_t i = 0; i < N; i = i + 2) {
-    stat_labs[i] = elec_labs[i / 2];
-  }
-  int sz_lab = 0;
-  for (size_t i = 1; i < N; i = i + 2) {
-    stat_labs[i] = sz_lab % 2;
-    sz_lab++;
-  }
-
-  if (IsPathExist(kMpsPath)) {
-    if (N == GetNumofMps()) {
-      cout << "The number of mps files is consistent with mps size." << endl;
-      cout << "Directly use mps from files." << endl;
-    } else {
-      qlmps::DirectStateInitMps(mps, stat_labs);
-      cout << "Initial mps as direct product state." << endl;
-      if (rank == 0)
-        mps.Dump(kMpsPath, true);
-    }
-  } else {
-    qlmps::DirectStateInitMps(mps, stat_labs);
-    cout << "Initial mps as direct product state." << endl;
-    if (rank == 0)
-      mps.Dump(kMpsPath, true);
-  }
-
-  for (size_t i = 0; i < params.Dmax.size(); i++) {
-    if (rank == 0) {
-      std::cout << "D_max = " << params.Dmax[i] << std::endl;
-    }
-    qlmps::FiniteVMPSSweepParams sweep_params(
-        params.Sweeps,
-        params.Dmin, params.Dmax[i], params.CutOff,
-        qlmps::LanczosParams(params.LanczErr, params.MaxLanczIter),
-        params.noise
-    );
-    auto e0 = qlmps::TwoSiteFiniteVMPS(mps, mpo, sweep_params, comm);
-  }
-  if (rank == 0) {
-    endTime = clock();
-    cout << "CPU Time : " << (double) (endTime - startTime) / CLOCKS_PER_SEC << "s" << endl;
-  }
-
-  if (rank == kMPIMasterRank) {
-    mps.Load(kMpsPath);
-    auto ee_list = mps.GetEntanglementEntropy(1);
-    std::copy(ee_list.begin(), ee_list.end(), std::ostream_iterator<double>(std::cout, " "));
-
-    std::cout << "\n";
-    std::cout << "middle " << ee_list[2 * Lx] << std::endl;
-  }
   size_t ref_site = N / 4;
   std::vector<size_t> target_sites;
   for (size_t i = ref_site + 2; i < N; i += 2) {
