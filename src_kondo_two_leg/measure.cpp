@@ -21,6 +21,12 @@ int main(int argc, char *argv[]) {
   MPI_Comm_rank(comm, &rank);
 
   CaseParams params(argv[1]);
+  //additional optional argument for set the MPS path
+  std::string mps_path = kMpsPath;
+  if(argc > 2) {
+    mps_path = argv[2];
+  }
+  
   size_t Lx = params.Lx; // L should be even number, for N/4 should on electron site for measure
   double t = params.t, Jk = params.JK, U = params.U;
   double t2 = params.t2;
@@ -81,7 +87,7 @@ int main(int argc, char *argv[]) {
   for (size_t i = 0; i < meas_ops.size(); ++i) {
     if (i % mpi_size == rank) {
       const auto &[label, op1, op2] = meas_ops[i];
-      auto measu_res = MeasureTwoSiteOpGroup(mps, kMpsPath, op1, op2, ref_site, target_sites);
+      auto measu_res = MeasureTwoSiteOpGroup(mps, mps_path, op1, op2, ref_site, target_sites);
       DumpMeasuRes(measu_res, label + file_postfix);
     }
   }
@@ -91,13 +97,10 @@ int main(int argc, char *argv[]) {
   for (size_t i = 0; i < N; i += 2) even_sites.push_back(i);
 
   std::vector<QLTensor<TenElemT, QNT>> one_site_ops = {hubbard_ops.sz, hubbard_ops.nf};
-  std::vector<std::string> one_site_labels = {"sz_local", "nf_local"};
+  std::vector<std::string> one_site_labels = {"sz_local" + file_postfix, "nf_local" + file_postfix};
 
   if ((meas_ops.size()) % mpi_size == rank) {
-    auto one_site_measu = MeasureOneSiteOp(mps, kMpsPath, one_site_ops, even_sites, one_site_labels);
-    for (size_t i = 0; i < one_site_labels.size(); ++i) {
-      DumpMeasuRes(one_site_measu[i], one_site_labels[i] + file_postfix);
-    }
+    MeasureOneSiteOp(mps, mps_path, one_site_ops, even_sites, one_site_labels);
   }
 
 
@@ -163,7 +166,7 @@ int main(int argc, char *argv[]) {
   for (int i = rank; i < total_tasks; i += mpi_size) {
     // Each rank processes its assigned tasks
     auto measu_res =
-        MeasureFourSiteOpGroup(mps, kMpsPath, tasks[i].phys_ops_set.front(), ref_sites, target_sites_diagonal_set);
+        MeasureFourSiteOpGroup(mps, mps_path, tasks[i].phys_ops_set.front(), ref_sites, target_sites_diagonal_set);
     DumpMeasuRes(measu_res, tasks[i].label + file_postfix);
 
   }

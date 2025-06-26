@@ -197,13 +197,10 @@ int main(int argc, char *argv[]) {
   for (size_t i = 0; i < N; i += 2) even_sites.push_back(i);
 
   std::vector<QLTensor<TenElemT, QNT>> one_site_ops = {hubbard_ops.sz, hubbard_ops.nf};
-  std::vector<std::string> one_site_labels = {"sz_local", "nf_local"};
+  std::vector<std::string> one_site_labels = {"sz_local" + file_postfix, "nf_local" + file_postfix};
 
   if ((meas_ops.size()) % mpi_size == rank) {
-    auto one_site_measu = MeasureOneSiteOp(mps, kMpsPath, one_site_ops, even_sites, one_site_labels);
-    for (size_t i = 0; i < one_site_labels.size(); ++i) {
-      DumpMeasuRes(one_site_measu[i], one_site_labels[i] + file_postfix);
-    }
+    MeasureOneSiteOp(mps, kMpsPath, one_site_ops, even_sites, one_site_labels);
   }
 
 
