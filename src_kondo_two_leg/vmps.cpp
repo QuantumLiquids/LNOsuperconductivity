@@ -167,10 +167,16 @@ int main(int argc, char *argv[]) {
   for (size_t i = ref_site + 2; i < N; i += 2) {
     target_sites.push_back(i);
   }
-
-  mps.Load();
-  mps.Centralize(0);
-  mps.Dump();
+  std::string mps_path = kMpsPath;
+  if (rank == 0) {
+    mps.Load(mps_path);
+    std::cout << "Success load mps into memory." << std::endl;
+    mps.Centralize(0);
+    std::cout << "Centralize mps to 0 site." << std::endl;
+    mps.Dump(mps_path, true);
+    std::cout << "Dump mps into disk" << std::endl;
+  }
+  MPI_Barrier(comm);
 
   std::ostringstream oss;
   oss << "t2" << t2 << "Jk" << Jk << "U" << U << "Lx" << Lx << "D" << params.Dmax.back();

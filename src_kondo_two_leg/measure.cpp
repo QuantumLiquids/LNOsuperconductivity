@@ -23,10 +23,11 @@ int main(int argc, char *argv[]) {
   CaseParams params(argv[1]);
   //additional optional argument for set the MPS path
   std::string mps_path = kMpsPath;
-  if(argc > 2) {
+  if (argc > 2) {
     mps_path = argv[2];
+    std::cout << "Set MPS path as " << mps_path << std::endl;
   }
-  
+
   size_t Lx = params.Lx; // L should be even number, for N/4 should on electron site for measure
   double t = params.t, Jk = params.JK, U = params.U;
   double t2 = params.t2;
@@ -68,9 +69,15 @@ int main(int argc, char *argv[]) {
     target_sites.push_back(i);
   }
 
-  mps.Load();
-  mps.Centralize(0);
-  mps.Dump();
+  if(rank == 0){
+    mps.Load(mps_path);
+    std::cout << "Success load mps into memory." << std::endl;
+    mps.Centralize(0);
+    std::cout << "Centralize mps to 0 site." << std::endl;
+    mps.Dump(mps_path, true);
+    std::cout << "Dump mps into disk" << std::endl;
+  }
+  MPI_Barrier(comm);
 
   std::ostringstream oss;
   oss << "t2" << t2 << "Jk" << Jk << "U" << U << "Lx" << Lx << "D" << params.Dmax.back();
@@ -89,6 +96,7 @@ int main(int argc, char *argv[]) {
       const auto &[label, op1, op2] = meas_ops[i];
       auto measu_res = MeasureTwoSiteOpGroup(mps, mps_path, op1, op2, ref_site, target_sites);
       DumpMeasuRes(measu_res, label + file_postfix);
+      std::cout << "Measured two-site correlation" + label << std::endl;
     }
   }
 
@@ -101,6 +109,7 @@ int main(int argc, char *argv[]) {
 
   if ((meas_ops.size()) % mpi_size == rank) {
     MeasureOneSiteOp(mps, mps_path, one_site_ops, even_sites, one_site_labels);
+    std::cout << "Measured one-site correlation" << std::endl;
   }
 
 
@@ -168,7 +177,7 @@ int main(int argc, char *argv[]) {
     auto measu_res =
         MeasureFourSiteOpGroup(mps, mps_path, tasks[i].phys_ops_set.front(), ref_sites, target_sites_diagonal_set);
     DumpMeasuRes(measu_res, tasks[i].label + file_postfix);
-
+    std::cout << "Measured SC correlation" << std::endl;
   }
 
   MPI_Finalize();
