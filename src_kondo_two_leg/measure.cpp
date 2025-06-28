@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
     target_sites.push_back(i);
   }
 
-  if(rank == 0){
+  if (rank == 0) {
     mps.Load(mps_path);
     std::cout << "Success load mps into memory." << std::endl;
     mps.Centralize(0);
@@ -85,15 +85,15 @@ int main(int argc, char *argv[]) {
 
   // Two-site correlation measurements
   using OpT = Tensor;
-  std::vector<std::tuple<std::string, const OpT &, const OpT &>> meas_ops = {
+  std::vector<std::tuple<std::string, const OpT &, const OpT &>> two_site_meas_ops = {
       {"szsz", hubbard_ops.sz, hubbard_ops.sz},
       {"spsm", hubbard_ops.sp, hubbard_ops.sm},
       {"smsp", hubbard_ops.sm, hubbard_ops.sp},
       {"nfnf", hubbard_ops.nf, hubbard_ops.nf}
   };
-  for (size_t i = 0; i < meas_ops.size(); ++i) {
+  for (size_t i = 0; i < two_site_meas_ops.size(); ++i) {
     if (i % mpi_size == rank) {
-      const auto &[label, op1, op2] = meas_ops[i];
+      const auto &[label, op1, op2] = two_site_meas_ops[i];
       auto measu_res = MeasureTwoSiteOpGroup(mps, mps_path, op1, op2, ref_site, target_sites);
       DumpMeasuRes(measu_res, label + file_postfix);
       std::cout << "Measured two-site correlation" + label << std::endl;
@@ -107,35 +107,35 @@ int main(int argc, char *argv[]) {
   std::vector<QLTensor<TenElemT, QNT>> one_site_ops = {hubbard_ops.sz, hubbard_ops.nf};
   std::vector<std::string> one_site_labels = {"sz_local" + file_postfix, "nf_local" + file_postfix};
 
-  if ((meas_ops.size()) % mpi_size == rank) {
+  if ((two_site_meas_ops.size()) % mpi_size == rank) {
     MeasureOneSiteOp(mps, mps_path, one_site_ops, even_sites, one_site_labels);
     std::cout << "Measured one-site correlation" << std::endl;
   }
 
 
   // SC single-pair correlation measurements
-  vector<vector<size_t>>
-      four_point_diagonal_bond_sites_setF;//actually no used for new measure API. a special case that do not need include the insertion operator
-
   std::vector<std::array<size_t, 2>>
       target_sites_diagonal_set;// a special case that do not need include the insertion operator
-
-  four_point_diagonal_bond_sites_setF.reserve(Lx);
+  std::vector<std::array<size_t, 2>>
+      target_sites_horizontal_set;
   target_sites_diagonal_set.reserve(Lx);
+  target_sites_horizontal_set.reserve(Lx);
 
   size_t begin_x = Lx / 4;
-  size_t end_x = Lx - 1;
-  size_t Ly = 2;
-  size_t site1_a = begin_x * Ly;
-  size_t site1_b = begin_x * Ly + 1;
-  if (site1_b < site1_a) {
-    std::swap(site1_a, site1_b);
+  if (begin_x % 2 == 0) {
+    begin_x += 1;
   }
+  size_t end_x = Lx - 1;
+  size_t Ly = 4;
+  size_t site1_a = begin_x * Ly;
+  size_t site1_b = begin_x * Ly + 2; //a-b: diagonal bond
+  size_t site1_c = begin_x * Ly + 4; //a-c: horizontal bond
   for (size_t x = begin_x + 2; x < end_x; x++) {
     size_t site2_a = x * Ly;
-    size_t site2_b = x * Ly + 1;
-    four_point_diagonal_bond_sites_setF.push_back({site1_a, site1_b, site2_a, site2_b});
+    size_t site2_b = x * Ly + 2;
+    size_t site2_c = x * Ly + 4; // a-c: horizontal or vertical bond
     target_sites_diagonal_set.push_back({site2_a, site2_b});
+    target_sites_horizontal_set.push_back({site2_a, site2_c});
   }
   std::array<Tensor, 4> sc_phys_ops_a = {ops.bupcF, ops.Fbdnc, ops.bupaF, ops.Fbdna};
   std::array<Tensor, 4> sc_phys_ops_b = {ops.bdnc, ops.bupc, ops.bupaF, ops.Fbdna};
@@ -147,35 +147,36 @@ int main(int argc, char *argv[]) {
       sc_phys_ops_f = {ops.bdnc, ops.Fbdnc, ops.bdna, ops.Fbdna}; // Triplet < down^dag(i) down^dag(j) down(k) down(l) >
   std::array<Tensor, 4> sc_inst_ops = {ops.f, ops.id, ops.f};
 
-  size_t sc_corr_set_size = four_point_diagonal_bond_sites_setF.size();
-  std::vector<std::array<Tensor, 4>> sc_phys_ops_set_a(sc_corr_set_size, sc_phys_ops_a);
-  std::vector<std::array<Tensor, 4>> sc_phys_ops_set_b(sc_corr_set_size, sc_phys_ops_b);
-  std::vector<std::array<Tensor, 4>> sc_phys_ops_set_c(sc_corr_set_size, sc_phys_ops_c);
-  std::vector<std::array<Tensor, 4>> sc_phys_ops_set_d(sc_corr_set_size, sc_phys_ops_d);
-  std::vector<std::array<Tensor, 4>> sc_phys_ops_set_e(sc_corr_set_size, sc_phys_ops_e);
-  std::vector<std::array<Tensor, 4>> sc_phys_ops_set_f(sc_corr_set_size, sc_phys_ops_f);
-
   struct Task {
-    const vector<array<Tensor, 4>> &phys_ops_set;
-    const vector<vector<size_t>> &bond_sites_set;
+    const array<Tensor, 4> &phys_ops;
+    const std::array<size_t, 2> &ref_sites;
+    const std::vector<std::array<size_t, 2>> &target_sites_set;
     string label;
   };
+  std::array<size_t, 2> ref_diag_sites = {site1_a, site1_b};
+  std::array<size_t, 2> ref_hori_sites = {site1_a, site1_c};
+
   Task tasks[] = {
-      {sc_phys_ops_set_a, four_point_diagonal_bond_sites_setF, "scsyya"},
-      {sc_phys_ops_set_b, four_point_diagonal_bond_sites_setF, "scsyyb"},
-      {sc_phys_ops_set_c, four_point_diagonal_bond_sites_setF, "scsyyc"},
-      {sc_phys_ops_set_d, four_point_diagonal_bond_sites_setF, "scsyyd"},
-      {sc_phys_ops_set_e, four_point_diagonal_bond_sites_setF, "sctyye"},
-      {sc_phys_ops_set_f, four_point_diagonal_bond_sites_setF, "sctyyf"},
+      {sc_phys_ops_a, ref_diag_sites, target_sites_diagonal_set, "scs_diag_a"},
+      {sc_phys_ops_b, ref_diag_sites, target_sites_diagonal_set, "scs_diag_b"},
+      {sc_phys_ops_c, ref_diag_sites, target_sites_diagonal_set, "scs_diag_c"},
+      {sc_phys_ops_d, ref_diag_sites, target_sites_diagonal_set, "scs_diag_d"},
+      {sc_phys_ops_e, ref_diag_sites, target_sites_diagonal_set, "sct_diag_e"},
+      {sc_phys_ops_f, ref_diag_sites, target_sites_diagonal_set, "sct_diag_f"},
+      {sc_phys_ops_a, ref_hori_sites, target_sites_horizontal_set, "scs_hori_a"},
+      {sc_phys_ops_b, ref_hori_sites, target_sites_horizontal_set, "scs_hori_b"},
+      {sc_phys_ops_c, ref_hori_sites, target_sites_horizontal_set, "scs_hori_c"},
+      {sc_phys_ops_d, ref_hori_sites, target_sites_horizontal_set, "scs_hori_d"},
+      {sc_phys_ops_e, ref_hori_sites, target_sites_horizontal_set, "sct_hori_e"},
+      {sc_phys_ops_f, ref_hori_sites, target_sites_horizontal_set, "sct_hori_f"}
   };
 
   int total_tasks = sizeof(tasks) / sizeof(tasks[0]);
 
-  std::array<size_t, 2> ref_sites = {site1_a, site1_b};
-  for (int i = rank; i < total_tasks; i += mpi_size) {
+  for (int i = (rank + two_site_meas_ops.size() + 1) % mpi_size; i < total_tasks; i += mpi_size) {
     // Each rank processes its assigned tasks
     auto measu_res =
-        MeasureFourSiteOpGroup(mps, mps_path, tasks[i].phys_ops_set.front(), ref_sites, target_sites_diagonal_set);
+        MeasureFourSiteOpGroup(mps, mps_path, tasks[i].phys_ops, tasks[i].ref_sites, tasks[i].target_sites_set);
     DumpMeasuRes(measu_res, tasks[i].label + file_postfix);
     std::cout << "Measured SC correlation" << std::endl;
   }

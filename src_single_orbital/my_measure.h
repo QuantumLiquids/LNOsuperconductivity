@@ -15,6 +15,7 @@
 
 #include "qlmps/one_dim_tn/mps/finite_mps/finite_mps.h"    // FiniteMPS
 #include "qlmps/one_dim_tn/mps/finite_mps/finite_mps_measu_memory.h"
+#include "qlmps/one_dim_tn/mps/finite_mps/finite_mps_measu_disk.h"
 #include "qlten/qlten.h"
 
 namespace qlmps {
@@ -674,6 +675,83 @@ inline MeasuRes<TenElemT> MeasureElectronPhonon4PointFunctionGroup(
     mps.dealloc(i);
   }
   delete tmp_tensor_with_c2o.tmp_tensor;
+  return measure_res;
+}
+
+template<typename TenElemT, typename QNT>
+MeasuRes<TenElemT> MeasureFourSiteOpGroupInKondoLattice(
+    FiniteMPS<TenElemT, QNT> &mps,
+    const std::string &mps_path,
+    const std::array<QLTensor<TenElemT, QNT>, 4> &phys_ops,
+    const std::array<size_t, 2> &ref_sites,
+    std::vector<std::array<size_t, 2>> target_sites_set,
+    QLTensor<TenElemT, QNT> inst_op  // sign operator f in itinerate site
+) {
+  assert(mps.empty());
+  using Tensor = QLTensor<TenElemT, QNT>;
+  std::sort(target_sites_set.begin(), target_sites_set.end(),
+            [](const std::array<size_t, 2> &a, const std::array<size_t, 2> &b) {
+              return a[0] < b[0];
+            });
+  MeasuRes<TenElemT> measure_res(target_sites_set.size());
+
+  auto id_op_set = mps.GetSitesInfo().id_ops;
+
+  Index<QNT> pb_out_fermion = mps[0].GetIndexes()[1];
+  std::cout << "We have assumed the first site is the fermion site." << std::endl;
+
+  //Move center to ref_sites[0]
+  mps.LoadTen(0, GenMPSTenName(mps_path, 0));
+  for (size_t j = 0; j < ref_sites[0]; j++) {
+    mps.LoadTen(j + 1, GenMPSTenName(mps_path, j + 1));
+    mps.LeftCanonicalizeTen(j);
+    mps.dealloc(j);
+  }
+
+  auto ptemp_ten = new QLTensor<TenElemT, QNT>;
+  *ptemp_ten = ContractHeadSite(mps[ref_sites[0]], phys_ops[0]);
+  mps.dealloc(ref_sites[0]);
+
+  for (size_t i = ref_sites[0] + 1; i < ref_sites[1]; ++i) {
+    if(mps[i].GetIndex(1) == pb_out_fermion ){
+      CtrctMidTen(mps, i, inst_op, id_op_set[i], ptemp_ten, mps_path);
+    } else {
+      CtrctMidTen(mps, i, id_op_set[i], id_op_set[i], ptemp_ten, mps_path);
+    }
+  }
+  CtrctMidTen(mps, ref_sites[1], phys_ops[1], id_op_set[ref_sites[1]], ptemp_ten, mps_path);
+  assert(mps.empty());
+
+  LeftTempTen temp_struct = LeftTempTen(ref_sites[1], *ptemp_ten);
+  delete ptemp_ten;
+  for (size_t event = 0; event < target_sites_set.size(); event++) {
+    size_t target_site0 = target_sites_set[event][0];
+    temp_struct.MoveTo(mps, target_site0 - 1, mps_path);
+
+    ptemp_ten = new Tensor(*(temp_struct.ptemp_ten));// deep copy
+    mps.LoadTen(mps_path, target_site0);
+    CtrctMidTen(mps, target_site0, phys_ops[2], id_op_set[target_site0], ptemp_ten);
+    size_t target_site1 = target_sites_set[event][1];
+    for (size_t i = target_site0 + 1; i < target_site1; ++i) {
+      mps.LoadTen(mps_path, i);
+      if(mps[i].GetIndex(1) == pb_out_fermion ){
+        CtrctMidTen(mps, i, inst_op, id_op_set[i], ptemp_ten);
+      } else {
+        CtrctMidTen(mps, i, id_op_set[i], id_op_set[i], ptemp_ten);
+      }
+    }
+    // Deal with tail tensor.
+    mps.LoadTen(target_site1, GenMPSTenName(mps_path, target_site1));
+    auto avg = ContractTailSite(mps[target_site1], phys_ops[3], *ptemp_ten);
+    delete ptemp_ten;
+    measure_res[event] = MeasuResElem<TenElemT>({ref_sites[0], ref_sites[1], target_site0, target_site1},
+                                                avg);
+  }
+  //clean the data
+  for (size_t i = target_sites_set.back()[0]; i <= target_sites_set.back()[1]; i++) {
+    mps.dealloc(i);
+  }
+  assert(mps.empty());
   return measure_res;
 }
 
