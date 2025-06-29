@@ -697,7 +697,8 @@ MeasuRes<TenElemT> MeasureFourSiteOpGroupInKondoLattice(
 
   auto id_op_set = mps.GetSitesInfo().id_ops;
 
-  Index<QNT> pb_out_fermion = mps[0].GetIndexes()[1];
+  Index<QNT> pb_out_fermion = id_op_set[0].GetIndex(1);
+  assert(pb_out_fermion.GetDir() == OUT);
   std::cout << "We have assumed the first site is the fermion site." << std::endl;
 
   //Move center to ref_sites[0]
@@ -713,7 +714,7 @@ MeasuRes<TenElemT> MeasureFourSiteOpGroupInKondoLattice(
   mps.dealloc(ref_sites[0]);
 
   for (size_t i = ref_sites[0] + 1; i < ref_sites[1]; ++i) {
-    if(mps[i].GetIndex(1) == pb_out_fermion ){
+    if (id_op_set[i].GetIndex(1) == pb_out_fermion) { // if fermion site
       CtrctMidTen(mps, i, inst_op, id_op_set[i], ptemp_ten, mps_path);
     } else {
       CtrctMidTen(mps, i, id_op_set[i], id_op_set[i], ptemp_ten, mps_path);
@@ -734,7 +735,7 @@ MeasuRes<TenElemT> MeasureFourSiteOpGroupInKondoLattice(
     size_t target_site1 = target_sites_set[event][1];
     for (size_t i = target_site0 + 1; i < target_site1; ++i) {
       mps.LoadTen(mps_path, i);
-      if(mps[i].GetIndex(1) == pb_out_fermion ){
+      if (id_op_set[i].GetIndex(1) == pb_out_fermion) {
         CtrctMidTen(mps, i, inst_op, id_op_set[i], ptemp_ten);
       } else {
         CtrctMidTen(mps, i, id_op_set[i], id_op_set[i], ptemp_ten);
