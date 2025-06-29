@@ -8,6 +8,7 @@
 #include "../src_kondo/kondo_hilbert_space.h"
 #include "./params_case.h"
 #include "../src_single_orbital/myutil.h"
+#include "../src_single_orbital/my_measure.h"
 
 using namespace qlmps;
 using namespace qlten;
@@ -173,10 +174,15 @@ int main(int argc, char *argv[]) {
 
   int total_tasks = sizeof(tasks) / sizeof(tasks[0]);
 
-  for (int i = (rank + two_site_meas_ops.size() + 1) % mpi_size; i < total_tasks; i += mpi_size) {
+  for (int i = (rank + mpi_size * 5 - two_site_meas_ops.size() - 1) % mpi_size; i < total_tasks; i += mpi_size) {
     // Each rank processes its assigned tasks
     auto measu_res =
-        MeasureFourSiteOpGroup(mps, mps_path, tasks[i].phys_ops, tasks[i].ref_sites, tasks[i].target_sites_set);
+        MeasureFourSiteOpGroupInKondoLattice(mps,
+                                             mps_path,
+                                             tasks[i].phys_ops,
+                                             tasks[i].ref_sites,
+                                             tasks[i].target_sites_set,
+                                             ops.f);
     DumpMeasuRes(measu_res, tasks[i].label + file_postfix);
     std::cout << "Measured SC correlation" << std::endl;
   }
