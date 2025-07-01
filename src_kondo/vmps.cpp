@@ -1,9 +1,8 @@
 /*
  * Author: Hao-Xin Wang <wanghaoxin1996@gmail.com>
  * Creation Date: 2025-04-119
- * Description: 1D Kondo-Chain DMRG
+ * Description: 1D Kondo-Chain DMRG and measurement
  */
-
 
 
 #include "qlten/qlten.h"
@@ -24,10 +23,11 @@ int main(int argc, char *argv[]) {
   MPI_Comm_rank(comm, &rank);
 
   CaseParams params(argv[1]);
-  size_t L = params.L; // L should be even number, for N/4 should on electron site for measure
+  size_t L = params.L; // The number of itinerate site.
+  // L should be even number, for N/4 should on electron site for measure
   double t = params.t, Jk = params.JK, U = params.U;
 
-  size_t N = 2 * L; // total number of sites
+  size_t N = 2 * L; // total number of sites, include both itinerate & localized sites
   /*** Print Model Parameter Info ***/
   if (rank == 0) {
     cout << "L = " << L << endl;
@@ -136,7 +136,11 @@ int main(int argc, char *argv[]) {
 
     std::cout << "\n";
     std::cout << "middle " << ee_list[L] << std::endl;
+    mps.Centralize(0);
+    mps.DumpTen(kMpsPath, true);
   }
+  MPI_Barrier(comm);
+
   size_t ref_site = N / 4;
   std::vector<size_t> target_sites;
   for (size_t i = ref_site + 2; i < N; i += 2) {
@@ -149,15 +153,15 @@ int main(int argc, char *argv[]) {
 
   // Two-site correlation measurements
   using OpT = Tensor;
-  std::vector<std::tuple<std::string, const OpT &, const OpT &>> meas_ops = {
+  std::vector<std::tuple<std::string, const OpT &, const OpT &>> two_site_meas_ops = {
       {"szsz", hubbard_ops.sz, hubbard_ops.sz},
       {"spsm", hubbard_ops.sp, hubbard_ops.sm},
       {"smsp", hubbard_ops.sm, hubbard_ops.sp},
       {"nfnf", hubbard_ops.nf, hubbard_ops.nf}
   };
-  for (size_t i = 0; i < meas_ops.size(); ++i) {
+  for (size_t i = 0; i < two_site_meas_ops.size(); ++i) {
     if (i % mpi_size == rank) {
-      const auto &[label, op1, op2] = meas_ops[i];
+      const auto &[label, op1, op2] = two_site_meas_ops[i];
       auto measu_res = MeasureTwoSiteOpGroup(mps, kMpsPath, op1, op2, ref_site, target_sites);
       DumpMeasuRes(measu_res, label + file_postfix);
     }
@@ -170,11 +174,10 @@ int main(int argc, char *argv[]) {
   std::vector<QLTensor<TenElemT, QNT>> one_site_ops = {hubbard_ops.sz, hubbard_ops.nf};
   std::vector<std::string> one_site_labels = {"sz_local", "nf_local"};
 
-  auto one_site_measu = MeasureOneSiteOp(mps, kMpsPath, one_site_ops, even_sites, one_site_labels);
-  for (size_t i = 0; i < one_site_labels.size(); ++i) {
-    if ((i + meas_ops.size()) % mpi_size == rank) {
-      DumpMeasuRes(one_site_measu[i], one_site_labels[i] + file_postfix);
-    }
+  std::string mps_path = kMpsPath;
+  if ((two_site_meas_ops.size()) % mpi_size == rank) {
+    MeasureOneSiteOp(mps, mps_path, one_site_ops, even_sites, one_site_labels);
+    std::cout << "Measured one-site correlation" << std::endl;
   }
 
   MPI_Finalize();

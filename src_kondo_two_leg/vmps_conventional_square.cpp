@@ -1,6 +1,9 @@
 //
-// Created by 王昊昕 on 25/6/2025.
+// Created by 王昊昕 on 19/4/2025.
 //
+/*
+ * 2-leg Kondo lattice model, in convential square lattice.
+ */
 
 
 #include "qlten/qlten.h"
@@ -22,14 +25,7 @@ int main(int argc, char *argv[]) {
   MPI_Comm_rank(comm, &rank);
 
   CaseParams params(argv[1]);
-  //additional optional argument for set the MPS path
-  std::string mps_path = kMpsPath;
-  if (argc > 2) {
-    mps_path = argv[2];
-    std::cout << "Set MPS path as " << mps_path << std::endl;
-  }
-
-  size_t Lx = params.Lx; // L should be even number, for N/4 should on electron site for measure
+  size_t Lx = params.Lx; // Lx should be even number, for N/4 should on electron site for measure
   double t = params.t, Jk = params.JK, U = params.U;
   double t2 = params.t2;
   size_t N = 4 * Lx;
@@ -53,23 +49,121 @@ int main(int argc, char *argv[]) {
     if (i % 2 == 1) pb_set[i] = pb_outL;   // odd site is localized electron
   }
   const SiteVec<TenElemT, QNT> sites = SiteVec<TenElemT, QNT>(pb_set);
+  auto mpo_gen = MPOGenerator<TenElemT, QNT>(sites);
 
   HubbardOperators<TenElemT, QNT> hubbard_ops;
   auto &ops = hubbard_ops;
   SpinOneHalfOperatorsU1U1 local_spin_ops;
   auto f = hubbard_ops.f;
+  //hopping along x direction
+  for (size_t i = 0; i < N - 4; i = i + 2) {
+    size_t site1 = i, site2 = i + 4;
+    mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, {site1 + 2});
+    mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, {site1 + 2});
+    mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, {site1 + 2});
+    mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, {site1 + 2});
+  }
+
+  for (size_t i = 0; i < N - 2; i += 4) {
+    size_t site1 = i, site2 = i + 2;
+    mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2);
+    mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2);
+    mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2);
+    mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2);
+  }
+
+//  for (size_t i = second_leg_start_site; i < N - 2; i = i + di_for_t2) {
+//    size_t site1 = i, site2 = i + 2;
+//    mpo_gen.AddTerm(-t2, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2);
+//    mpo_gen.AddTerm(t2, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2);
+//    mpo_gen.AddTerm(-t2, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2);
+//    mpo_gen.AddTerm(t2, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2);
+//  }
+
+  for (size_t i = 0; i < N; i += 2) {
+    mpo_gen.AddTerm(U, hubbard_ops.nupndn, i);
+  }
+
+  for (size_t i = 0; i < N; i = i + 2) {
+    mpo_gen.AddTerm(Jk, hubbard_ops.sz, i, local_spin_ops.sz, i + 1);
+    mpo_gen.AddTerm(Jk / 2, hubbard_ops.sp, i, local_spin_ops.sm, i + 1);
+    mpo_gen.AddTerm(Jk / 2, hubbard_ops.sm, i, local_spin_ops.sp, i + 1);
+  }
+
+  qlmps::MPO<Tensor> mpo = mpo_gen.Gen();
 
   using FiniteMPST = qlmps::FiniteMPS<TenElemT, QNT>;
   FiniteMPST mps(sites);
 
   qlten::hp_numeric::SetTensorManipulationThreads(params.Threads);
 
+  std::vector<size_t> elec_labs(2 * Lx);
+  //electron quarter filling
+  std::fill(elec_labs.begin(), elec_labs.begin() + Lx / 2, hubbard_site.spin_up);
+  std::fill(elec_labs.begin() + Lx / 2, elec_labs.begin() + Lx, hubbard_site.spin_down);
+  std::fill(elec_labs.begin() + Lx, elec_labs.end(), hubbard_site.empty);
+  std::random_device rd;
+  std::mt19937 g(rd());
+  std::shuffle(elec_labs.begin(), elec_labs.end(), g);
+
+  std::vector<size_t> stat_labs(N);
+  for (size_t i = 0; i < N; i = i + 2) {
+    stat_labs[i] = elec_labs[i / 2];
+  }
+  int sz_lab = 0;
+  for (size_t i = 1; i < N; i = i + 2) {
+    stat_labs[i] = sz_lab % 2;
+    sz_lab++;
+  }
+
+  if (IsPathExist(kMpsPath)) {
+    if (N == GetNumofMps()) {
+      cout << "The number of mps files is consistent with mps size." << endl;
+      cout << "Directly use mps from files." << endl;
+    } else {
+      qlmps::DirectStateInitMps(mps, stat_labs);
+      cout << "Initial mps as direct product state." << endl;
+      if (rank == 0)
+        mps.Dump(kMpsPath, true);
+    }
+  } else {
+    qlmps::DirectStateInitMps(mps, stat_labs);
+    cout << "Initial mps as direct product state." << endl;
+    if (rank == 0)
+      mps.Dump(kMpsPath, true);
+  }
+
+  for (size_t i = 0; i < params.Dmax.size(); i++) {
+    if (rank == 0) {
+      std::cout << "D_max = " << params.Dmax[i] << std::endl;
+    }
+    qlmps::FiniteVMPSSweepParams sweep_params(
+        params.Sweeps,
+        params.Dmin, params.Dmax[i], params.CutOff,
+        qlmps::LanczosParams(params.LanczErr, params.MaxLanczIter),
+        params.noise
+    );
+    auto e0 = qlmps::TwoSiteFiniteVMPS(mps, mpo, sweep_params, comm);
+  }
+  if (rank == 0) {
+    endTime = clock();
+    cout << "CPU Time : " << (double) (endTime - startTime) / CLOCKS_PER_SEC << "s" << endl;
+  }
+
+  if (rank == kMPIMasterRank) {
+    mps.Load(kMpsPath);
+    auto ee_list = mps.GetEntanglementEntropy(1);
+    std::copy(ee_list.begin(), ee_list.end(), std::ostream_iterator<double>(std::cout, " "));
+
+    std::cout << "\n";
+    std::cout << "middle " << ee_list[2 * Lx] << std::endl;
+  }
   size_t ref_site = N / 4;
   std::vector<size_t> target_sites;
   for (size_t i = ref_site + 2; i < N; i += 2) {
     target_sites.push_back(i);
   }
-
+  std::string mps_path = kMpsPath;
   if (rank == 0) {
     mps.Load(mps_path);
     std::cout << "Success load mps into memory." << std::endl;
@@ -81,7 +175,7 @@ int main(int argc, char *argv[]) {
   MPI_Barrier(comm);
 
   std::ostringstream oss;
-  oss << "t2" << t2 << "Jk" << Jk << "U" << U << "Lx" << Lx << "D" << params.Dmax.back();
+  oss << "conventional_square" << "Jk" << Jk << "U" << U << "Lx" << Lx << "D" << params.Dmax.back();
   std::string file_postfix = oss.str();
 
   // Two-site correlation measurements
@@ -119,34 +213,38 @@ int main(int argc, char *argv[]) {
       target_sites_diagonal_set;// a special case that do not need include the insertion operator
   std::vector<std::array<size_t, 2>>
       target_sites_horizontal_set;
+  std::vector<std::array<size_t, 2>>
+      target_sites_vertical_set;
   target_sites_diagonal_set.reserve(Lx);
   target_sites_horizontal_set.reserve(Lx);
+  target_sites_vertical_set.reserve(Lx);
 
   size_t begin_x = Lx / 4;
-  if (begin_x % 2 == 0) {
-    begin_x += 1;
-  }
   size_t end_x = Lx - 1;
   size_t Ly = 4;
   size_t site1_a = begin_x * Ly;
-  size_t site1_b = begin_x * Ly + 2; //a-b: diagonal bond
+  size_t site1_b = begin_x * Ly + 2; //a-b: vertical bond
   size_t site1_c = begin_x * Ly + 4; //a-c: horizontal bond
+  //b-c: diagonal bond
+  std::array<size_t, 2> ref_diag_sites = {site1_b, site1_c};
+  std::array<size_t, 2> ref_hori_sites = {site1_a, site1_c};
+  std::array<size_t, 2> ref_vert_sites = {site1_a, site1_b};
   for (size_t x = begin_x + 2; x < end_x; x++) {
     size_t site2_a = x * Ly;
     size_t site2_b = x * Ly + 2;
-    size_t site2_c = x * Ly + 4; // a-c: horizontal or vertical bond
-    target_sites_diagonal_set.push_back({site2_a, site2_b});
+    size_t site2_c = x * Ly + 4;
+    target_sites_diagonal_set.push_back({site2_b, site2_c});
+    target_sites_vertical_set.push_back({site2_a, site2_b});
     target_sites_horizontal_set.push_back({site2_a, site2_c});
   }
   std::array<Tensor, 4> sc_phys_ops_a = {ops.bupcF, ops.Fbdnc, ops.bupaF, ops.Fbdna};
   std::array<Tensor, 4> sc_phys_ops_b = {ops.bdnc, ops.bupc, ops.bupaF, ops.Fbdna};
   std::array<Tensor, 4> sc_phys_ops_c = {ops.bupcF, ops.Fbdnc, ops.bdna, ops.bupa};
-  std::array<Tensor, 4> sc_phys_ops_d = {ops.bdnc, ops.bupc, ops.bdna, ops.bupa}; // a==d if spin inversion symmetry
+  std::array<Tensor, 4> sc_phys_ops_d = {ops.bdnc, ops.bupc, ops.bdna, ops.bupa};
   std::array<Tensor, 4>
       sc_phys_ops_e = {ops.bupcF, ops.bupc, ops.bupaF, ops.bupa}; // Triplet < up^dag(i) up^dag(j) up(k) up(l) >
   std::array<Tensor, 4>
       sc_phys_ops_f = {ops.bdnc, ops.Fbdnc, ops.bdna, ops.Fbdna}; // Triplet < down^dag(i) down^dag(j) down(k) down(l) >
-  std::array<Tensor, 4> sc_inst_ops = {ops.f, ops.id, ops.f};
 
   struct Task {
     const array<Tensor, 4> &phys_ops;
@@ -154,8 +252,6 @@ int main(int argc, char *argv[]) {
     const std::vector<std::array<size_t, 2>> &target_sites_set;
     string label;
   };
-  std::array<size_t, 2> ref_diag_sites = {site1_a, site1_b};
-  std::array<size_t, 2> ref_hori_sites = {site1_a, site1_c};
 
   Task tasks[] = {
       {sc_phys_ops_a, ref_diag_sites, target_sites_diagonal_set, "scs_diag_a"},
@@ -164,6 +260,12 @@ int main(int argc, char *argv[]) {
       {sc_phys_ops_d, ref_diag_sites, target_sites_diagonal_set, "scs_diag_d"},
       {sc_phys_ops_e, ref_diag_sites, target_sites_diagonal_set, "sct_diag_e"},
       {sc_phys_ops_f, ref_diag_sites, target_sites_diagonal_set, "sct_diag_f"},
+      {sc_phys_ops_a, ref_vert_sites, target_sites_vertical_set, "scs_vert_a"},
+      {sc_phys_ops_b, ref_vert_sites, target_sites_vertical_set, "scs_vert_b"},
+      {sc_phys_ops_c, ref_vert_sites, target_sites_vertical_set, "scs_vert_c"},
+      {sc_phys_ops_d, ref_vert_sites, target_sites_vertical_set, "scs_vert_d"},
+      {sc_phys_ops_e, ref_vert_sites, target_sites_vertical_set, "sct_vert_e"},
+      {sc_phys_ops_f, ref_vert_sites, target_sites_vertical_set, "sct_vert_f"},
       {sc_phys_ops_a, ref_hori_sites, target_sites_horizontal_set, "scs_hori_a"},
       {sc_phys_ops_b, ref_hori_sites, target_sites_horizontal_set, "scs_hori_b"},
       {sc_phys_ops_c, ref_hori_sites, target_sites_horizontal_set, "scs_hori_c"},

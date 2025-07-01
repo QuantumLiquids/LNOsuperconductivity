@@ -197,3 +197,4 @@ add_executable(kondo_ladder_vmps src_kondo_two_leg/vmps.cpp src_single_orbital/m
 add_executable(kondo_ladder_measure src_kondo_two_leg/measure.cpp src_single_orbital/myutil.cpp)
 add_executable(kondo_ladder_vmpsJk0 src_kondo_two_leg/vmps_Jk0.cpp src_single_orbital/myutil.cpp)
 add_executable(kondo_ladder_dmrgJk0 src_kondo_two_leg/dmrg_Jk0.cpp src_single_orbital/myutil.cpp)
+add_executable(kondo_ladder_conventional_square_vmps src_kondo_two_leg/vmps_conventional_square.cpp src_single_orbital/myutil.cpp)
