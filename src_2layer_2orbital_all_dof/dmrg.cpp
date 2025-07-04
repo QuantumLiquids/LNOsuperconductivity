@@ -1,5 +1,6 @@
 /**
- * DMRG for Hubbard Altermagnetism
+ * DMRG for LNO two-layer, two-orbital model code
+ * Upto July 3rd, 2025, the code only support for Ly = 2
  *
  */
 #include "qlmps/qlmps.h"

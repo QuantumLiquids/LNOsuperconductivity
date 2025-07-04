@@ -136,8 +136,7 @@ int main(int argc, char *argv[]) {
 
     std::cout << "\n";
     std::cout << "middle " << ee_list[L] << std::endl;
-    mps.Centralize(0);
-    mps.DumpTen(kMpsPath, true);
+    mps.clear();
   }
   MPI_Barrier(comm);
 

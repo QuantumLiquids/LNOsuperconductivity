@@ -5,7 +5,6 @@
 
 #include "qlten/qlten.h"
 #include "qlmps/qlmps.h"
-#include "../src_kondo/kondo_hilbert_space.h"
 #include "./params_case.h"
 #include "../src_single_orbital/myutil.h"
 

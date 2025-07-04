@@ -8,7 +8,7 @@
 
 #include "qlten/qlten.h"
 #include "qlmps/qlmps.h"
-#include "../src_kondo/kondo_hilbert_space.h"
+#include "../src_kondo_1D/kondo_hilbert_space.h"
 #include "./params_case.h"
 #include "../src_single_orbital/myutil.h"
 #include "../src_single_orbital/my_measure.h"
@@ -164,15 +164,6 @@ int main(int argc, char *argv[]) {
     target_sites.push_back(i);
   }
   std::string mps_path = kMpsPath;
-  if (rank == 0) {
-    mps.Load(mps_path);
-    std::cout << "Success load mps into memory." << std::endl;
-    mps.Centralize(0);
-    std::cout << "Centralize mps to 0 site." << std::endl;
-    mps.Dump(mps_path, true);
-    std::cout << "Dump mps into disk" << std::endl;
-  }
-  MPI_Barrier(comm);
 
   std::ostringstream oss;
   oss << "conventional_square" << "Jk" << Jk << "U" << U << "Lx" << Lx << "D" << params.Dmax.back();

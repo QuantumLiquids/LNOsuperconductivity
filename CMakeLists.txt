@@ -113,7 +113,7 @@ if (QLMPS_USE_GPU)
 
 
     file(GLOB_RECURSE SINGLE_ORBITAL_SOURCES src_single_orbital/*.cpp)
-    file(GLOB_RECURSE FOUR_BAND_SOURCES src_4band/*.cpp)
+    file(GLOB_RECURSE FOUR_BAND_SOURCES src_2layer_2orbital_all_dof/*.cpp)
 
     set(TEST_SOURCES ${SINGLE_ORBITAL_SOURCES} ${FOUR_BAND_SOURCES})
 
@@ -183,18 +183,19 @@ add_executable(dmrg_single_orbital src_single_orbital/dmrg_single_orbital_double
 #add_executable(measure2 src_single_orbital/measure2.cpp src_single_orbital/myutil.cpp src_single_orbital/operators.cpp)
 #add_executable(measureSC src_single_orbital/measureSC.cpp src_single_orbital/myutil.cpp src_single_orbital/operators.cpp)
 
-add_library(4band_common_objects OBJECT src_4band/myutil.cpp)
+add_library(4band_common_objects OBJECT src_2layer_2orbital_all_dof/myutil.cpp)
 
-add_executable(dmrg4band src_4band/dmrg.cpp $<TARGET_OBJECTS:4band_common_objects>)
-add_executable(measure4band1 src_4band/measure1.cpp $<TARGET_OBJECTS:4band_common_objects>)
-add_executable(measure4bandSC src_4band/measureSC_fix_ref.cpp $<TARGET_OBJECTS:4band_common_objects>)
+add_executable(dmrg4band src_2layer_2orbital_all_dof/dmrg.cpp $<TARGET_OBJECTS:4band_common_objects>)
+add_executable(measure4band1 src_2layer_2orbital_all_dof/measure1.cpp $<TARGET_OBJECTS:4band_common_objects>)
+add_executable(measure4bandSC src_2layer_2orbital_all_dof/measureSC_fix_ref.cpp $<TARGET_OBJECTS:4band_common_objects>)
 
 add_executable(dmrg_ani_tJ src_single_orbital_single_layer/dmrg_single_orbital_single_layer.cpp src_single_orbital/myutil.cpp)
 add_executable(measure1_ani_tJ src_single_orbital_single_layer/measure1.cpp src_single_orbital/myutil.cpp)
 
-add_executable(kondo_chain_vmps src_kondo/vmps.cpp src_single_orbital/myutil.cpp)
+add_executable(kondo_chain_vmps src_kondo_1D/vmps.cpp src_single_orbital/myutil.cpp)
 add_executable(kondo_ladder_vmps src_kondo_two_leg/vmps.cpp src_single_orbital/myutil.cpp)
 add_executable(kondo_ladder_measure src_kondo_two_leg/measure.cpp src_single_orbital/myutil.cpp)
 add_executable(kondo_ladder_vmpsJk0 src_kondo_two_leg/vmps_Jk0.cpp src_single_orbital/myutil.cpp)
 add_executable(kondo_ladder_dmrgJk0 src_kondo_two_leg/dmrg_Jk0.cpp src_single_orbital/myutil.cpp)
 add_executable(kondo_ladder_conventional_square_vmps src_kondo_two_leg/vmps_conventional_square.cpp src_single_orbital/myutil.cpp)
+add_executable(kondo_two_layer_vmps src_kondo_two_layer/vmps_conventional_square.cpp src_single_orbital/myutil.cpp)
