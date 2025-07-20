@@ -65,24 +65,28 @@ int main(int argc, char *argv[]) {
   //hopping along x direction
   for (size_t i = 0; i < N - 4 * Ly; i = i + 2) {
     size_t site1 = i, site2 = i + 4 * Ly;//4 for double layer times two orbital (localized & itinerate)
-    mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, {site1 + 2});
-    mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, {site1 + 2});
-    mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, {site1 + 2});
-    mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, {site1 + 2});
+    std::vector<size_t> inst_op_idxs; //even sites between site1 and site2
+    for (size_t j = site1 + 2; j < site2; j += 2) {
+      inst_op_idxs.push_back(j);
+    }
+    mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, inst_op_idxs);
+    mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, inst_op_idxs);
+    mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, inst_op_idxs);
+    mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, inst_op_idxs);
   }
   //hopping along y direction, assume Ly = 2
   for (size_t i = 0; i < N - 6; i += 4 * Ly) {
     size_t site1 = i, site2 = i + 4; // 0-th layer
-    mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2);
-    mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2);
-    mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2);
-    mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2);
+    mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, {site1 + 2});
+    mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, {site1 + 2});
+    mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, {site1 + 2});
+    mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, {site1 + 2});
 
     site1 = i + 2, site2 = i + 6;   // 1-th layer
-    mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2);
-    mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2);
-    mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2);
-    mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2);
+    mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, {site1 + 2});
+    mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, {site1 + 2});
+    mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, {site1 + 2});
+    mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, {site1 + 2});
   }
 
 //  for (size_t i = second_leg_start_site; i < N - 2; i = i + di_for_t2) {
@@ -274,12 +278,12 @@ int main(int argc, char *argv[]) {
   };
 
   Task tasks[] = {
-      {sc_phys_ops_a, ref_sites, target_sites_interlayer_bond_set, "scs_diag_a"},
-      {sc_phys_ops_b, ref_sites, target_sites_interlayer_bond_set, "scs_diag_b"},
-      {sc_phys_ops_c, ref_sites, target_sites_interlayer_bond_set, "scs_diag_c"},
-      {sc_phys_ops_d, ref_sites, target_sites_interlayer_bond_set, "scs_diag_d"},
-      {sc_phys_ops_e, ref_sites, target_sites_interlayer_bond_set, "sct_diag_e"},
-      {sc_phys_ops_f, ref_sites, target_sites_interlayer_bond_set, "sct_diag_f"}
+      {sc_phys_ops_a, ref_sites, target_sites_interlayer_bond_set, "scs_a"},
+      {sc_phys_ops_b, ref_sites, target_sites_interlayer_bond_set, "scs_b"},
+      {sc_phys_ops_c, ref_sites, target_sites_interlayer_bond_set, "scs_c"},
+      {sc_phys_ops_d, ref_sites, target_sites_interlayer_bond_set, "scs_d"},
+      {sc_phys_ops_e, ref_sites, target_sites_interlayer_bond_set, "sct_e"},
+      {sc_phys_ops_f, ref_sites, target_sites_interlayer_bond_set, "sct_f"}
   };
 
   int total_tasks = sizeof(tasks) / sizeof(tasks[0]);
