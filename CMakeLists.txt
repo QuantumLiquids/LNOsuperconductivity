@@ -206,3 +206,4 @@ add_executable(kondo_two_layer_fix_env src_kondo_two_layer/fix_env_kondo.cpp src
 add_executable(kondo_two_layer_fix_mps src_kondo_two_layer/fix_mps_kondo.cpp src_single_orbital/myutil.cpp)
 add_executable(kondo_two_layer_fix_update_lenv src_kondo_two_layer/fix_update_lenv_kondo.cpp src_single_orbital/myutil.cpp)
 add_executable(kondo_two_layer_move_center src_kondo_two_layer/move_center.cpp src_single_orbital/myutil.cpp)
+add_executable(kondo_two_layer_fix_mps2 src_kondo_two_layer/fix_mps2_kondo.cpp src_single_orbital/myutil.cpp)
