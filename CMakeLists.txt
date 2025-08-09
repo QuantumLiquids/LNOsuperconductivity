@@ -198,4 +198,10 @@ add_executable(kondo_ladder_measure src_kondo_two_leg/measure.cpp src_single_orb
 add_executable(kondo_ladder_vmpsJk0 src_kondo_two_leg/vmps_Jk0.cpp src_single_orbital/myutil.cpp)
 add_executable(kondo_ladder_dmrgJk0 src_kondo_two_leg/dmrg_Jk0.cpp src_single_orbital/myutil.cpp)
 add_executable(kondo_ladder_conventional_square_vmps src_kondo_two_leg/vmps_conventional_square.cpp src_single_orbital/myutil.cpp)
+
 add_executable(kondo_two_layer_vmps src_kondo_two_layer/vmps_conventional_square.cpp src_single_orbital/myutil.cpp)
+# Kondo two-layer fix programs
+add_executable(kondo_two_layer_mpo_gen src_kondo_two_layer/mpo_gen.cpp src_single_orbital/myutil.cpp)
+add_executable(kondo_two_layer_fix_env src_kondo_two_layer/fix_env_kondo.cpp src_single_orbital/myutil.cpp)
+add_executable(kondo_two_layer_fix_mps src_kondo_two_layer/fix_mps_kondo.cpp src_single_orbital/myutil.cpp)
+add_executable(kondo_two_layer_fix_update_lenv src_kondo_two_layer/fix_update_lenv_kondo.cpp src_single_orbital/myutil.cpp)
