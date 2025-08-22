@@ -28,9 +28,10 @@ Lx = Lx_phy;
 max_size = 600;  % Maximum circle size for hole density
 max_arrow_length = 2; % Max arrow length for visual scaling
 
-params = struct('Ly_phy',Ly_phy,'Lx_phy',Lx_phy,'t',t,'J',J,'Jperp',Jperp,'delta',delta,'Hole',Hole,'D',D);
-FileNamePostfix = plt.build_postfix(params, 'Ly_phy','x','Lx_phy','t',{'t','%.1f'}, ...
-            'J',{'J','%.1f'},'Jperp',{'Jperp','%.1f'},'delta','Hole','D','Pin.json');
+FileNamePostfix =[num2str(Ly_phy), 'x', num2str(Lx_phy), 't', num2str(t, '%.1f'), ...
+            'J', num2str(J, '%.1f'), 'Jperp', num2str(Jperp, '%.1f'), 'delta', num2str(delta), ...
+            'Hole', num2str(Hole),  ...
+            'D', num2str(D), 'Pin.json'];
 SpinData = jsondecode(fileread(['../../data/sz', FileNamePostfix]));
 
 

@@ -87,9 +87,9 @@ After building, you'll have the following executables:
 ### Multi-Orbital Models
 | Executable | Description | Usage |
 |------------|-------------|-------|
-| `dmrg4band` | DMRG for two-band two-orbital model | `mpirun -np <num_proc> ./dmrg4band params.json` |
-| `measure4band1` | Measure correlations for 4-band model | `./measure4band1 params.json` |
-| `measure4bandSC` | Measure SC correlations for 4-band model | `mpirun -np <num_proc> ./measure4bandSC params.json` |
+| `dmrg4band` | DMRG for two-band two-layer (two-orbital) model | `mpirun -np <num_proc> ./dmrg4band params.json` |
+| `measure4band1` | Measure correlations for two-band two-layer model | `./measure4band1 params.json` |
+| `measure4bandSC` | Measure SC correlations for two-band two-layer model | `mpirun -np <num_proc> ./measure4bandSC params.json` |
 
 ### Kondo Models
 | Executable | Description | Usage |
@@ -97,17 +97,19 @@ After building, you'll have the following executables:
 | `kondo_chain_vmps` | VMPS for 1D Kondo chain | `mpirun -np <num_proc> ./kondo_chain_vmps params.json` |
 | `kondo_ladder_vmps` | VMPS for two-leg Kondo ladder | `mpirun -np <num_proc> ./kondo_ladder_vmps params.json` |
 | `kondo_ladder_measure` | Measure correlations for Kondo ladder | `./kondo_ladder_measure params.json` |
-| `kondo_ladder_conventional_square_vmps` | VMPS for conventional square Kondo lattice | `mpirun -np <num_proc> ./kondo_ladder_conventional_square_vmps params.json` |
-| `kondo_two_layer_vmps` | VMPS for two-layer Kondo model | `mpirun -np <num_proc> ./kondo_two_layer_vmps params.json` |
+| `kondo_ladder_conventional_square_vmps` | VMPS for Kondo ladder on 2d lattice | `mpirun -np <num_proc> ./kondo_ladder_conventional_square_vmps params.json` |
+| `kondo_two_layer_vmps` | VMPS for Kondo two-layer on 2d lattice | `mpirun -np <num_proc> ./kondo_two_layer_vmps params.json` |
 
 ## Parameter Files
 
 Each executable requires a JSON parameter file. Example parameter files can be found in the respective `src_*/` directories:
 
-- `src_single_orbital/params.json` - Single orbital model parameters
-- `src_2layer_2orbital_all_dof/params.json` - Multi-orbital model parameters
-- `src_kondo_1D/params.json` - Kondo chain parameters
-- `src_kondo_two_leg/params.json` - Kondo ladder parameters
+- `src_tj_double_layer_single_orbital_2d/params.json` - Double-layer single-orbital t-J (tJ-like, 3-dim local Hilbert space)
+- `src_tj_single_layer_single_orbital_2d_anisotropic/params.json` - Single-layer anisotropic t-J (tJ-like)
+- `src_two_layer_two_orbital_all_dof/params.json` - Two-layer two-orbital (Hubbard-like local Hilbert space; band≃orbital)
+- `src_kondo_1d_chain/params.json` - Kondo chain parameters
+- `src_kondo_two_leg_ladder/params.json` - Kondo ladder parameters
+- `src_kondo_two_layer_2d/params.json` - Kondo two-layer (2d lattice) parameters
 
 ## Data Output
 

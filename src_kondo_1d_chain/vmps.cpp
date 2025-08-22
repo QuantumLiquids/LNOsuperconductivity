@@ -9,7 +9,7 @@
 #include "qlmps/qlmps.h"
 #include "kondo_hilbert_space.h"
 #include "./params_case.h"
-#include "../src_single_orbital/myutil.h"
+#include "../src_tj_double_layer_single_orbital_2d/myutil.h"
 
 using namespace qlmps;
 using namespace qlten;

@@ -3,9 +3,9 @@
 
 #include "qlmps/one_dim_tn/mpo/mpo.h"
 #include "qlmps/one_dim_tn/mpo/mpogen/mpogen.h"
-#include "../src_single_orbital/tJ_type_hilbert_space.h"
+#include "../src_tj_double_layer_single_orbital_2d/tJ_type_hilbert_space.h"
 #include "squarelattice.h"
-#include "../src_single_orbital/params_case.h"
+#include "../src_tj_double_layer_single_orbital_2d/params_case.h"
 
 struct tJModelParamters {
  public :
