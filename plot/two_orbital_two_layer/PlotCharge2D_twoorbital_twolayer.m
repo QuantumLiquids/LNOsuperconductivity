@@ -13,6 +13,8 @@
 % Behavior
 %   Documentation only; plotting logic unchanged.
 % Plot charge distribution configuration
+% Ensure plot/ utilities (e.g., my_colormap.m) are on path
+addpath(fileparts(fileparts(mfilename('fullpath'))));
 Lx_phy = 16;
 Ly_phy = 2;
 t1 = 0.483;
