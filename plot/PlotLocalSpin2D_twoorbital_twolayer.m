@@ -1,3 +1,17 @@
+% PlotLocalSpin2D_twoorbital_twolayer.m
+%
+% Purpose
+%   Visualize on-site S^z under pinning for two-orbital, two-layer lattice.
+%   Up/down arrows encode sign and magnitude; OBC grid optional.
+%
+% Inputs (configured in-file)
+%   Lx_phy, Ly_phy, t1, t2, U, Jh, delta, Ele1, Ele2, D, orbital
+%
+% Data dependencies
+%   Reads JSON: ../data/sz<LyxLx t1_t2 U Jh delta Ele1_Ele2 D Pin>.json
+%
+% Behavior
+%   Adds documentation and fixes a variable reference bug; plotting unchanged.
 % Plot spin Sz configuration under pinning field
 Lx_phy = 16;
 Ly_phy = 2;
@@ -31,7 +45,7 @@ SpinDensity = zeros(1, numel(x_coor));
 
 % real DMRG code
 for i = 1:numel(x_coor)
-    site_idx = ChargeData(i,1);
+    site_idx = SpinData(i,1);
     if(strcmp(orbital, 'd'))
         lx_offset = 0;
     else

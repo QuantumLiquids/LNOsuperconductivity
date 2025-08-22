@@ -1,3 +1,17 @@
+% PlotSingleOrbSpin2D.m
+%
+% Purpose
+%   Visualize on-site S^z as arrows on 2D grid for single-orbital model.
+%   Up/down arrows encode sign and magnitude under pinning.
+%
+% Inputs (configured in-file)
+%   Lx_phy, Ly_phy, t, J, Jperp, delta, Hole, D
+%
+% Data dependencies
+%   Reads JSON: ../data/sz<... Pin>.json (real or complex format)
+%
+% Behavior
+%   Documentation only; plotting logic unchanged.
 % Plot spin Sz configuration under pinning field
 Lx_phy = 20;
 Ly_phy = 3;

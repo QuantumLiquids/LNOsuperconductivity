@@ -1,3 +1,11 @@
+% plot_sc_corr_two_layer.m
+%
+% Purpose
+%   Plot singlet and triplet (Sz=0) pairing correlators vs distance for
+%   multiple D to check convergence in the two-layer Kondo model.
+%
+% Behavior
+%   Documentation only; plotting logic unchanged.
 % Plot Superconductivity Correlations for Two-Layer Kondo Model to check convergence vs. D
 clear;
 close all;

@@ -1,3 +1,17 @@
+% PlotSpinCorr2D.m
+%
+% Purpose
+%   Visualize 2D S_i·S_j correlations without pinning for two-orbital model.
+%   Uses arrow length to encode magnitude; colors by sign.
+%
+% Inputs (configured in-file)
+%   Lx_phy, Ly_phy, t1, t2, U, Jh, delta, Ele1, Ele2, D
+%
+% Data dependencies
+%   Reads JSON: ../data/sz0sz, sp0sm, sm0sp with <... NoPin>.json postfix
+%
+% Behavior
+%   Documentation only; plotting logic unchanged.
 % Plot spin S*S corrrelation without pinning field
 Lx_phy = 16;
 Ly_phy = 2;

@@ -1,4 +1,12 @@
 function plot_singlet_sc_corr_extrapolation(extrapolation_order)
+% plot_singlet_sc_corr_extrapolation.m
+%
+% Purpose
+%   Extrapolate singlet SC correlators to TE→0 for a single J_perp and plot.
+%   extrapolation_order: 1=linear, 2=quadratic vs truncation error.
+%
+% Behavior
+%   Documentation only; analysis and plotting unchanged.
 % Plot singlet pairing correlations for Two-Layer Kondo Model with extrapolation
 % extrapolation_order: 1 for linear, 2 for 2nd order polynomial
 % Uses 1/D as truncation error for extrapolation

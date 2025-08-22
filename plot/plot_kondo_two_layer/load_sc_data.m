@@ -1,3 +1,12 @@
+% load_sc_data.m (two-layer)
+%
+% Purpose
+%   Load and combine singlet/triplet pairing correlators into physical
+%   channels for the two-layer Kondo model.
+%   Returns scs (1xN), sct (3xN), ref bond [i,j], and list of target bonds.
+%
+% Behavior
+%   Documentation only; computation unchanged.
 function [scs, sct, ref_sites, target_bonds] = load_sc_data(directory, link_type, FileNamePostfix)
 % Returns:
 %   scs: 1xN vector of singlet pair correlations

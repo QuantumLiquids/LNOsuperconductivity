@@ -1,3 +1,17 @@
+% PlotSpinCorr1D.m
+%
+% Purpose
+%   Plot |S_i·S_j| vs distance (1D) without pinning for two-orbital model.
+%   Semilog-y magnitude based on combined sz0sz, sp0sm, sm0sp.
+%
+% Inputs (configured in-file)
+%   Lx_phy, Ly_phy, t1, t2, U, Jh, delta, Ele1, Ele2, D
+%
+% Data dependencies
+%   Reads JSON: ../data/sz0sz, sp0sm, sm0sp with <... NoPin>.json postfix
+%
+% Behavior
+%   Documentation only; plotting logic unchanged.
 % Plot spin S*S corrrelation without pinning field
 Lx_phy = 16;
 Ly_phy = 2;

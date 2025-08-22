@@ -1,3 +1,17 @@
+% PlotCharge2D_twoorbital_twolayer.m
+%
+% Purpose
+%   Visualize on-site charge distribution for two-orbital, two-layer lattice.
+%   Circle size and colormap encode charge density; OBC grid drawn for context.
+%
+% Inputs (configured in-file)
+%   Lx_phy, Ly_phy, t1, t2, U, Jh, delta, Ele1, Ele2, D, orbital
+%
+% Data dependencies
+%   Reads JSON: ../data/nf<LyxLx t1_t2 U Jh delta Ele1_Ele2 D Pin>.json
+%
+% Behavior
+%   Documentation only; plotting logic unchanged.
 % Plot charge distribution configuration
 Lx_phy = 16;
 Ly_phy = 2;

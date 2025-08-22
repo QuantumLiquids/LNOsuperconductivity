@@ -1,3 +1,17 @@
+% PlotSingleOrbSpinCorr1D.m
+%
+% Purpose
+%   Plot |S_i·S_j| vs distance for multiple bond dimensions D (1D profile).
+%   Semilog-y magnitude; legend indicates D.
+%
+% Inputs (configured in-file)
+%   Lx_phy, Ly_phy, t, J, Jperp, delta, Hole, D_list
+%
+% Data dependencies
+%   Reads JSON: ../data/sz0sz, sp0sm, sm0sp with <... NoPin>.json postfix
+%
+% Behavior
+%   Documentation only; plotting logic unchanged.
 % Define parameters
 Lx_phy = 20;
 Ly_phy = 2;

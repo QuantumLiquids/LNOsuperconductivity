@@ -1,3 +1,17 @@
+% PlotSingleOrbSpinCorr2D.m
+%
+% Purpose
+%   Visualize 2D S_i·S_j correlations as arrow overlays without pinning.
+%   Uses smoothed arrow length to encode magnitude and sign-based color.
+%
+% Inputs (configured in-file)
+%   Lx_phy, Ly_phy, t, J, Jperp, delta, Hole, D
+%
+% Data dependencies
+%   Reads JSON: ../data/sz0sz, sp0sm, sm0sp with <... NoPin>.json postfix
+%
+% Behavior
+%   Documentation only; plotting logic unchanged.
 % Plot spin S*S corrrelation without pinning field
 Lx_phy = 20;
 Ly_phy = 2;

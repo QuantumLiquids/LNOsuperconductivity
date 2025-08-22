@@ -1,4 +1,12 @@
 function plot_singlet_sc_corr_extrapolation_all()
+% plot_singlet_sc_corr_extrapolation_all.m
+%
+% Purpose
+%   Extrapolate singlet SC correlations to TE→0 for several J_perp values and
+%   plot together. Uses linear if <=3 D points else quadratic vs truncation error.
+%
+% Behavior
+%   Documentation only; analysis and plotting unchanged.
 % Plot extrapolated singlet SC correlations for multiple J_perp on one figure
 % J_perp set: [0.1, 0.5, 1, 4]
 % For each J_perp use only D > 6000; if number of D <= 3, use linear extrapolation,

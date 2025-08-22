@@ -1,3 +1,17 @@
+% PlotSingleOrbSpin1D.m
+%
+% Purpose
+%   Plot on-site S^z vs x for single-orbital 1D ladder/cylinder.
+%   Semilog-y for magnitude; supports real/complex JSON formats.
+%
+% Inputs (configured in-file)
+%   Lx_phy, Ly_phy, t, J, Jperp, delta, Hole, D
+%
+% Data dependencies
+%   Reads JSON: ../data/sz<... Pin>.json
+%
+% Behavior
+%   Documentation only; plotting logic unchanged.
 % Plot spin Sz configuration under pinning field
 Lx_phy = 20;
 Ly_phy = 3;

@@ -1,4 +1,11 @@
-
+% load_truncation_error.m (two-layer)
+%
+% Purpose
+%   Load last-sweep truncation error for a given Jperp and bond dimension D.
+%   Falls back to 1/D if no record is found.
+%
+% Behavior
+%   Documentation only; logic unchanged.
 % ============================================================================
 % Helper function to load truncation error for a specific D value
 % ============================================================================

@@ -1,3 +1,11 @@
+% KondoTilted2LegLattice.m
+%
+% Purpose
+%   Geometry helper for the tilted two-leg Kondo lattice used in two-leg plots.
+%   Provides index<->coord, site classification and drawing utilities.
+%
+% Behavior
+%   Documentation only; class logic unchanged.
 classdef KondoTilted2LegLattice
     properties
         N             % Total number of sites
