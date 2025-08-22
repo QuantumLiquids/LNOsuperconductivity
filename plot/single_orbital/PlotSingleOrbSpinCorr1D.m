@@ -34,7 +34,7 @@ D = D_list(1);
 FileNamePostfix = [num2str(Ly_phy), 'x', num2str(Lx_phy), 't', num2str(t, '%.1f'), ...
     'J', num2str(J, '%.1f'), 'Jperp', num2str(Jperp, '%.1f'), 'delta', num2str(delta), ...
     'Hole', num2str(Hole), 'D', num2str(D), 'NoPin.json'];
-SpinDataz = jsondecode(fileread(['../data/sz0sz', FileNamePostfix]));
+SpinDataz = jsondecode(fileread(['../../data/sz0sz', FileNamePostfix]));
 
 % Extract x_coor and y_coor
 if iscell(SpinDataz)  % Real DMRG code
@@ -64,9 +64,9 @@ for D = D_list
         'J', num2str(J, '%.1f'), 'Jperp', num2str(Jperp, '%.1f'), 'delta', num2str(delta), ...
         'Hole', num2str(Hole), 'D', num2str(D), 'NoPin.json'];
     
-    SpinDataz = jsondecode(fileread(['../data/sz0sz', FileNamePostfix]));
-    SpinData1 = jsondecode(fileread(['../data/sp0sm', FileNamePostfix]));
-    SpinData2 = jsondecode(fileread(['../data/sm0sp', FileNamePostfix]));
+    SpinDataz = jsondecode(fileread(['../../data/sz0sz', FileNamePostfix]));
+    SpinData1 = jsondecode(fileread(['../../data/sp0sm', FileNamePostfix]));
+    SpinData2 = jsondecode(fileread(['../../data/sm0sp', FileNamePostfix]));
     
     % Compute SpinDensity
     if iscell(SpinDataz)  % Real DMRG code

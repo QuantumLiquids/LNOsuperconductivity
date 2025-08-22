@@ -1,20 +1,20 @@
-% PlotSingleOrbSpinCorr2D.m
+% PlotSingleOrbSpin2D.m
 %
 % Purpose
-%   Visualize 2D S_i·S_j correlations as arrow overlays without pinning.
-%   Uses smoothed arrow length to encode magnitude and sign-based color.
+%   Visualize on-site S^z as arrows on 2D grid for single-orbital model.
+%   Up/down arrows encode sign and magnitude under pinning.
 %
 % Inputs (configured in-file)
 %   Lx_phy, Ly_phy, t, J, Jperp, delta, Hole, D
 %
 % Data dependencies
-%   Reads JSON: ../data/sz0sz, sp0sm, sm0sp with <... NoPin>.json postfix
+%   Reads JSON: ../data/sz<... Pin>.json (real or complex format)
 %
 % Behavior
 %   Documentation only; plotting logic unchanged.
-% Plot spin S*S corrrelation without pinning field
+% Plot spin Sz configuration under pinning field
 Lx_phy = 20;
-Ly_phy = 2;
+Ly_phy = 3;
 t = 3.0;
 J = 1.0;
 Jperp = 3.0;
@@ -26,40 +26,35 @@ Ly = 2 * Ly_phy;
 Lx = Lx_phy;
 
 max_size = 600;  % Maximum circle size for hole density
-max_arrow_length = 100; % Max arrow length for visual scaling
+max_arrow_length = 2; % Max arrow length for visual scaling
 
 FileNamePostfix =[num2str(Ly_phy), 'x', num2str(Lx_phy), 't', num2str(t, '%.1f'), ...
             'J', num2str(J, '%.1f'), 'Jperp', num2str(Jperp, '%.1f'), 'delta', num2str(delta), ...
             'Hole', num2str(Hole),  ...
-            'D', num2str(D), 'NoPin.json'];
-SpinDataz = jsondecode(fileread(['../data/sz0sz', FileNamePostfix]));
-SpinData1 = jsondecode(fileread(['../data/sp0sm', FileNamePostfix]));
-SpinData2 = jsondecode(fileread(['../data/sm0sp', FileNamePostfix]));
+            'D', num2str(D), 'Pin.json'];
+SpinData = jsondecode(fileread(['../../data/sz', FileNamePostfix]));
+
 
 % Extract x and y coordinates, charge density, and spin data
-x_coor = zeros(1, size(SpinDataz, 1));
-y_coor = zeros(1, size(SpinDataz, 1));
+x_coor = zeros(1, size(SpinData, 1));
+y_coor = zeros(1, size(SpinData, 1));
 SpinDensity = zeros(1, numel(x_coor));
 
-
-
-% x_coor(1) = 0;
-% y_coor(1) = 0;
-% SpinDensity(1)  = 0;
-if iscell(SpinDataz)%real DMRG code
-    refer_site = SpinDataz{1}{1}(1);
+if isnumeric(SpinData)
+    % real DMRG code
     for i = 1:numel(x_coor)
-        x_coor(i) = fix(SpinDataz{i}{1}(2) / Ly) + 1;
-        y_coor(i) = mod(SpinDataz{i}{1}(2), Ly) + 1;
-        SpinDensity(i) = SpinDataz{i}{2} + 0.5*(SpinData1{i}{2} + SpinData2{i}{2});
+        x_coor(i) = fix(SpinData(i,1) / Ly) + 1;
+        y_coor(i) = mod(SpinData(i,1), Ly) + 1;
+        
+        SpinDensity(i) = SpinData(i,2);
     end
-else%complex DMRG code
-    refer_site = SpinDataz(1,1);
-    x_coor = fix(SpinDataz(:,3) / Ly) + 1;
-    x_coor = x_coor';
-    y_coor = mod(SpinDataz(:,3), Ly) + 1;
-    y_coor = y_coor';
-    SpinDensity = SpinDataz(:,2)' + 0.5*(SpinData1(:,2)' + SpinData2(:,2)');
+else
+    %complex DMRG code
+    for i = 1:numel(x_coor)
+        x_coor(i) = fix(SpinData{i}{1} / Ly) + 1;
+        y_coor(i) = mod(SpinData{i}{1}, Ly) + 1;
+        SpinDensity(i) = SpinData{i}{2}(1) + 1i * SpinData{i}{2}(2);
+    end
 end
 
 
@@ -116,17 +111,17 @@ max_spin = max(abs(spin_flat));
 demonstrate_spin = round(max_spin, digits - floor(log10(abs(max_spin))) - 1);
 
 % Spin Up example
-quiver(legend_x, legend_y_start - legend_spacing + max_arrow_length * demonstrate_spin / 2.0 / max(abs(spin_flat)), ...
+quiver(legend_x, legend_y_start + 2 * legend_spacing + max_arrow_length * demonstrate_spin / 2.0 / max(abs(spin_flat)), ...
     0, -max_arrow_length * demonstrate_spin / max(abs(spin_flat)), ...
     0, 'Color', 'b', 'MaxHeadSize', 1, 'LineWidth', 1.5);
-text(legend_x + 0.3, legend_y_start - legend_spacing, ...
+text(legend_x + 0.5, legend_y_start + 2 * legend_spacing , ...
     ['Spin Up = ', num2str(demonstrate_spin)], 'FontSize', 18);
 
 % Spin Down example
 quiver(legend_x, legend_y_start - 2 * legend_spacing - max_arrow_length * demonstrate_spin / 2.0 / max(abs(spin_flat)), ...
     0, max_arrow_length * demonstrate_spin / max(abs(spin_flat)), ...
     0, 'Color', 'r', 'MaxHeadSize', 1, 'LineWidth', 1.5);
-text(legend_x + 0.3, legend_y_start - 2 * legend_spacing, ...
+text(legend_x + 0.5, legend_y_start - 2 * legend_spacing, ...
     ['Spin Down = ', num2str(demonstrate_spin)], 'FontSize', 18);
 
 hold off;

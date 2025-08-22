@@ -32,7 +32,7 @@ FileNamePostfix =[num2str(Ly_phy), 'x', num2str(Lx_phy), 't', num2str(t, '%.1f')
             'J', num2str(J, '%.1f'), 'Jperp', num2str(Jperp, '%.1f'), 'delta', num2str(delta), ...
             'Hole', num2str(Hole),  ...
             'D', num2str(D), 'Pin.json'];
-SpinData = jsondecode(fileread(['../data/sz', FileNamePostfix]));
+SpinData = jsondecode(fileread(['../../data/sz', FileNamePostfix]));
 
 
 % Extract x and y coordinates, charge density, and spin data
