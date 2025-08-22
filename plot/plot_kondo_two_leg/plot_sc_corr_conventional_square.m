@@ -1,3 +1,11 @@
+% plot_sc_corr_conventional_square.m (two-leg)
+%
+% Purpose
+%   Plot SC correlators loaded via load_sc_data for conventional-square link.
+%   Semilog-y vs distance index. link_type can be 'hori','diag','vert'.
+%
+% Behavior
+%   Documentation only; plotting logic unchanged.
 % clear;
 % close all;
 

@@ -1,3 +1,11 @@
+% SquareLattice.m (two-leg)
+%
+% Purpose
+%   Utility class for 2D square lattice axes labels, bonds and colormap plots
+%   used by two-leg scripts. Geometry is standard grid without tilt.
+%
+% Behavior
+%   Documentation only; class logic unchanged.
 classdef SquareLattice
     properties
         Ly % Number of sites in the y-direction

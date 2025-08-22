@@ -1,3 +1,12 @@
+% load_sc_data.m (two-leg)
+%
+% Purpose
+%   Load and combine singlet/triplet pairing correlators into physical
+%   channels for the two-leg tilted Kondo lattice.
+%   Returns scs (1xN), sct (3xN). Distances are implicit r=2..N+1.
+%
+% Behavior
+%   Documentation only; computation unchanged.
 function [scs, sct] = load_sc_data(directory,link_type,  FileNamePostfix)
 % return: row-like vector: scs (singlet-pair correlation)
 %         3 by N matrix: sct (triplet-pair correlation)
