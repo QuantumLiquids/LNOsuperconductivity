@@ -1,0 +1,24 @@
+{
+  "CaseParams": {
+    "L": 20,
+    "t": 1,
+    "Jk": 0.3,
+    "U": 1,
+    "Sweeps": 2,
+    "Dmin": 10,
+    "Dmax": [
+      10,
+      30,
+      50,
+      100
+    ],
+    "CutOff": 1e-7,
+    "LanczErr": 1e-8,
+    "MaxLanczIter": 40,
+    "noise": [
+      0.1,
+      0.01
+    ],
+    "Threads": 2
+  }
+}

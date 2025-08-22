@@ -5,7 +5,7 @@ This project contains DMRG (Density Matrix Renormalization Group) calculations f
 
 ## Models by Source Directory
 
-### 1. src_kondo_1D/ - 1D Kondo Model
+### 1. src_kondo_1d_chain/ - 1D Kondo Model
 **Model Type**: One-dimensional Kondo lattice model
 **Key Parameters**:
 - `L`: System length (1D chain)
@@ -18,7 +18,7 @@ This project contains DMRG (Density Matrix Renormalization Group) calculations f
 - Example: `szszt20.3Jk-1U0.json`
 - Correlation types: `szsz` (spin Sz-Sz correlation)
 
-### 2. src_kondo_two_leg/ - Single-layer Two-Leg Kondo Ladder
+### 2. src_kondo_two_leg_ladder/ - Single-layer Two-Leg Kondo Ladder
 **Model Type**: Two-leg Kondo ladder model (quasi-1D)
 **Key Parameters**:
 - `Lx`: System length along x-direction
@@ -37,8 +37,8 @@ This project contains DMRG (Density Matrix Renormalization Group) calculations f
    - Quasi-1D ladder extracted along 45-degree direction of the square lattice
 - Correlation types: `szsz`, `nf_local`, `scs_diag_*`, `sct_diag_*`, `nfnf`, `smsp`, `spsm`
 
-### 3. src_kondo_two_layer/ - Two-Layer Kondo Model
-**Model Type**: Two-layer Kondo model
+### 3. src_kondo_two_layer_2d/ - Two-Layer Kondo Model (2d lattice)
+**Model Type**: Two-layer Kondo model on 2d lattice (fixed 2d)
 **Key Parameters**:
 - `Lx`: System length
 - `t`: Intra-layer hopping
@@ -57,8 +57,8 @@ $$
 \end{aligned}
 $$
 
-### 4. src_single_orbital/ - Single Orbital t-J Model (Double Layer)
-**Model Type**: Two-layer t-J model with single orbital
+### 4. src_tj_double_layer_single_orbital_2d/ - Single Orbital t-J Model (Double Layer)
+**Model Type**: Two-layer t-J model with single orbital (tJ-like, 3-dim local Hilbert space)
 **Key Parameters**:
 - `Lx`, `Ly`: System dimensions
 - `t`: Intra-layer nearest-neighbor hopping
@@ -73,18 +73,19 @@ $$
 - Example: `SpinSingleOrbitaldelta=0.3_2x20NoPing.svg`
 - Correlation types: `Spin`, `SpinCorr`
 
-### 5. src_single_orbital_single_layer/ - Single Orbital t-J Model (Single Layer)
-**Model Type**: Single-layer t-J model
+### 5. src_tj_single_layer_single_orbital_2d_anisotropic/ - Single Orbital t-J Model (Single Layer)
+**Model Type**: Single-layer anisotropic t-J model (tJ-like, 3-dim local Hilbert space)
 **Key Parameters**:
 - `Lx`, `Ly`: System dimensions
 - `t`: Nearest-neighbor hopping
+- `delta`: Hopping anisotropy
 - `J`: Super-exchange coupling
 - `Numhole`: Hole doping
 
 **Data File Naming Pattern**: Similar to double layer but for single layer
 
-### 6. src_2layer_2orbital_all_dof/ - Two-Band Two-Orbital Model
-**Model Type**: Two-band, two-orbital model with all degrees of freedom
+### 6. src_two_layer_two_orbital_all_dof/ - Two-Band Two-Layer (Two-Orbital) Model
+**Model Type**: Two-band two-layer (two-orbital) model with all degrees of freedom (Hubbard-like local Hilbert space; band ≃ orbital)
 **Hamiltonian**:
 ```
 H = -t_∥ ∑_{l=1,2} ∑_{⟨i,j⟩,σ} d_{l,i,σ}^† d_{l,j,σ} + h.c. 
