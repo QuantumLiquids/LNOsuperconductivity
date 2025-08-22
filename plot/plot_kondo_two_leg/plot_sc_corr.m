@@ -1,11 +1,26 @@
+% plot_kondo_two_leg/plot_sc_corr.m
+%
+% Purpose
+%   Load and plot superconducting correlation magnitudes vs distance for the
+%   two-leg tilted Kondo lattice. Use semilog-y scaling by default.
+%
+% Inputs (configured in-file)
+%   L, t2, Jk, U, Db  - model/truncation parameters used in file postfix
+%   link_type         - 'hori' or 'diag' pairing channel
+%
+% Data dependencies
+%   Uses ../../data/ files loaded via helper load_sc_data.m (same folder).
+%
+% Behavior
+%   Documentation only; plotting logic is unchanged.
 % clear;
 % close all;
 
 % Parameters
-L = 100;         % Number of unit cells
-t2 =1;
-Jk = -4;
-U = 18;
+L  = 100;         % Number of unit cells
+t2 =   1;
+Jk =  -4;
+U  =  18;
 Db = 8000;
 link_type = 'hori'; % hori, diag
 

@@ -1,4 +1,5 @@
-
+U = 8;
+% Jh = 4, tilted 2-leg
 colororder("gem");
 C = colororder;
 
@@ -7,29 +8,17 @@ my_marker_size = 100;
 my_marker_size_square = 80;
 
 % star, (pi/2, pi/2) state
-U = [(0:2:12),...
-    0,2,4,6,...
-    0,2,...
-    0];
-Jh = [0 * ones(1,7),...
-    2 * ones(1, 4),...
-    4 * ones(1,2),...
-    6 * ones(1,1)];
-h1 = scatter(U, Jh, 120, "filled", 'pentagram'); hold on;
+U = [14,18,22,26,...
+    22,26];
+t_prime = [0.3 * ones(1, 4),...
+    0.6 * ones(1,2)];
+h1 = scatter(U, t_prime, 120, "filled", 'pentagram'); hold on;
 
 
 % (0, pi) state
-U = [10,12,...
-    8,10,12,...
-    (6:2:12),...
-    4:2:12,...
-    0,0,0];
-Jh = [4 * ones(1,2),...
-    6 * ones(1,3),...
-    8*ones(1,4),...
-    10*ones(1,5), ...
-    13,15,20];
-h2 = scatter(U, Jh, my_marker_size, "filled"); hold on;
+U = [2,2,2,6];
+t_prime = [0.3,0.6,1,1];
+h2 = scatter(U, t_prime, my_marker_size, "filled"); hold on;
 
 
 % % PDW phase
@@ -58,8 +47,8 @@ h2 = scatter(U, Jh, my_marker_size, "filled"); hold on;
 
 %phase boundary line
 %left - right line
-x = [0,   4, 8, 10, 12];
-y = [12.3,9, 5, 3.5, 2.5];
+x = [3,5, 8, 14];
+y = [0,0.2, 0.4, 1];
 y_fine = linspace(min(y), max(y), 100);
 
 % Perform cubic spline interpolation
@@ -81,8 +70,8 @@ plot(x_fine, y_fine, 'k-');
 set(gca, 'fontsize', 20);
 set(gca, 'linewidth', 1.5);
 set(get(gca, 'Children'), 'linewidth', 2);
-xlabel('U', 'FontName','Arial');
-ylabel("J_H", 'FontName','Arial');
+xlabel('$U$', 'Interpreter', 'latex');
+ylabel("$t'$", 'Interpreter', 'latex');
 set(get(gca, 'XLabel'), 'FontSize', 20);
 set(get(gca, 'YLabel'), 'FontSize', 20);
 box on;
