@@ -1,3 +1,11 @@
+% PhaseDiagramJh2.m
+%
+% Purpose
+%   Plot phase diagram points and smoothed boundary for tilted two-leg with
+%   J_H = 2, using scatter series and cubic-spline boundary curve.
+%
+% Behavior
+%   Documentation only; plotting logic unchanged.
 
 % Jh = 2, tilted 2-leg
 colororder("gem");

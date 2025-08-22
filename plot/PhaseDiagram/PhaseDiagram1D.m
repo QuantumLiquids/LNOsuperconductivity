@@ -1,3 +1,11 @@
+% PhaseDiagram1D.m
+%
+% Purpose
+%   Plot phase diagram points and a smoothed phase boundary for 1D case,
+%   with annotated scatter series and cubic-spline boundary curve.
+%
+% Behavior
+%   Documentation only; plotting logic unchanged.
 
 colororder("gem");
 C = colororder;
