@@ -3,6 +3,17 @@
 //
 /*
  * 2-layer 2-leg Kondo lattice model, in conventional square lattice.
+ *
+ * DMRG lattice mapping (two-layer, two-orbital, two-leg):
+ *   - Total sites N = 4 * Ly * Lx with Ly = 2 (two legs). The factor 4 is two
+ *     layers × two on-site degrees of freedom (extended itinerant electron and
+ *     localized spin). Even indices are extended electrons; odd indices are
+ *     localized spins.
+ *   - Indices advance along x; at fixed x, indices traverse legs/layers/dof.
+ *     Therefore there are 8 physical sites per x-position. Interlayer bonds at
+ *     fixed y map to index pairs whose differences are multiples of 8.
+ *   - Plot scripts reconstruct integer x-distance as |i - i_ref| / 8 and keep
+ *     horizontal (delta y = 0) bonds by checking (i - i_ref) % 8 == 0.
  */
 
 

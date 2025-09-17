@@ -1,4 +1,20 @@
 // Kondo-version of environment fixer, mirroring working t-J utility but with alternating site types
+/*
+ * DMRG lattice mapping (two-layer, two-orbital, two-leg):
+ *   - Total sites N = 4 * Ly * Lx with Ly = 2 (two legs).
+ *     Factor 4 = two layers × two on-site dof (extended itinerant electron, localized spin).
+ *     Even indices → extended electrons; odd → localized spins.
+ *   - Site indices advance along x. Within each physical x, indices traverse legs (y=0,1),
+ *     layers (0,1), and on-site dof. Therefore there are 8 physical sites per x-position.
+ *   - Horizontal (delta y = 0) bonds correspond to index pairs whose difference is a
+ *     multiple of 8; the integer x-distance used in analysis is |i - i_ref| / 8.
+ *
+ *   ASCII sketch for one x-block (indices increase left→right):
+ *     x = k : [ y0 L0 e ][ y0 L0 l ][ y0 L1 e ][ y0 L1 l ][ y1 L0 e ][ y1 L0 l ][ y1 L1 e ][ y1 L1 l ]
+ *              (even=e extended electron, odd=l localized spin)
+ *
+ * See src_kondo_two_layer_2d/DMRG_Mapping.md for details.
+ */
 
 #include "../src_kondo_1d_chain/kondo_hilbert_space.h"
 #include "qlmps/qlmps.h"

@@ -3,7 +3,23 @@
 //
 /*
  * 2-layer 2-leg Kondo lattice model MPO generator
- * This program generates and dumps the MPO tensors for the Kondo model
+ *
+ * DMRG lattice mapping (two-layer, two-orbital, two-leg):
+ *   - Total sites N = 4 * Ly * Lx, where Ly=2 (two legs) and the factor 4
+ *     accounts for two layers × two on-site degrees of freedom (extended
+ *     itinerant electron and localized spin). The site parity encodes the
+ *     on-site dof: even indices are extended electrons, odd indices are
+ *     localized spins.
+ *   - Sites are ordered along x; within a fixed x, indices advance over
+ *     y (legs) and layers and dof. For Ly=2, there are 8 physical sites
+ *     per x-position. Thus, bonds with delta y = 0 correspond to indices
+ *     whose differences are integer multiples of 8.
+ *   - This ordering is used by measurement/plot scripts to reconstruct
+ *     integer x-distances as |i - i_ref| / 8 and to filter horizontal
+ *     (same-row) bonds by checking (i - i_ref) % 8 == 0 for interlayer
+ *     pairing channels.
+ *
+ * This program generates and dumps the MPO tensors for the Kondo model.
  */
 
  #include "qlten/qlten.h"

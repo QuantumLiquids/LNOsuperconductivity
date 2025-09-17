@@ -1,6 +1,14 @@
 /**
  * Update left environments for Kondo model between [from, to]
  * Mirrored from working t-J utility with alternating site types
+ *
+ * DMRG lattice mapping (two-layer, two-orbital, two-leg):
+ *   - N = 4 * Ly * Lx with Ly = 2; 4 = two layers × two on-site dof
+ *     (extended electron, localized spin). Even site indices are electrons,
+ *     odd indices are localized spins.
+ *   - Sites advance along x; within each x there are 8 physical sites spanning
+ *     legs, layers and on-site dof. Horizontal bonds correspond to index pairs
+ *     with (i - i_ref) % 8 == 0, and integer x-distance = |i - i_ref| / 8.
  */
 
 #include "../src_kondo_1d_chain/kondo_hilbert_space.h"

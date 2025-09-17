@@ -35,6 +35,7 @@ int main(int argc, char *argv[]) {
     cout << "t = " << t << endl;
     cout << "Jk = " << Jk << endl;
     cout << "U = " << U << endl;
+    cout << "mu(pinning defect) = " << params.mu << endl;
   }
 
   clock_t startTime, endTime;
@@ -67,6 +68,20 @@ int main(int argc, char *argv[]) {
     mpo_gen.AddTerm(Jk, hubbard_ops.sz, i, local_spin_ops.sz, i + 1);
     mpo_gen.AddTerm(Jk / 2, hubbard_ops.sp, i, local_spin_ops.sm, i + 1);
     mpo_gen.AddTerm(Jk / 2, hubbard_ops.sm, i, local_spin_ops.sp, i + 1);
+  }
+
+  // Optional pinning field on the middle itinerant (even) site: -mu * n
+  if (params.mu != 0.0) {
+    size_t mid_left = N / 2 - 1;
+    size_t mid_right = N / 2;
+    size_t pin_site = (mid_left % 2 == 0) ? mid_left : mid_right; // choose the even (itinerant) site
+    if (pin_site % 2 == 0) {
+      mpo_gen.AddTerm(-params.mu, hubbard_ops.nf, pin_site);
+    } else {
+      std::cerr << "Pinning defect site is not even site." << std::endl;
+      std::exit(1);
+      return 1;
+    }
   }
 
   qlmps::MPO<Tensor> mpo = mpo_gen.Gen();

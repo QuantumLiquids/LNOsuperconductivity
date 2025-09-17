@@ -1,6 +1,14 @@
 /**
  * Move the canonical center of an existing MPS stored on disk
  * (Kondo lattice variant: alternating itinerant/local-spin sites)
+ *
+ * DMRG lattice mapping (two-layer, two-orbital, two-leg):
+ *   - N = 4 * Ly * Lx with Ly = 2; 4 = two layers × two on-site dof
+ *     (extended electron, localized spin). Even indices are electrons,
+ *     odd indices are localized spins.
+ *   - Indices advance along x; per physical x there are 8 sites spanning
+ *     legs, layers and on-site dof. Same-row (delta y = 0) index differences
+ *     are multiples of 8; plotting uses |i - i_ref| / 8 as integer x distance.
  */
 
 #include "qlmps/qlmps.h"

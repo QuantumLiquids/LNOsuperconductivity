@@ -1,6 +1,14 @@
 /**
  * Fix two-site update (Kondo model variant)
  *
+ * DMRG lattice mapping (two-layer, two-orbital, two-leg):
+ *   - N = 4 * Ly * Lx with Ly = 2; 4 = two layers × two on-site dof
+ *     (extended electron, localized spin). Even indices are electrons,
+ *     odd indices are localized spins.
+ *   - Indices advance along x; within each x there are 8 sites covering legs,
+ *     layers, and on-site dof. Horizontal bonds satisfy (i - i_ref) % 8 == 0,
+ *     and integer x-distance is |i - i_ref| / 8 in plotting/analysis.
+ *
  * Patches two adjacent MPS tensors using a two-site Lanczos optimization
  * with existing left/right environments and MPO tensors at sites lsite and lsite+1.
  */

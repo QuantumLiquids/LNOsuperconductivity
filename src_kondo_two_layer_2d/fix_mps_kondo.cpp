@@ -1,5 +1,14 @@
 /**
  * Fix MPS tensor by single-site Lanczos (Kondo model variant)
+ *
+ * DMRG lattice mapping (two-layer, two-orbital, two-leg):
+ *   - N = 4 * Ly * Lx with Ly = 2; 4 = two layers × two on-site dof
+ *     (extended electron, localized spin). Even site indices are electrons,
+ *     odd indices are localized spins.
+ *   - Indices progress along x; within a fixed x, indices traverse y (legs),
+ *     layer, and on-site dof. Hence 8 sites per physical x.
+ *   - Horizontal (delta y = 0) pairs have index difference multiple of 8;
+ *     analysis uses integer x-distance |i - i_ref| / 8.
  */
 
 #include "../src_kondo_1d_chain/kondo_hilbert_space.h"
