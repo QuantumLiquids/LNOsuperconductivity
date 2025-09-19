@@ -163,6 +163,10 @@ int main(int argc, char *argv[]) {
 
   std::ostringstream oss;
   oss << "Jk" << Jk << "U" << U << "L" << L << "D" << params.Dmax.back();
+  // Keep backward-compatible filenames when mu == 0; append when mu != 0
+  if (params.mu != 0.0) {
+    oss << "mu" << params.mu;
+  }
   std::string file_postfix = oss.str();
 
   // Two-site correlation measurements

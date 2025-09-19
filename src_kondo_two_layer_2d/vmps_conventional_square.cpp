@@ -23,6 +23,7 @@
 #include "params_case.h"
 #include "../src_tj_double_layer_single_orbital_2d/myutil.h"
 #include "../src_tj_double_layer_single_orbital_2d/my_measure.h"
+#include "finite_mps_extended.h"
 
 using namespace qlmps;
 using namespace qlten;
@@ -187,15 +188,6 @@ int main(int argc, char *argv[]) {
     cout << "CPU Time : " << (double) (endTime - startTime) / CLOCKS_PER_SEC << "s" << endl;
   }
 
-//  if (rank == kMPIMasterRank) {
-//    mps.Load(kMpsPath);
-//    auto ee_list = mps.GetEntanglementEntropy(1);
-//    std::copy(ee_list.begin(), ee_list.end(), std::ostream_iterator<double>(std::cout, " "));
-//
-//    std::cout << "\n";
-//    std::cout << "middle " << ee_list[2 * Lx] << std::endl;
-//mps.clear();
-//  }
 
   // ******* Measurement ****** //
   size_t ref_site = N / 4;
@@ -241,17 +233,60 @@ int main(int argc, char *argv[]) {
     std::cout << "Measured one-site correlation" << std::endl;
   }
 
+  // Single-particle correlations G_sigma(i,j) with even-even constraints and
+  // fermion string only over even sites (itinerant electrons).
+  // Match the hopping operator structure (comments show the corresponding MPO terms):
+  //  1) -t * bupcF(i) ... f ... bupa(j) 
+  //  2) +t * bupaF(i) ... f ... bupc(j)  --> absorb '-' into left operator
+  //  3) -t * bdnc(i)  ... f ... Fbdna(j)  
+  //  4) +t * bdna(i)  ... f ... Fbdnc(j)  --> absorb '-' into left operator
+  if ((two_site_meas_ops.size() + 1) % mpi_size == rank) {
+    // Up-spin channel
+    // 1) 
+    auto sp_up_a = MeasureTwoSiteOpGroupInKondoLattice(mps,
+                                                       mps_path,
+                                                       ops.bupcF,
+                                                       ops.bupa,
+                                                       ref_site,
+                                                       ops.f);
+    DumpMeasuRes(sp_up_a, std::string("cup_dag_cup") + file_postfix);
+
+    // 2) 
+    auto sp_up_b = MeasureTwoSiteOpGroupInKondoLattice(mps,
+                                                       mps_path,
+                                                       (-1)*ops.bupaF,
+                                                       ops.bupc,
+                                                       ref_site,
+                                                       ops.f);
+    DumpMeasuRes(sp_up_b, std::string("cup_cup_dag") + file_postfix);
+
+    // Down-spin channel
+    // 3) 
+    auto sp_dn_a = MeasureTwoSiteOpGroupInKondoLattice(mps,
+                                                       mps_path,
+                                                       ops.bdnc,
+                                                       ops.Fbdna,
+                                                       ref_site,
+                                                       ops.f);
+    DumpMeasuRes(sp_dn_a, std::string("cdown_dag_cdown") + file_postfix);
+
+    // 4) 
+    auto sp_dn_b = MeasureTwoSiteOpGroupInKondoLattice(mps,
+                                                       mps_path,
+                                                       (-1)*ops.bdna,
+                                                       ops.Fbdnc,
+                                                       ref_site,
+                                                       ops.f);
+    DumpMeasuRes(sp_dn_b, std::string("cdown_cdown_dag") + file_postfix);
+
+    std::cout << "Measured single-particle correlations (4 variants)" << std::endl;
+  }
+
 
   // SC single-pair correlation measurements
   std::vector<std::array<size_t, 2>>
       target_sites_interlayer_bond_set;// a special case that do not need include the insertion operator
-//  std::vector<std::array<size_t, 2>>
-//      target_sites_horizontal_set;
-//  std::vector<std::array<size_t, 2>>
-//      target_sites_vertical_set;
   target_sites_interlayer_bond_set.reserve(Lx);
-//  target_sites_horizontal_set.reserve(Lx);
-//  target_sites_vertical_set.reserve(Lx);
 
   size_t begin_x = Lx / 4;
   size_t end_x = Lx - 1;
