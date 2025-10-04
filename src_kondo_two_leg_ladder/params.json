@@ -2,6 +2,7 @@
   "CaseParams": {
     "Geometry": "OBC",
     "Lx": 20,
+    "Ly": 2,
     "t": 1,
     "t2": 0.3,
     "Jk": 0.3,

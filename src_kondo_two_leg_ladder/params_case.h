@@ -7,6 +7,7 @@ struct CaseParams : public CaseParamsParserBasic {
   CaseParams(const char *pf) : CaseParamsParserBasic(pf) {
     Geometry = ParseStr("Geometry");
     Lx = ParseInt("Lx");
+    Ly = ParseIntOr("Ly", 2);
     t = ParseDouble("t");
     t2 = ParseDouble("t2");
     JK = ParseDouble("Jk");
@@ -24,6 +25,7 @@ struct CaseParams : public CaseParamsParserBasic {
 
   std::string Geometry; // PBC, OBC
   size_t Lx;
+  size_t Ly; // number of zig-zag chains (tilted cylinder circumference)
   double t;
   double t2;   // Inter-chain hopping
   double JK;   //Hund's coupling

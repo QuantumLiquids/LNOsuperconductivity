@@ -9,6 +9,11 @@
 #include "./params_case.h"
 #include "../src_tj_double_layer_single_orbital_2d/myutil.h"
 #include "../src_tj_double_layer_single_orbital_2d/my_measure.h"
+#include <fstream>
+#include <sstream>
+#include <iomanip>
+#include <algorithm>
+#include "tilted_zigzag_lattice.h"
 
 using namespace qlmps;
 using namespace qlten;
@@ -23,12 +28,14 @@ int main(int argc, char *argv[]) {
 
   CaseParams params(argv[1]);
   size_t Lx = params.Lx; // L should be even number, for N/4 should on electron site for measure
+  size_t Ly = params.Ly;
   double t = params.t, Jk = params.JK, U = params.U;
   double t2 = params.t2;
-  size_t N = 4 * Lx;
+  size_t N = 2 * Ly * Lx;
   /*** Print the model parameter Info ***/
   if (rank == 0) {
     cout << "Lx = " << Lx << endl;
+    cout << "Ly = " << Ly << endl;
     cout << "N = " << N << endl;
     cout << "t = " << t << endl;
     cout << "t2 = " << t2 << endl;
@@ -52,37 +59,39 @@ int main(int argc, char *argv[]) {
   auto &ops = hubbard_ops;
   SpinOneHalfOperatorsU1U1 local_spin_ops;
   auto f = hubbard_ops.f;
-  for (size_t i = 0; i < N - 4; i = i + 2) {
-    size_t site1 = i, site2 = i + 4;
-    mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, {site1 + 2});
-    mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, {site1 + 2});
-    mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, {site1 + 2});
-    mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, {site1 + 2});
-  }
-  size_t di_for_t2(0);
-  size_t second_leg_start_site(0);
-  if (params.Geometry == "OBC") {
-    di_for_t2 = 8;
-    second_leg_start_site = 6;
-  } else {
-    di_for_t2 = 4;
-    second_leg_start_site = 2;
+  TiltedZigZagLattice lattice(Ly, Lx);
+
+  auto add_hop = [&](size_t site1, size_t site2, double coeff, const std::vector<size_t> &insert_sites) {
+     // make sure site1 < site2
+     if (site1 > site2) {
+      std::swap(site1, site2);
+     }
+      mpo_gen.AddTerm(-coeff, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, insert_sites);
+      mpo_gen.AddTerm(coeff, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, insert_sites);
+      mpo_gen.AddTerm(-coeff, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, insert_sites);
+      mpo_gen.AddTerm(coeff, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, insert_sites);
+  };
+
+  // Intra-zig-zag-chain hopping t: (y, x) -> (y, x+1), OBC along the zig-zag chain
+  for (const auto &p : lattice.IntraChainPairs()) {
+    const size_t i = p.first;
+    const size_t j = p.second;
+    auto ins = lattice.EvenIndicesBetween(i, j);
+    add_hop(i, j, t, ins);
   }
 
-  for (size_t i = 0; i < N - 6; i += di_for_t2) {
-    size_t site1 = i, site2 = i + 6;
-    mpo_gen.AddTerm(-t2, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, {site1 + 2, site1 + 4});
-    mpo_gen.AddTerm(t2, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, {site1 + 2, site1 + 4});
-    mpo_gen.AddTerm(-t2, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, {site1 + 2, site1 + 4});
-    mpo_gen.AddTerm(t2, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, {site1 + 2, site1 + 4});
+  // Inter-chain hopping t' (OBC part): zig-zag diagonal couplings
+  for (const auto &p : lattice.InterChainNNPairsOBC()) {
+    auto ins = lattice.EvenIndicesBetween(p.first, p.second);
+    add_hop(p.first, p.second, t2, ins);
   }
 
-  for (size_t i = second_leg_start_site; i < N - 2; i = i + di_for_t2) {
-    size_t site1 = i, site2 = i + 2;
-    mpo_gen.AddTerm(-t2, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2);
-    mpo_gen.AddTerm(t2, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2);
-    mpo_gen.AddTerm(-t2, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2);
-    mpo_gen.AddTerm(t2, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2);
+  // PBC-only diagonal winding along y
+  if (params.Geometry == "PBC") {
+    for (const auto &p : lattice.InterChainNNPairsPBC()) {
+      auto ins = lattice.EvenIndicesBetween(p.first, p.second);
+      add_hop(p.first, p.second, t2, ins);
+    }
   }
 
   for (size_t i = 0; i < N; i += 2) {
@@ -102,11 +111,15 @@ int main(int argc, char *argv[]) {
 
   qlten::hp_numeric::SetTensorManipulationThreads(params.Threads);
 
-  std::vector<size_t> elec_labs(2 * Lx);
-  //electron quarter filling
-  std::fill(elec_labs.begin(), elec_labs.begin() + Lx / 2, hubbard_site.spin_up);
-  std::fill(elec_labs.begin() + Lx / 2, elec_labs.begin() + Lx, hubbard_site.spin_down);
-  std::fill(elec_labs.begin() + Lx, elec_labs.end(), hubbard_site.empty);
+  std::vector<size_t> elec_labs(Lx * Ly);
+  // electron quarter filling on itinerant sites: total electrons = (Lx*Ly)/2
+  const size_t total_itinerant = Lx * Ly;
+  const size_t num_electrons = total_itinerant / 2;
+  const size_t num_up = num_electrons / 2 + num_electrons % 2;
+  const size_t num_down = num_electrons - num_up;
+  std::fill(elec_labs.begin(), elec_labs.begin() + num_up, hubbard_site.spin_up);
+  std::fill(elec_labs.begin() + num_up, elec_labs.begin() + num_up + num_down, hubbard_site.spin_down);
+  std::fill(elec_labs.begin() + num_up + num_down, elec_labs.end(), hubbard_site.empty);
   std::random_device rd;
   std::mt19937 g(rd());
   std::shuffle(elec_labs.begin(), elec_labs.end(), g);
@@ -164,11 +177,17 @@ int main(int argc, char *argv[]) {
     std::cout << "middle " << ee_list[2 * Lx] << std::endl;
   }
   size_t ref_site = N / 4;
+  if (ref_site % 2 == 1) { ref_site = ref_site > 0 ? ref_site - 1 : 0; } // make sure ref_site is itinerate site
   std::vector<size_t> target_sites;
   for (size_t i = ref_site + 2; i < N; i += 2) {
     target_sites.push_back(i);
   }
   std::string mps_path = kMpsPath;
+  if (rank == 0) {
+    std::ostringstream svg_name;
+    svg_name << "figures/tilted_lattice_Ly" << Ly << "_Lx" << Lx << ".svg";
+    lattice.DumpSVG(svg_name.str());
+  }
 
   std::ostringstream oss;
   oss << "t2" << t2 << "Jk" << Jk << "U" << U << "Lx" << Lx << "D" << params.Dmax.back();
@@ -203,7 +222,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Measured one-site correlation" << std::endl;
   }
 
-
+#if 0 // intralayer SC pair correlation measurements
   // SC single-pair correlation measurements
   std::vector<std::array<size_t, 2>>
       target_sites_diagonal_set;// a special case that do not need include the insertion operator
@@ -276,7 +295,7 @@ int main(int argc, char *argv[]) {
     DumpMeasuRes(measu_res, tasks[i].label + file_postfix);
     std::cout << "Measured SC correlation" << std::endl;
   }
-
+#endif
   MPI_Finalize();
   return 0;
 }
