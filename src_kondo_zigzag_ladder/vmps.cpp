@@ -190,7 +190,7 @@ int main(int argc, char *argv[]) {
   }
 
   std::ostringstream oss;
-  oss << "t2" << t2 << "Jk" << Jk << "U" << U << "Lx" << Lx << "D" << params.Dmax.back();
+  oss << "t2" << t2 << "Jk" << Jk << "U" << U  << "Ly" << Ly << "Lx" << Lx << "D" << params.Dmax.back();
   std::string file_postfix = oss.str();
 
   // Two-site correlation measurements
