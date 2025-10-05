@@ -2,18 +2,24 @@
 // Created by Haoxin Wang on 3/7/2025.
 //
 /*
- * 2-layer 2-leg Kondo lattice model, in conventional square lattice.
+ * Two-layer, multi-leg Kondo lattice model on a conventional square lattice.
  *
- * DMRG lattice mapping (two-layer, two-orbital, two-leg):
- *   - Total sites N = 4 * Ly * Lx with Ly = 2 (two legs). The factor 4 is two
- *     layers × two on-site degrees of freedom (extended itinerant electron and
- *     localized spin). Even indices are extended electrons; odd indices are
- *     localized spins.
- *   - Indices advance along x; at fixed x, indices traverse legs/layers/dof.
- *     Therefore there are 8 physical sites per x-position. Interlayer bonds at
- *     fixed y map to index pairs whose differences are multiples of 8.
- *   - Plot scripts reconstruct integer x-distance as |i - i_ref| / 8 and keep
- *     horizontal (delta y = 0) bonds by checking (i - i_ref) % 8 == 0.
+ * OBC on both x and y directions.
+ * 
+ * DMRG lattice mapping (two layers, two on-site orbitals):
+ *   - Total sites N = 4 * Ly * Lx. The factor 4 counts two layers and the
+ *     itinerant vs localized orbital on every rung. Even indices are itinerant
+ *     (extended) electrons; odd indices are localized spins.
+ *   - Indices advance along x. For fixed x the ordering walks through all
+ *     transverse legs y = 0 ... Ly - 1 and both layers, switching orbital
+ *     character on every step. Hence each x-rung contributes 4 * Ly physical
+ *     sites to the 1D chain.
+ *   - Hopping along x connects indices separated by 4 * Ly. Hopping along y at
+ *     fixed layer connects neighbors whose indices differ by 4. Interlayer
+ *     exchange couples localized spins whose indices differ by 2.
+ *   - Downstream analysis scripts can reconstruct the spatial separation using
+ *     the above mapping: Δx = |i - i_ref| / (4 * Ly) for bonds within the same
+ *     leg.
  */
 
 
@@ -74,10 +80,9 @@ int main(int argc, char *argv[]) {
   auto &ops = hubbard_ops;
   SpinOneHalfOperatorsU1U1 local_spin_ops;
   auto f = hubbard_ops.f;
-  //hopping along x direction
-  for (size_t i = 0; i < N - 4 * Ly; i = i + 2) {
-    size_t site1 = i, site2 = i + 4 * Ly;//4 for double layer times two orbital (localized & itinerate)
-    std::vector<size_t> inst_op_idxs; //even sites between site1 and site2
+
+  auto add_intralayer_hopping = [&](size_t site1, size_t site2) {
+    std::vector<size_t> inst_op_idxs;
     for (size_t j = site1 + 2; j < site2; j += 2) {
       inst_op_idxs.push_back(j);
     }
@@ -85,29 +90,30 @@ int main(int argc, char *argv[]) {
     mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, inst_op_idxs);
     mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, inst_op_idxs);
     mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, inst_op_idxs);
-  }
-  //hopping along y direction, assume Ly = 2
-  for (size_t i = 0; i < N - 6; i += 4 * Ly) {
-    size_t site1 = i, site2 = i + 4; // 0-th layer
-    mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, {site1 + 2});
-    mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, {site1 + 2});
-    mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, {site1 + 2});
-    mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, {site1 + 2});
+  };
 
-    site1 = i + 2, site2 = i + 6;   // 1-th layer
-    mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, {site1 + 2});
-    mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, {site1 + 2});
-    mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, {site1 + 2});
-    mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, {site1 + 2});
+  auto electron_site_index = [&](size_t x, size_t y, size_t layer) {
+    const size_t block = 4 * Ly;
+    return x * block + y * 4 + layer * 2;
+  };
+
+  // hopping along x direction
+  for (size_t i = 0; i < N - 4 * Ly; i += 2) {
+    add_intralayer_hopping(i, i + 4 * Ly);
   }
 
-//  for (size_t i = second_leg_start_site; i < N - 2; i = i + di_for_t2) {
-//    size_t site1 = i, site2 = i + 2;
-//    mpo_gen.AddTerm(-t2, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2);
-//    mpo_gen.AddTerm(t2, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2);
-//    mpo_gen.AddTerm(-t2, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2);
-//    mpo_gen.AddTerm(t2, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2);
-//  }
+  // hopping along y direction within each layer
+  for (size_t x = 0; x < Lx; ++x) {
+    for (size_t y = 0; y + 1 < Ly; ++y) {
+      const size_t site_layer0_curr = electron_site_index(x, y, 0);
+      const size_t site_layer0_next = electron_site_index(x, y + 1, 0);
+      add_intralayer_hopping(site_layer0_curr, site_layer0_next);
+
+      const size_t site_layer1_curr = electron_site_index(x, y, 1);
+      const size_t site_layer1_next = electron_site_index(x, y + 1, 1);
+      add_intralayer_hopping(site_layer1_curr, site_layer1_next);
+    }
+  }
 
   for (size_t i = 0; i < N; i += 2) {
     mpo_gen.AddTerm(U, hubbard_ops.nupndn, i);
@@ -131,7 +137,9 @@ int main(int argc, char *argv[]) {
   using FiniteMPST = qlmps::FiniteMPS<TenElemT, QNT>;
   FiniteMPST mps(sites);
 
+#ifdef USE_GPU
   qlten::hp_numeric::SetTensorManipulationThreads(params.Threads);
+#endif
 
   std::vector<size_t> elec_labs(2 * Ly * Lx);
   //electron quarter filling
@@ -254,9 +262,12 @@ int main(int argc, char *argv[]) {
     for (size_t idx = 0; idx < two_site_meas_ops.size(); ++idx) {
       if (idx % mpi_size == rank) {
         const auto &[label, op1, op2] = two_site_meas_ops[idx];
+        std::cout << "[rank " << rank << "] D=" << bond_dim
+                  << " start measuring two-site correlation " << label << std::endl;
         auto measu_res = MeasureTwoSiteOpGroup(mps, mps_path, op1, op2, ref_site, target_sites);
         DumpMeasuRes(measu_res, label + file_postfix);
-        std::cout << "Measured two-site correlation " << label << " at D = " << bond_dim << std::endl;
+        std::cout << "[rank " << rank << "] D=" << bond_dim
+                  << " complete measuring two-site correlation " << label << std::endl;
       }
     }
 
@@ -267,11 +278,16 @@ int main(int argc, char *argv[]) {
     }
 
     if ((two_site_meas_ops.size()) % mpi_size == rank) {
+      std::cout << "[rank " << rank << "] D=" << bond_dim
+                << " start measuring one-site observables" << std::endl;
       MeasureOneSiteOp(mps, mps_path, one_site_ops, even_sites, one_site_labels);
-      std::cout << "Measured one-site correlation at D = " << bond_dim << std::endl;
+      std::cout << "[rank " << rank << "] D=" << bond_dim
+                << " complete measuring one-site observables" << std::endl;
     }
 
     if ((two_site_meas_ops.size() + 1) % mpi_size == rank) {
+      std::cout << "[rank " << rank << "] D=" << bond_dim
+                << " start measuring single-particle correlations" << std::endl;
       auto sp_up_a = MeasureTwoSiteOpGroupInKondoLattice(mps,
                                                          mps_path,
                                                          ops.bupcF,
@@ -304,7 +320,8 @@ int main(int argc, char *argv[]) {
                                                          ops.f);
       DumpMeasuRes(sp_dn_b, std::string("cdown_cdown_dag") + file_postfix);
 
-      std::cout << "Measured single-particle correlations (4 variants) at D = " << bond_dim << std::endl;
+      std::cout << "[rank " << rank << "] D=" << bond_dim
+                << " complete measuring single-particle correlations" << std::endl;
     }
 
     for (int idx = (rank + mpi_size * 5 - static_cast<int>(two_site_meas_ops.size()) - 1) % mpi_size;
@@ -317,10 +334,14 @@ int main(int argc, char *argv[]) {
                                                sc_tasks[idx].ref_sites,
                                                sc_tasks[idx].target_sites_set,
                                                ops.f);
+      std::cout << "[rank " << rank << "] D=" << bond_dim
+                << " start measuring superconducting correlation " << sc_tasks[idx].label << std::endl;
       DumpMeasuRes(measu_res, std::string(sc_tasks[idx].label) + file_postfix);
-      std::cout << "Measured SC correlation " << sc_tasks[idx].label
-                << " at D = " << bond_dim << std::endl;
+      std::cout << "[rank " << rank << "] D=" << bond_dim
+                << " complete measuring superconducting correlation " << sc_tasks[idx].label << std::endl;
     }
+    std::cout << "[rank " << rank << "] D=" << bond_dim
+              << " complete measuring superconducting correlations" << std::endl;
   };
 
   for (size_t i = 0; i < params.Dmax.size(); i++) {
