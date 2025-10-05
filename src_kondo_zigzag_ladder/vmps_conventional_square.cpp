@@ -150,7 +150,7 @@ int main(int argc, char *argv[]) {
     cout << "CPU Time : " << (double) (endTime - startTime) / CLOCKS_PER_SEC << "s" << endl;
   }
 
-  if (rank == kMPIMasterRank) {
+  if (rank == hp_numeric::kMPIMasterRank) {
     mps.Load(kMpsPath);
     auto ee_list = mps.GetEntanglementEntropy(1);
     std::copy(ee_list.begin(), ee_list.end(), std::ostream_iterator<double>(std::cout, " "));

@@ -171,6 +171,158 @@ int main(int argc, char *argv[]) {
       mps.Dump(kMpsPath, true);
   }
 
+  std::string mps_path = kMpsPath;
+
+  size_t ref_site = N / 4;
+  if (ref_site % 2 == 1) {
+    ref_site += 1;
+  }
+  std::vector<size_t> target_sites;
+  for (size_t i = ref_site + 2; i < N; i += 2) {
+    target_sites.push_back(i);
+  }
+
+  std::vector<size_t> even_sites;
+  for (size_t i = 0; i < N; i += 2) {
+    even_sites.push_back(i);
+  }
+
+  using OpT = Tensor;
+  const std::vector<std::tuple<std::string, const OpT &, const OpT &>> two_site_meas_ops = {
+      {"szsz", hubbard_ops.sz, hubbard_ops.sz},
+      {"spsm", hubbard_ops.sp, hubbard_ops.sm},
+      {"smsp", hubbard_ops.sm, hubbard_ops.sp},
+      {"nfnf", hubbard_ops.nf, hubbard_ops.nf}
+  };
+
+  const std::vector<QLTensor<TenElemT, QNT>> one_site_ops = {hubbard_ops.sz, hubbard_ops.nf};
+  const std::vector<std::string> one_site_base_labels = {"sz_local", "nf_local"};
+
+  std::vector<std::array<size_t, 2>> target_sites_interlayer_bond_set;
+  target_sites_interlayer_bond_set.reserve(Lx);
+
+  size_t begin_x = Lx / 4;
+  size_t end_x = Lx - 1;
+  size_t effective_ly = 4 * Ly;
+  size_t site1_a = begin_x * effective_ly;
+  size_t site1_b = begin_x * effective_ly + 2;
+  std::array<size_t, 2> ref_sites = {site1_a, site1_b};
+  for (size_t x = begin_x + 2; x < end_x; x++) {
+    size_t site2_a = x * effective_ly;
+    size_t site2_b = x * effective_ly + 2;
+    target_sites_interlayer_bond_set.push_back({site2_a, site2_b});
+
+    site2_a = x * effective_ly + 4;
+    site2_b = x * effective_ly + 6;
+    target_sites_interlayer_bond_set.push_back({site2_a, site2_b});
+  }
+
+  std::array<Tensor, 4> sc_phys_ops_a = {ops.bupcF, ops.Fbdnc, ops.bupaF, ops.Fbdna};
+  std::array<Tensor, 4> sc_phys_ops_b = {ops.bdnc, ops.bupc, ops.bupaF, ops.Fbdna};
+  std::array<Tensor, 4> sc_phys_ops_c = {ops.bupcF, ops.Fbdnc, ops.bdna, ops.bupa};
+  std::array<Tensor, 4> sc_phys_ops_d = {ops.bdnc, ops.bupc, ops.bdna, ops.bupa};
+  std::array<Tensor, 4> sc_phys_ops_e = {ops.bupcF, ops.bupc, ops.bupaF, ops.bupa};
+  std::array<Tensor, 4> sc_phys_ops_f = {ops.bdnc, ops.Fbdnc, ops.bdna, ops.Fbdna};
+
+  struct SCTask {
+    const std::array<Tensor, 4> &phys_ops;
+    const std::array<size_t, 2> &ref_sites;
+    const std::vector<std::array<size_t, 2>> &target_sites_set;
+    const char *label;
+  };
+
+  const SCTask sc_tasks[] = {
+      {sc_phys_ops_a, ref_sites, target_sites_interlayer_bond_set, "scs_a"},
+      {sc_phys_ops_b, ref_sites, target_sites_interlayer_bond_set, "scs_b"},
+      {sc_phys_ops_c, ref_sites, target_sites_interlayer_bond_set, "scs_c"},
+      {sc_phys_ops_d, ref_sites, target_sites_interlayer_bond_set, "scs_d"},
+      {sc_phys_ops_e, ref_sites, target_sites_interlayer_bond_set, "sct_e"},
+      {sc_phys_ops_f, ref_sites, target_sites_interlayer_bond_set, "sct_f"}
+  };
+  const int total_sc_tasks = sizeof(sc_tasks) / sizeof(sc_tasks[0]);
+
+  auto run_measurements = [&](size_t bond_dim) {
+    std::ostringstream oss;
+    oss << "conventional_square"
+        << "Jk" << Jk
+        << "Jperp" << Jperp
+        << "U" << U
+        << "Lx" << Lx
+        << "D" << bond_dim;
+    const std::string file_postfix = oss.str();
+
+    for (size_t idx = 0; idx < two_site_meas_ops.size(); ++idx) {
+      if (idx % mpi_size == rank) {
+        const auto &[label, op1, op2] = two_site_meas_ops[idx];
+        auto measu_res = MeasureTwoSiteOpGroup(mps, mps_path, op1, op2, ref_site, target_sites);
+        DumpMeasuRes(measu_res, label + file_postfix);
+        std::cout << "Measured two-site correlation " << label << " at D = " << bond_dim << std::endl;
+      }
+    }
+
+    std::vector<std::string> one_site_labels;
+    one_site_labels.reserve(one_site_base_labels.size());
+    for (const auto &base_label : one_site_base_labels) {
+      one_site_labels.emplace_back(base_label + file_postfix);
+    }
+
+    if ((two_site_meas_ops.size()) % mpi_size == rank) {
+      MeasureOneSiteOp(mps, mps_path, one_site_ops, even_sites, one_site_labels);
+      std::cout << "Measured one-site correlation at D = " << bond_dim << std::endl;
+    }
+
+    if ((two_site_meas_ops.size() + 1) % mpi_size == rank) {
+      auto sp_up_a = MeasureTwoSiteOpGroupInKondoLattice(mps,
+                                                         mps_path,
+                                                         ops.bupcF,
+                                                         ops.bupa,
+                                                         ref_site,
+                                                         ops.f);
+      DumpMeasuRes(sp_up_a, std::string("cup_dag_cup") + file_postfix);
+
+      auto sp_up_b = MeasureTwoSiteOpGroupInKondoLattice(mps,
+                                                         mps_path,
+                                                         (-1) * ops.bupaF,
+                                                         ops.bupc,
+                                                         ref_site,
+                                                         ops.f);
+      DumpMeasuRes(sp_up_b, std::string("cup_cup_dag") + file_postfix);
+
+      auto sp_dn_a = MeasureTwoSiteOpGroupInKondoLattice(mps,
+                                                         mps_path,
+                                                         ops.bdnc,
+                                                         ops.Fbdna,
+                                                         ref_site,
+                                                         ops.f);
+      DumpMeasuRes(sp_dn_a, std::string("cdown_dag_cdown") + file_postfix);
+
+      auto sp_dn_b = MeasureTwoSiteOpGroupInKondoLattice(mps,
+                                                         mps_path,
+                                                         (-1) * ops.bdna,
+                                                         ops.Fbdnc,
+                                                         ref_site,
+                                                         ops.f);
+      DumpMeasuRes(sp_dn_b, std::string("cdown_cdown_dag") + file_postfix);
+
+      std::cout << "Measured single-particle correlations (4 variants) at D = " << bond_dim << std::endl;
+    }
+
+    for (int idx = (rank + mpi_size * 5 - static_cast<int>(two_site_meas_ops.size()) - 1) % mpi_size;
+         idx < total_sc_tasks;
+         idx += mpi_size) {
+      auto measu_res =
+          MeasureFourSiteOpGroupInKondoLattice(mps,
+                                               mps_path,
+                                               sc_tasks[idx].phys_ops,
+                                               sc_tasks[idx].ref_sites,
+                                               sc_tasks[idx].target_sites_set,
+                                               ops.f);
+      DumpMeasuRes(measu_res, std::string(sc_tasks[idx].label) + file_postfix);
+      std::cout << "Measured SC correlation " << sc_tasks[idx].label
+                << " at D = " << bond_dim << std::endl;
+    }
+  };
+
   for (size_t i = 0; i < params.Dmax.size(); i++) {
     if (rank == 0) {
       std::cout << "D_max = " << params.Dmax[i] << std::endl;
@@ -182,170 +334,14 @@ int main(int argc, char *argv[]) {
         params.noise
     );
     auto e0 = qlmps::TwoSiteFiniteVMPS(mps, mpo, sweep_params, comm);
+    MPI_Barrier(comm);
+    run_measurements(params.Dmax[i]);
   }
   if (rank == 0) {
     endTime = clock();
     cout << "CPU Time : " << (double) (endTime - startTime) / CLOCKS_PER_SEC << "s" << endl;
   }
 
-
-  // ******* Measurement ****** //
-  size_t ref_site = N / 4;
-  if (ref_site % 2 == 1) {
-    ref_site += 1;
-  }
-  std::vector<size_t> target_sites;
-  for (size_t i = ref_site + 2; i < N; i += 2) {
-    target_sites.push_back(i);
-  }
-  std::string mps_path = kMpsPath;
-
-  std::ostringstream oss;
-  oss << "conventional_square" << "Jk" << Jk << "Jperp" << Jperp << "U" << U << "Lx" << Lx << "D" << params.Dmax.back();
-  std::string file_postfix = oss.str();
-
-  // Two-site correlation measurements
-  using OpT = Tensor;
-  std::vector<std::tuple<std::string, const OpT &, const OpT &>> two_site_meas_ops = {
-      {"szsz", hubbard_ops.sz, hubbard_ops.sz},
-      {"spsm", hubbard_ops.sp, hubbard_ops.sm},
-      {"smsp", hubbard_ops.sm, hubbard_ops.sp},
-      {"nfnf", hubbard_ops.nf, hubbard_ops.nf}
-  };
-  for (size_t i = 0; i < two_site_meas_ops.size(); ++i) {
-    if (i % mpi_size == rank) {
-      const auto &[label, op1, op2] = two_site_meas_ops[i];
-      auto measu_res = MeasureTwoSiteOpGroup(mps, mps_path, op1, op2, ref_site, target_sites);
-      DumpMeasuRes(measu_res, label + file_postfix);
-      std::cout << "Measured two-site correlation" + label << std::endl;
-    }
-  }
-
-  // One-site local measurements on all even sites (extended electrons)
-  std::vector<size_t> even_sites;
-  for (size_t i = 0; i < N; i += 2) even_sites.push_back(i);
-
-  std::vector<QLTensor<TenElemT, QNT>> one_site_ops = {hubbard_ops.sz, hubbard_ops.nf};
-  std::vector<std::string> one_site_labels = {"sz_local" + file_postfix, "nf_local" + file_postfix};
-
-  if ((two_site_meas_ops.size()) % mpi_size == rank) {
-    MeasureOneSiteOp(mps, mps_path, one_site_ops, even_sites, one_site_labels);
-    std::cout << "Measured one-site correlation" << std::endl;
-  }
-
-  // Single-particle correlations G_sigma(i,j) with even-even constraints and
-  // fermion string only over even sites (itinerant electrons).
-  // Match the hopping operator structure (comments show the corresponding MPO terms):
-  //  1) -t * bupcF(i) ... f ... bupa(j) 
-  //  2) +t * bupaF(i) ... f ... bupc(j)  --> absorb '-' into left operator
-  //  3) -t * bdnc(i)  ... f ... Fbdna(j)  
-  //  4) +t * bdna(i)  ... f ... Fbdnc(j)  --> absorb '-' into left operator
-  if ((two_site_meas_ops.size() + 1) % mpi_size == rank) {
-    // Up-spin channel
-    // 1) 
-    auto sp_up_a = MeasureTwoSiteOpGroupInKondoLattice(mps,
-                                                       mps_path,
-                                                       ops.bupcF,
-                                                       ops.bupa,
-                                                       ref_site,
-                                                       ops.f);
-    DumpMeasuRes(sp_up_a, std::string("cup_dag_cup") + file_postfix);
-
-    // 2) 
-    auto sp_up_b = MeasureTwoSiteOpGroupInKondoLattice(mps,
-                                                       mps_path,
-                                                       (-1)*ops.bupaF,
-                                                       ops.bupc,
-                                                       ref_site,
-                                                       ops.f);
-    DumpMeasuRes(sp_up_b, std::string("cup_cup_dag") + file_postfix);
-
-    // Down-spin channel
-    // 3) 
-    auto sp_dn_a = MeasureTwoSiteOpGroupInKondoLattice(mps,
-                                                       mps_path,
-                                                       ops.bdnc,
-                                                       ops.Fbdna,
-                                                       ref_site,
-                                                       ops.f);
-    DumpMeasuRes(sp_dn_a, std::string("cdown_dag_cdown") + file_postfix);
-
-    // 4) 
-    auto sp_dn_b = MeasureTwoSiteOpGroupInKondoLattice(mps,
-                                                       mps_path,
-                                                       (-1)*ops.bdna,
-                                                       ops.Fbdnc,
-                                                       ref_site,
-                                                       ops.f);
-    DumpMeasuRes(sp_dn_b, std::string("cdown_cdown_dag") + file_postfix);
-
-    std::cout << "Measured single-particle correlations (4 variants)" << std::endl;
-  }
-
-
-  // SC single-pair correlation measurements
-  std::vector<std::array<size_t, 2>>
-      target_sites_interlayer_bond_set;// a special case that do not need include the insertion operator
-  target_sites_interlayer_bond_set.reserve(Lx);
-
-  size_t begin_x = Lx / 4;
-  size_t end_x = Lx - 1;
-  size_t effective_ly = 4 * Ly;
-  size_t site1_a = begin_x * effective_ly; //0-th layer, ly = 0
-  size_t site1_b = begin_x * effective_ly + 2; //1-th layer, ly = 1; a-b: interlayer bond
-  std::array<size_t, 2> ref_sites = {site1_a, site1_b}; // interlayer pairing
-//  std::array<size_t, 2> ref_hori_sites = {site1_a, site1_c};
-//  std::array<size_t, 2> ref_vert_sites = {site1_a, site1_b};
-  for (size_t x = begin_x + 2; x < end_x; x++) {
-    // ly = 0
-    size_t site2_a = x * effective_ly;
-    size_t site2_b = x * effective_ly + 2;
-    target_sites_interlayer_bond_set.push_back({site2_a, site2_b});
-
-    // ly = 1
-    site2_a = x * effective_ly + 4;
-    site2_b = x * effective_ly + 6;
-    target_sites_interlayer_bond_set.push_back({site2_a, site2_b});
-  }
-  std::array<Tensor, 4> sc_phys_ops_a = {ops.bupcF, ops.Fbdnc, ops.bupaF, ops.Fbdna};
-  std::array<Tensor, 4> sc_phys_ops_b = {ops.bdnc, ops.bupc, ops.bupaF, ops.Fbdna};
-  std::array<Tensor, 4> sc_phys_ops_c = {ops.bupcF, ops.Fbdnc, ops.bdna, ops.bupa};
-  std::array<Tensor, 4> sc_phys_ops_d = {ops.bdnc, ops.bupc, ops.bdna, ops.bupa};
-  std::array<Tensor, 4>
-      sc_phys_ops_e = {ops.bupcF, ops.bupc, ops.bupaF, ops.bupa}; // Triplet < up^dag(i) up^dag(j) up(k) up(l) >
-  std::array<Tensor, 4>
-      sc_phys_ops_f = {ops.bdnc, ops.Fbdnc, ops.bdna, ops.Fbdna}; // Triplet < down^dag(i) down^dag(j) down(k) down(l) >
-
-  struct Task {
-    const array<Tensor, 4> &phys_ops;
-    const std::array<size_t, 2> &ref_sites;
-    const std::vector<std::array<size_t, 2>> &target_sites_set;
-    string label;
-  };
-
-  Task tasks[] = {
-      {sc_phys_ops_a, ref_sites, target_sites_interlayer_bond_set, "scs_a"},
-      {sc_phys_ops_b, ref_sites, target_sites_interlayer_bond_set, "scs_b"},
-      {sc_phys_ops_c, ref_sites, target_sites_interlayer_bond_set, "scs_c"},
-      {sc_phys_ops_d, ref_sites, target_sites_interlayer_bond_set, "scs_d"},
-      {sc_phys_ops_e, ref_sites, target_sites_interlayer_bond_set, "sct_e"},
-      {sc_phys_ops_f, ref_sites, target_sites_interlayer_bond_set, "sct_f"}
-  };
-
-  int total_tasks = sizeof(tasks) / sizeof(tasks[0]);
-
-  for (int i = (rank + mpi_size * 5 - two_site_meas_ops.size() - 1) % mpi_size; i < total_tasks; i += mpi_size) {
-    // Each rank processes its assigned tasks
-    auto measu_res =
-        MeasureFourSiteOpGroupInKondoLattice(mps,
-                                             mps_path,
-                                             tasks[i].phys_ops,
-                                             tasks[i].ref_sites,
-                                             tasks[i].target_sites_set,
-                                             ops.f);
-    DumpMeasuRes(measu_res, tasks[i].label + file_postfix);
-    std::cout << "Measured SC correlation" << std::endl;
-  }
 
   MPI_Finalize();
   return 0;

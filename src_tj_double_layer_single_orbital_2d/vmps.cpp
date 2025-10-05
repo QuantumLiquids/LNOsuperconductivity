@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (mpi_size != 0) {
-    if (params.Threads > 2 && rank == kMPIMasterRank) {
+    if (params.Threads > 2 && rank == hp_numeric::kMPIMasterRank) {
       qlten::hp_numeric::SetTensorManipulationThreads(params.Threads - 2);
     } else {
 

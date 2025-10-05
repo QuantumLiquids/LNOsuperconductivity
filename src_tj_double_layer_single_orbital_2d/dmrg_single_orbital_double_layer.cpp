@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
       e0 = qlmps::FiniteDMRG(mps, mat_repr_mpo, sweep_params, comm);
     }
   }
-  if (rank == kMPIMasterRank) {
+  if (rank == hp_numeric::kMPIMasterRank) {
     std::cout << "E0/site: " << e0 / N << std::endl;
     endTime = clock();
     cout << "CPU Time : " << (double) (endTime - startTime) / CLOCKS_PER_SEC << "s" << endl;
@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
   MPI_Barrier(comm);
   auto nf = ops.nf, sz = ops.sz, sp = ops.sp, sm = ops.sm;
 #if SYM_LEVEL == 0
-  if (rank == kMPIMasterRank) {
+  if (rank == hp_numeric::kMPIMasterRank) {
     Timer one_site_timer("measure one site operators");
     MeasureOneSiteOp(mps, kMpsPath, {nf, sz}, {"nf", "sz"});
     cout << "measured one point function.<====" << endl;
