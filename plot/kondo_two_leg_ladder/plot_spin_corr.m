@@ -2,18 +2,21 @@
 %
 % Purpose
 %   Visualize equal-time spin correlations on the two-leg tilted Kondo lattice.
+%   (Single-layer model)
 %   Marker size encodes |corr| and color encodes sign; a legend is drawn.
 %
 % Inputs (configured in-file)
 %   L, t2, Jk, U, Db  - model and truncation parameters used to form the
 %                       data file postfix.
-%
+% 
 % Data dependencies
 %   Reads JSON from ../../data/ with names:
 %     szsz<t2...Jk...U...Lx...D...>.json
 %     spsm<t2...Jk...U...Lx...D...>.json
 %     smsp<t2...Jk...U...Lx...D...>.json
 %
+% Data files miss D information have been appendixed as D=0.
+% 
 % Other dependencies
 %   Requires KondoTilted2LegLattice.m in the same folder for geometry.
 %
@@ -159,7 +162,7 @@ end
 % title(sprintf('Spin Correlations (Reference Site: %d)', ref_site_idx));
 
 % 8. Add model parameters text box
-param_str = sprintf('t'' = %.1f\nJ_H = %.1f\nU = %.1f', t2, -Jk, U);
+param_str = sprintf('t'' = %.1ft\nJ_H = %.1ft\nU = %.1ft', t2, -Jk, U);
 annotation('textbox', [0.2, 0.82, 0.15, 0.1], 'String', param_str, ...
     'FitBoxToText', 'on', 'BackgroundColor', 'white', 'EdgeColor', 'k', ...
     'FontName', 'Arial', 'FontSize', 18, 'FontWeight', 'bold', 'Margin', 5);
@@ -167,3 +170,48 @@ annotation('textbox', [0.2, 0.82, 0.15, 0.1], 'String', param_str, ...
 hold off;
 axis off;
 axis equal;
+
+% -----------------------------------------------------------------------------
+% Transparent vector export to figures/
+try
+    set(gcf, 'Color','none', 'InvertHardcopy','off', 'Renderer','painters');
+    set(findall(gcf, 'Type','axes'), 'Color','none');
+    this_file = mfilename('fullpath');
+    if isempty(this_file)
+        this_dir = pwd;
+    else
+        this_dir = fileparts(this_file);
+    end
+    fig_dir = fullfile(this_dir, 'figures');
+    if ~exist(fig_dir, 'dir'); mkdir(fig_dir); end
+
+    % Build filename for single-parameter figure
+    jh = -Jk; % J_H = -Jk per annotation
+    name_tokens = { kv_token('jh', jh, false), ...
+                    kv_token('t2', t2, true), ...
+                    kv_token('u',  U,  false), ...
+                    kv_token('lx', L,  false) };
+    base_name = ['kondo_2leg_spin_corr_', strjoin(name_tokens, '_')];
+    pdf_path = fullfile(fig_dir, [base_name, '.pdf']);
+    eps_path = fullfile(fig_dir, [base_name, '.eps']);
+
+    exportgraphics(gcf, pdf_path, 'ContentType','vector', 'BackgroundColor','none');
+    print(gcf, '-depsc', '-painters', '-r600', eps_path);
+catch ME
+    warning(ME.identifier, '%s', ME.message);
+end
+
+% Local helpers for naming
+function tok = kv_token(key, val, always_hyphen)
+    s = fmt_num_short(val);
+    needs_hyphen = always_hyphen || contains(s,'.') || contains(s,'-');
+    if needs_hyphen
+        tok = [key, '-', s];
+    else
+        tok = [key, s];
+    end
+end
+
+function s = fmt_num_short(x)
+    s = sprintf('%.15g', x);
+end
