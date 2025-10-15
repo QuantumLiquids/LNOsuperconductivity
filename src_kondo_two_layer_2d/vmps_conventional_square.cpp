@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
 
   CaseParams params(argv[1]);
   size_t Lx = params.Lx; // Lx should be even number, for N/4 should on electron site for measure
-  size_t Ly = 2;
+  size_t Ly = params.Ly;
   double t = params.t, Jk = params.JK, U = params.U;
   double Jperp = params.Jperp;
   double t2 = params.t2;
@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
   /*** Print the model parameter Info ***/
   if (rank == 0) {
     cout << "Lx = " << Lx << endl;
-    cout << "Lx = " << Ly << endl;
+    cout << "Ly = " << Ly << endl;
     cout << "N = " << N << endl;
     cout << "t = " << t << endl;
     cout << "t2 = " << t2 << endl;
@@ -97,6 +97,10 @@ int main(int argc, char *argv[]) {
     return x * block + y * 4 + layer * 2;
   };
 
+  auto localized_site_index = [&](size_t x, size_t y, size_t layer) {
+    return electron_site_index(x, y, layer) + 1;
+  };
+
   // hopping along x direction
   for (size_t i = 0; i < N - 4 * Ly; i += 2) {
     add_intralayer_hopping(i, i + 4 * Ly);
@@ -125,11 +129,15 @@ int main(int argc, char *argv[]) {
     mpo_gen.AddTerm(Jk / 2, hubbard_ops.sm, i, local_spin_ops.sp, i + 1);
   }
 
-  //inter layer AFM coupling
-  for (size_t i = 1; i < N - 2; i = i + 4) { // for each unit cell
-    mpo_gen.AddTerm(Jperp, local_spin_ops.sz, i, local_spin_ops.sz, i + 2);
-    mpo_gen.AddTerm(Jperp / 2, local_spin_ops.sp, i, local_spin_ops.sm, i + 2);
-    mpo_gen.AddTerm(Jperp / 2, local_spin_ops.sm, i, local_spin_ops.sp, i + 2);
+  // inter-layer AFM coupling within each rung
+  for (size_t x = 0; x < Lx; ++x) {
+    for (size_t y = 0; y < Ly; ++y) {
+      const size_t site_layer0 = localized_site_index(x, y, 0);
+      const size_t site_layer1 = localized_site_index(x, y, 1);
+      mpo_gen.AddTerm(Jperp, local_spin_ops.sz, site_layer0, local_spin_ops.sz, site_layer1);
+      mpo_gen.AddTerm(Jperp / 2, local_spin_ops.sp, site_layer0, local_spin_ops.sm, site_layer1);
+      mpo_gen.AddTerm(Jperp / 2, local_spin_ops.sm, site_layer0, local_spin_ops.sp, site_layer1);
+    }
   }
 
   qlmps::MPO<Tensor> mpo = mpo_gen.Gen();
@@ -207,22 +215,19 @@ int main(int argc, char *argv[]) {
   const std::vector<std::string> one_site_base_labels = {"sz_local", "nf_local"};
 
   std::vector<std::array<size_t, 2>> target_sites_interlayer_bond_set;
-  target_sites_interlayer_bond_set.reserve(Lx);
+  target_sites_interlayer_bond_set.reserve(Lx * Ly);
 
   size_t begin_x = Lx / 4;
   size_t end_x = Lx - 1;
-  size_t effective_ly = 4 * Ly;
-  size_t site1_a = begin_x * effective_ly;
-  size_t site1_b = begin_x * effective_ly + 2;
-  std::array<size_t, 2> ref_sites = {site1_a, site1_b};
-  for (size_t x = begin_x + 2; x < end_x; x++) {
-    size_t site2_a = x * effective_ly;
-    size_t site2_b = x * effective_ly + 2;
-    target_sites_interlayer_bond_set.push_back({site2_a, site2_b});
+  auto bond_sites = [&](size_t x, size_t y) {
+    return std::array<size_t, 2>{electron_site_index(x, y, 0), electron_site_index(x, y, 1)};
+  };
 
-    site2_a = x * effective_ly + 4;
-    site2_b = x * effective_ly + 6;
-    target_sites_interlayer_bond_set.push_back({site2_a, site2_b});
+  std::array<size_t, 2> ref_sites = bond_sites(begin_x, 0);
+  for (size_t x = begin_x + 2; x < end_x; ++x) {
+    for (size_t y = 0; y < Ly; ++y) {
+      target_sites_interlayer_bond_set.push_back(bond_sites(x, y));
+    }
   }
 
   std::array<Tensor, 4> sc_phys_ops_a = {ops.bupcF, ops.Fbdnc, ops.bupaF, ops.Fbdna};
@@ -256,6 +261,7 @@ int main(int argc, char *argv[]) {
         << "Jperp" << Jperp
         << "U" << U
         << "Lx" << Lx
+        << "Ly" << Ly
         << "D" << bond_dim;
     const std::string file_postfix = oss.str();
 

@@ -1,12 +1,20 @@
 #ifndef KONDO_TWO_LEG_PARAMS_CASE_H
 #define KONDO_TWO_LEG_PARAMS_CASE_H
 #include "qlmps/qlmps.h"
+#include <iostream>
+#include <cstdlib>
 using qlmps::CaseParamsParserBasic;
 
 struct CaseParams : public CaseParamsParserBasic {
   CaseParams(const char *pf) : CaseParamsParserBasic(pf) {
     Geometry = ParseStr("Geometry");
     Lx = ParseInt("Lx");
+    const int ly_raw = ParseIntOr("Ly", 2);
+    if (ly_raw <= 0) {
+      std::cerr << "Ly must be positive in CaseParams; got " << ly_raw << std::endl;
+      exit(1);
+    }
+    Ly = static_cast<size_t>(ly_raw);
     t = ParseDouble("t");
     t2 = ParseDouble("t2");
     JK = ParseDouble("Jk");
@@ -25,6 +33,7 @@ struct CaseParams : public CaseParamsParserBasic {
 
   std::string Geometry; // PBC, OBC
   size_t Lx;
+  size_t Ly;
   double t;
   double t2;   // Inter-chain hopping
   double JK;   //Hund's coupling, -J_H

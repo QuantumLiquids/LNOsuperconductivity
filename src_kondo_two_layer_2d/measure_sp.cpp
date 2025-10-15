@@ -26,8 +26,8 @@ int main(int argc, char *argv[]) {
     mps_path = argv[2];
   }
 
-  size_t Lx = params.Lx; // Ly fixed to 2 here
-  size_t Ly = 2;
+  size_t Lx = params.Lx;
+  size_t Ly = params.Ly;
   size_t N = 4 * Ly * Lx; // even: itinerant electrons; odd: local spins
 
   size_t ref_site = N / 4;
@@ -62,6 +62,7 @@ int main(int argc, char *argv[]) {
       << "Jperp" << params.Jperp
       << "U" << params.U
       << "Lx" << Lx
+      << "Ly" << Ly
       << "D" << params.Dmax.back();
   std::string file_postfix = oss.str();
 

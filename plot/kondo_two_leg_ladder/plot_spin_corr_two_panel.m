@@ -17,15 +17,15 @@
 %     smsp<t2...Jk...U...Lx...D...>.json
 %
 % Other dependencies
-%   Requires KondoTilted2LegLattice.m in the same folder for geometry.
+%   Requires TiltedZigZagLattice.m in the same folder for geometry.
 clear;
 close all;
 
 % -----------------------------------------------------------------------------
 % Parameter sets (edit these as needed)
-% NOTE: J_H = -Jk in the figure annotation. Db set to 0 by default.
-params(1).L  = 20; params(1).t2 = 0.6; params(1).Jk = -4; params(1).U = 26.0; params(1).Db = 0;
-params(2).L  = 20; params(2).t2 = 0.3; params(2).Jk = -4; params(2).U = 14.0; params(2).Db = 0;
+% NOTE: J_H = -Jk in the figure annotation.
+params(1).Lx  = 20; params(1).Ly = 2; params(1).t2 = 0.3; params(1).Jk = -4; params(1).U = 14.0; params(1).Db = 0;
+params(2).Lx  = 20; params(2).Ly = 4; params(2).t2 = 0.3; params(2).Jk = -4; params(2).U = 14.0; params(2).Db = 12000;
 
 base_marker_size = 300;  % Max size for largest magnitude
 
@@ -44,9 +44,10 @@ ref_site_idx_all = zeros(1,2);
 lat_per_panel = cell(1,2);
 
 for p = 1:2
-    Lp = params(p).L;
-    lat_per_panel{p} = KondoTilted2LegLattice(4*Lp, 'OBC');
-    [corr_data, ref_site_idx, other_corr] = load_corr_data(params(p), lat_per_panel{p});
+    Lxp = params(p).Lx;
+    Lyp = params(p).Ly;
+    lat_per_panel{p} = TiltedZigZagLattice(Lyp, Lxp, 'OBC');
+    [corr_data, ref_site_idx, other_corr] = load_corr_data(params(p));
     panel_data{p}.corr_data = corr_data;
     panel_data{p}.other_corr = other_corr;
     ref_site_idx_all(p) = ref_site_idx;
@@ -105,9 +106,13 @@ for p = 1:2
     x_lim = ax.XLim; y_lim = ax.YLim;
     plot_width = x_lim(2) - x_lim(1);
     plot_height = y_lim(2) - y_lim(1);
-    text(x_lim(1) + 0.02*plot_width, y_lim(2) - 0.06*plot_height, ...
-        sprintf('(%c)', 'a' + (p-1)), 'FontWeight','bold', 'FontSize', 16, ...
-        'FontName','Arial');
+    panel_labels = {'(a)', '(b)'};
+    label_text = panel_labels{p};
+    if ~isempty(label_text)
+        text(x_lim(1) + 0.02*plot_width, y_lim(2) - 0.06*plot_height, ...
+            label_text, 'FontWeight','bold', 'FontSize', 16, ...
+            'FontName','Arial');
+    end
 
     % Parameters box in each panel
     t2 = params(p).t2; Jk = params(p).Jk; U = params(p).U;
@@ -180,16 +185,15 @@ hold(ax, 'off');
 
 % =============================================================================
 % Helpers
-function [corr_data, ref_site_idx, other_corr] = load_corr_data(p, lattice)
-    % Build file postfix; if your files omit D, use Db=0 as a suffix.
-    FileNamePostfix = ['t2', num2str(p.t2), 'Jk', num2str(p.Jk), 'U', num2str(p.U), ...
-                       'Lx', num2str(p.L),  'D', num2str(p.Db), '.json'];
-    SpinCorrDataZZ = jsondecode(fileread(['../../data/szsz', FileNamePostfix]));
-    SpinCorrDataPM = jsondecode(fileread(['../../data/spsm', FileNamePostfix]));
-    SpinCorrDataMP = jsondecode(fileread(['../../data/smsp', FileNamePostfix])); %#ok<NASGU>
+function [corr_data, ref_site_idx, other_corr] = load_corr_data(p)
+    postfix = build_postfix(p.t2, p.Jk, p.U, p.Ly, p.Lx, p.Db);
+    base_path = '../../data/';
+    SpinCorrDataZZ = jsondecode(fileread(resolve_corr_path(base_path, 'szsz', postfix, p.Ly)));
+    SpinCorrDataPM = jsondecode(fileread(resolve_corr_path(base_path, 'spsm', postfix, p.Ly)));
+    SpinCorrDataMP = jsondecode(fileread(resolve_corr_path(base_path, 'smsp', postfix, p.Ly))); %#ok<NASGU>
 
     data_num = numel(SpinCorrDataZZ);
-    ref_site_idx = SpinCorrDataZZ{1}{1}(1);
+    ref_site_raw = SpinCorrDataZZ{1}{1}(1);
     target_site_idx = zeros(1, data_num);
     SpinCorr = zeros(1, data_num);
     for i = 1:data_num
@@ -197,20 +201,23 @@ function [corr_data, ref_site_idx, other_corr] = load_corr_data(p, lattice)
         SpinCorr(i) = SpinCorrDataZZ{i}{2} + SpinCorrDataPM{i}{2};
     end
 
-    corr_data = [target_site_idx', SpinCorr'];
+    raw_indices = [ref_site_raw; target_site_idx'];
+    if any(mod(raw_indices, 2) ~= 0)
+        error('Spin correlation dataset includes localized-site indices (odd). Expected even indices for itinerant electrons.');
+    end
 
-    % Filter for extended sites and separate reference
-    is_extended = arrayfun(@(idx) lattice.isExtendedSite(idx), corr_data(:,1));
-    corr_data_extended = corr_data(is_extended, :);
-    is_ref = (corr_data_extended(:,1) == ref_site_idx);
-    % ref_corr = corr_data_extended(is_ref, :);
-    other_corr = corr_data_extended(~is_ref, :);
+    ref_site_idx = ref_site_raw / 2;
+    site_indices = target_site_idx' / 2;
+
+    corr_data = [site_indices, SpinCorr'];
+    other_corr = corr_data(corr_data(:,1) ~= ref_site_idx, :);
 end
 
 % -----------------------------------------------------------------------------
 % Transparent vector export to figures/
 try
-    set(gcf, 'Color','none', 'InvertHardcopy','off', 'Renderer','painters');
+    set(gcf, 'Renderer','painters');
+     set(gcf, 'Color','none', 'InvertHardcopy','off');
     set(findall(gcf, 'Type','axes'), 'Color','none');
     this_file = mfilename('fullpath');
     if isempty(this_file)
@@ -221,20 +228,21 @@ try
     fig_dir = fullfile(this_dir, 'figures');
     if ~exist(fig_dir, 'dir'); mkdir(fig_dir); end
 
-    % Build filename for two-parameter figure
     g1 = strjoin({ kv_token('jh', -params(1).Jk, false), ...
                    kv_token('t2', params(1).t2, true), ...
                    kv_token('u',  params(1).U,  false), ...
-                   kv_token('lx', params(1).L,  false) }, '_');
+                   kv_token('ly', params(1).Ly, false), ...
+                   kv_token('lx', params(1).Lx, false) }, '_');
     g2 = strjoin({ kv_token('jh', -params(2).Jk, false), ...
                    kv_token('t2', params(2).t2, true), ...
                    kv_token('u',  params(2).U,  false), ...
-                   kv_token('lx', params(2).L,  false) }, '_');
-    base_name = ['kondo_2leg_spin_corr_two_params_', g1, '_and_', g2];
+                   kv_token('ly', params(2).Ly, false), ...
+                   kv_token('lx', params(2).Lx, false) }, '_');
+    base_name = ['kondo_ladder_spin_corr_two_params_', g1, '_and_', g2];
     pdf_path = fullfile(fig_dir, [base_name, '.pdf']);
     eps_path = fullfile(fig_dir, [base_name, '.eps']);
 
-    exportgraphics(gcf, pdf_path, 'ContentType','vector', 'BackgroundColor','none');
+    % exportgraphics(gcf, pdf_path, 'ContentType','vector', 'BackgroundColor','none');
     print(gcf, '-depsc', '-painters', '-r600', eps_path);
 catch ME
     warning(ME.identifier, '%s', ME.message);
@@ -253,6 +261,36 @@ end
 
 function s = fmt_num_short(x)
     s = sprintf('%.15g', x);
+end
+
+function path = resolve_corr_path(base_dir, prefix, postfix, ly)
+    candidate = fullfile(base_dir, [prefix, postfix]);
+    if exist(candidate, 'file')
+        path = candidate;
+        return;
+    end
+    if ly ~= 2
+        error('Correlation file not found for Ly=%d: %s', ly, candidate);
+    end
+    fallback = strrep(candidate, ['Ly', num2str(ly)], '');
+    if exist(fallback, 'file')
+        path = fallback;
+        return;
+    end
+    error('Correlation file missing: tried %s and %s', candidate, fallback);
+end
+
+function postfix = build_postfix(t2, Jk, U, Ly, Lx, Db)
+    parts = {
+        ['t2', num2str(t2)], ...
+        ['Jk', num2str(Jk)], ...
+        ['U', num2str(U)], ...
+        ['Ly', num2str(Ly)], ...
+        ['Lx', num2str(Lx)], ...
+        ['D', num2str(Db)], ...
+        '.json'
+    };
+    postfix = strjoin(parts, '');
 end
 
 

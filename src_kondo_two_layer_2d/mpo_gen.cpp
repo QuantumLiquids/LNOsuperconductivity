@@ -39,9 +39,9 @@
    MPI_Comm_size(comm, &mpi_size);
    MPI_Comm_rank(comm, &rank);
  
-   CaseParams params(argv[1]);
-   size_t Lx = params.Lx; // Lx should be even number, for N/4 should on electron site for measure
-   size_t Ly = 2;
+  CaseParams params(argv[1]);
+  size_t Lx = params.Lx; // Lx should be even number, for N/4 should on electron site for measure
+  size_t Ly = params.Ly;
    double t = params.t, Jk = params.JK, U = params.U;
    double Jperp = params.Jperp;
    double t2 = params.t2;
@@ -53,7 +53,7 @@
    /*** Print the model parameter Info ***/
    if (rank == 0) {
      cout << "Lx = " << Lx << endl;
-     cout << "Ly = " << Ly << endl;
+    cout << "Ly = " << Ly << endl;
      cout << "N = " << N << endl;
      cout << "t = " << t << endl;
      cout << "t2 = " << t2 << endl;
@@ -79,33 +79,45 @@
    SpinOneHalfOperatorsU1U1 local_spin_ops;
    auto f = hubbard_ops.f;
    
-   //hopping along x direction
-   for (size_t i = 0; i < N - 4 * Ly; i = i + 2) {
-     size_t site1 = i, site2 = i + 4 * Ly;//4 for double layer times two orbital (localized & itinerate)
-     std::vector<size_t> inst_op_idxs; //even sites between site1 and site2
-     for (size_t j = site1 + 2; j < site2; j += 2) {
-       inst_op_idxs.push_back(j);
-     }
-     mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, inst_op_idxs);
-     mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, inst_op_idxs);
-     mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, inst_op_idxs);
-     mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, inst_op_idxs);
-   }
-   
-   //hopping along y direction, assume Ly = 2
-   for (size_t i = 0; i < N - 6; i += 4 * Ly) {
-     size_t site1 = i, site2 = i + 4; // 0-th layer
-     mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, {site1 + 2});
-     mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, {site1 + 2});
-     mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, {site1 + 2});
-     mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, {site1 + 2});
- 
-     site1 = i + 2, site2 = i + 6;   // 1-th layer
-     mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, {site1 + 2});
-     mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, {site1 + 2});
-     mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, {site1 + 2});
-     mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, {site1 + 2});
-   }
+  auto electron_site_index = [&](size_t x, size_t y, size_t layer) {
+    const size_t block = 4 * Ly;
+    return x * block + y * 4 + layer * 2;
+  };
+
+  auto localized_site_index = [&](size_t x, size_t y, size_t layer) {
+    return electron_site_index(x, y, layer) + 1;
+  };
+
+  // hopping along x direction
+  for (size_t i = 0; i < N - 4 * Ly; i = i + 2) {
+    size_t site1 = i, site2 = i + 4 * Ly;//4 for double layer times two orbital (localized & itinerate)
+    std::vector<size_t> inst_op_idxs; //even sites between site1 and site2
+    for (size_t j = site1 + 2; j < site2; j += 2) {
+      inst_op_idxs.push_back(j);
+    }
+    mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, inst_op_idxs);
+    mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, inst_op_idxs);
+    mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, inst_op_idxs);
+    mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, inst_op_idxs);
+  }
+  
+  // hopping along y direction for each layer
+  for (size_t x = 0; x < Lx; ++x) {
+    for (size_t y = 0; y + 1 < Ly; ++y) {
+      for (size_t layer = 0; layer < 2; ++layer) {
+        const size_t site1 = electron_site_index(x, y, layer);
+        const size_t site2 = electron_site_index(x, y + 1, layer);
+        std::vector<size_t> inst_op_idxs;
+        for (size_t j = site1 + 2; j < site2; j += 2) {
+          inst_op_idxs.push_back(j);
+        }
+        mpo_gen.AddTerm(-t, hubbard_ops.bupcF, site1, hubbard_ops.bupa, site2, f, inst_op_idxs);
+        mpo_gen.AddTerm(t, hubbard_ops.bupaF, site1, hubbard_ops.bupc, site2, f, inst_op_idxs);
+        mpo_gen.AddTerm(-t, hubbard_ops.bdnc, site1, hubbard_ops.Fbdna, site2, f, inst_op_idxs);
+        mpo_gen.AddTerm(t, hubbard_ops.bdna, site1, hubbard_ops.Fbdnc, site2, f, inst_op_idxs);
+      }
+    }
+  }
  
    // Hubbard U term on extended electron sites
    for (size_t i = 0; i < N; i += 2) {
@@ -119,12 +131,16 @@
      mpo_gen.AddTerm(Jk / 2, hubbard_ops.sm, i, local_spin_ops.sp, i + 1);
    }
  
-   //inter layer AFM coupling
-   for (size_t i = 1; i < N - 2; i = i + 4) { // for each unit cell
-     mpo_gen.AddTerm(Jperp, local_spin_ops.sz, i, local_spin_ops.sz, i + 2);
-     mpo_gen.AddTerm(Jperp / 2, local_spin_ops.sp, i, local_spin_ops.sm, i + 2);
-     mpo_gen.AddTerm(Jperp / 2, local_spin_ops.sm, i, local_spin_ops.sp, i + 2);
-   }
+  // inter layer AFM coupling
+  for (size_t x = 0; x < Lx; ++x) {
+    for (size_t y = 0; y < Ly; ++y) {
+      const size_t site0 = localized_site_index(x, y, 0);
+      const size_t site1 = localized_site_index(x, y, 1);
+      mpo_gen.AddTerm(Jperp, local_spin_ops.sz, site0, local_spin_ops.sz, site1);
+      mpo_gen.AddTerm(Jperp / 2, local_spin_ops.sp, site0, local_spin_ops.sm, site1);
+      mpo_gen.AddTerm(Jperp / 2, local_spin_ops.sm, site0, local_spin_ops.sp, site1);
+    }
+  }
  
    qlmps::MPO<Tensor> mpo = mpo_gen.Gen();
  
