@@ -120,11 +120,14 @@ if (QLMPS_USE_GPU)
             ${PROJECT_SOURCE_DIR}/src_kondo_two_layer_2d
             ${PROJECT_SOURCE_DIR}/src_kondo_1d_chain)
 
-    file(GLOB_RECURSE GPU_SOURCES CONFIGURE_DEPENDS
-            ${GPU_READY_DIRS}/*.cpp)
+    set(GPU_SOURCES "")
+    foreach(dir IN LISTS GPU_READY_DIRS)
+        file(GLOB_RECURSE dir_sources CONFIGURE_DEPENDS "${dir}/*.cpp")
+        list(APPEND GPU_SOURCES ${dir_sources})
+    endforeach()
     list(REMOVE_DUPLICATES GPU_SOURCES)
     if (GPU_SOURCES)
-        message(STATUS "GPU_SOURCES" ${GPU_SOURCES})
+        message(STATUS "GPU_SOURCES=" ${GPU_SOURCES})
         set_source_files_properties(${GPU_SOURCES} PROPERTIES LANGUAGE CUDA)
     endif ()
 else ()
