@@ -48,7 +48,9 @@ int main(int argc, char *argv[]){
   std::cout << "to = " << to << std::endl;
   std::cout << "thread = " << thread << std::endl;
 
+#ifndef USE_GPU
   qlten::hp_numeric::SetTensorManipulationThreads(thread);
+#endif
 
 
   const size_t N = GetNumofMps();

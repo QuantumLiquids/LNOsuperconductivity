@@ -54,7 +54,9 @@ int main(int argc, char *argv[]) {
   using FiniteMPST = qlmps::FiniteMPS<TenElemT, QNT>;
   FiniteMPST mps(sites);
 
+#ifndef USE_GPU
   qlten::hp_numeric::SetTensorManipulationThreads(params.Threads);
+#endif
 
   // file postfix to match existing conventions
   std::ostringstream oss;

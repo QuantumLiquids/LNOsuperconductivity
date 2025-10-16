@@ -85,7 +85,9 @@ int main(int argc, char *argv[]) {
 
   std::cout << "Argument read:\nfrom = " << from << "\nto = " << to << "\nthread = " << thread << std::endl;
 
+#ifndef USE_GPU
   qlten::hp_numeric::SetTensorManipulationThreads(thread);
+#endif
 
   const size_t N = GetNumofMps();
   using TenT = Tensor;

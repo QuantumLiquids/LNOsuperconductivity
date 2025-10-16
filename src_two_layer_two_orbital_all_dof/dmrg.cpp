@@ -285,10 +285,81 @@ int main(int argc, char *argv[]) {
   if (rank == 0)
     std::cout << "MRO generated." << std::endl;
 
+  auto run_measurements = [&](size_t bond_dim) {
+    std::ostringstream oss;
+    oss << "dmrg_two_layer_two_orbital"
+        << "_U" << U
+        << "_Jh" << J_H
+        << "_t1" << t1
+        << "_t2" << t2
+        << "_Lx" << params.Lx
+        << "_Ly" << params.Ly
+        << "_D" << bond_dim;
+    const std::string file_postfix = oss.str();
+
+    const std::vector<size_t> measurement_sites = [&]() {
+      std::vector<size_t> sites;
+      for (size_t i = 0; i < N; ++i) {
+        if ((i / (2 * Ly)) % 2 == 0) {
+          sites.push_back(i);
+        }
+      }
+      return sites;
+    }();
+
+    const std::vector<QLTensor<TenElemT, QNT>> one_site_ops = {ops.sz, ops.nf, ops.nupndn};
+    std::vector<std::string> one_site_labels = {
+        std::string("sz_") + file_postfix,
+        std::string("nf_") + file_postfix,
+        std::string("nupndn_") + file_postfix};
+
+    if (rank == hp_numeric::kMPIMasterRank) {
+      Timer one_site_timer("measure one site operators");
+      MeasureOneSiteOp(mps, sweep_params.mps_path, one_site_ops, measurement_sites, one_site_labels);
+      one_site_timer.PrintElapsed();
+      std::cout << "measured one point function.<====" << std::endl;
+    }
+
+    struct TwoSiteTask {
+      std::string label;
+      const QLTensor<TenElemT, QNT> &op1;
+      const QLTensor<TenElemT, QNT> &op2;
+    };
+
+    const std::vector<TwoSiteTask> two_site_tasks = {
+        {"szsz", ops.sz, ops.sz},
+        {"spsm", ops.sp, ops.sm},
+        {"smsp", ops.sm, ops.sp},
+        {"nfnf", ops.nf, ops.nf},
+        {"nupndn_nupndn", ops.nupndn, ops.nupndn}
+    };
+
+    size_t ref_site = 0;
+    std::vector<size_t> target_sites;
+    for (size_t i = ref_site + 1; i < N; ++i) {
+      target_sites.push_back(i);
+    }
+
+    for (size_t idx = 0; idx < two_site_tasks.size(); ++idx) {
+      if (idx % mpi_size == rank) {
+        const auto &task = two_site_tasks[idx];
+        auto measu_res = MeasureTwoSiteOpGroup(mps,
+                                               sweep_params.mps_path,
+                                               task.op1,
+                                               task.op2,
+                                               ref_site,
+                                               target_sites);
+        DumpMeasuRes(measu_res, task.label + "_" + file_postfix);
+      }
+    }
+    MPI_Barrier(comm);
+  };
+
   // dmrg
   double e0;
   if (!has_bond_dimension_parameter) {
     e0 = qlmps::FiniteDMRG(mps, mro, sweep_params, comm);
+    run_measurements(sweep_params.Dmax);
   } else {
     for (size_t i = 0; i < DMRG_time; i++) {
       size_t D = input_D_set[i];
@@ -302,6 +373,7 @@ int main(int argc, char *argv[]) {
           params.noise
       );
       e0 = qlmps::FiniteDMRG(mps, mro, sweep_params, comm);
+      run_measurements(D);
     }
   }
   endTime = clock();

@@ -109,7 +109,9 @@ int main(int argc, char *argv[]) {
   using FiniteMPST = qlmps::FiniteMPS<TenElemT, QNT>;
   FiniteMPST mps(sites);
 
+#ifndef USE_GPU
   qlten::hp_numeric::SetTensorManipulationThreads(params.Threads);
+#endif
 
   std::vector<size_t> elec_labs(Lx * Ly);
   // electron quarter filling on itinerant sites: total electrons = (Lx*Ly)/2

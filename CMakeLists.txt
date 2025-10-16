@@ -112,14 +112,21 @@ if (QLMPS_USE_GPU)
     endif ()
 
 
-    file(GLOB_RECURSE SINGLE_ORBITAL_SOURCES src_tj_double_layer_single_orbital_2d/*.cpp)
-    file(GLOB_RECURSE FOUR_BAND_SOURCES src_two_layer_two_orbital_all_dof/*.cpp)
+    set(GPU_READY_DIRS
+            ${PROJECT_SOURCE_DIR}/src_two_layer_two_orbital_all_dof
+            ${PROJECT_SOURCE_DIR}/src_tj_double_layer_single_orbital_2d
+            ${PROJECT_SOURCE_DIR}/src_tj_single_layer_single_orbital_2d_anisotropic
+            ${PROJECT_SOURCE_DIR}/src_kondo_zigzag_ladder
+            ${PROJECT_SOURCE_DIR}/src_kondo_two_layer_2d
+            ${PROJECT_SOURCE_DIR}/src_kondo_1d_chain)
 
-    set(TEST_SOURCES ${SINGLE_ORBITAL_SOURCES} ${FOUR_BAND_SOURCES})
-
-    message(STATUS "TEST_SOURCES" ${TEST_SOURCES})
-    # Treat all .cc files in tests/ as CUDA files
-    set_source_files_properties(${TEST_SOURCES} PROPERTIES LANGUAGE CUDA)
+    file(GLOB_RECURSE GPU_SOURCES CONFIGURE_DEPENDS
+            ${GPU_READY_DIRS}/*.cpp)
+    list(REMOVE_DUPLICATES GPU_SOURCES)
+    if (GPU_SOURCES)
+        message(STATUS "GPU_SOURCES" ${GPU_SOURCES})
+        set_source_files_properties(${GPU_SOURCES} PROPERTIES LANGUAGE CUDA)
+    endif ()
 else ()
     find_package(hptt)
     message(STATUS "HPTT Lib : " "${hptt_LIBRARY}")

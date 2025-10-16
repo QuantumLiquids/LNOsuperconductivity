@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
   FiniteMPST mps(sites);
 
   Timer one_site_timer("measure one site operators");
-  MeasureOneSiteOp(mps, kMpsPath, {ops.sz, ops.nf}, {"sz", "nf"});
+  MeasureOneSiteOp(mps, kMpsPath, {ops.sz, ops.nf, ops.nupndn}, {"sz", "nf", "nupndn"});
   std::cout << "measured one point function.<====" << std::endl;
   one_site_timer.PrintElapsed();
   size_t ref_site = 0;

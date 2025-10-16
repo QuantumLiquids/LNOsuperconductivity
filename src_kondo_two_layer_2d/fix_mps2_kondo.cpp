@@ -50,7 +50,9 @@ int main(int argc, char *argv[]) {
             << "\nthread = " << thread
             << "\nload old mps = " << load_mps << std::endl;
 
+#ifndef USE_GPU
   qlten::hp_numeric::SetTensorManipulationThreads(thread);
+#endif
   const size_t N = GetNumofMps();
   const string temp_path = kRuntimeTempPath;
 
