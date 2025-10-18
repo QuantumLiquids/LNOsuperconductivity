@@ -22,7 +22,6 @@
  *     leg.
  */
 
-
 #include "qlten/qlten.h"
 #include "qlmps/qlmps.h"
 #include "../src_kondo_1d_chain/kondo_hilbert_space.h"
@@ -70,8 +69,8 @@ int main(int argc, char *argv[]) {
 
   std::vector<IndexT> pb_set = std::vector<IndexT>(N);
   for (size_t i = 0; i < N; ++i) {
-    if (i % 2 == 0) pb_set[i] = pb_outE;   // even site is extended electron
-    if (i % 2 == 1) pb_set[i] = pb_outL;   // odd site is localized electron
+    if (i % 2 == 0) pb_set[i] = pb_outE; // even site is extended electron
+    if (i % 2 == 1) pb_set[i] = pb_outL; // odd site is localized electron
   }
   const SiteVec<TenElemT, QNT> sites = SiteVec<TenElemT, QNT>(pb_set);
   auto mpo_gen = MPOGenerator<TenElemT, QNT>(sites);
@@ -151,9 +150,9 @@ int main(int argc, char *argv[]) {
 
   std::vector<size_t> elec_labs(2 * Ly * Lx);
   //electron quarter filling
-  std::fill(elec_labs.begin(), elec_labs.begin() + Lx, hubbard_site.spin_up);
-  std::fill(elec_labs.begin() + Lx, elec_labs.begin() + 2 * Lx, hubbard_site.spin_down);
-  std::fill(elec_labs.begin() + 2 * Lx, elec_labs.end(), hubbard_site.empty);
+  std::fill(elec_labs.begin(), elec_labs.begin() + Lx * Ly / 2, hubbard_site.spin_up);
+  std::fill(elec_labs.begin() + Lx * Ly / 2, elec_labs.begin() + Lx * Ly, hubbard_site.spin_down);
+  std::fill(elec_labs.begin() + Lx * Ly, elec_labs.end(), hubbard_site.empty);
   std::random_device rd;
   std::mt19937 g(rd());
   std::shuffle(elec_labs.begin(), elec_labs.end(), g);
@@ -204,17 +203,17 @@ int main(int argc, char *argv[]) {
   }
 
   using OpT = Tensor;
-  const std::vector<std::tuple<std::string, const OpT &, const OpT &>> two_site_meas_ops = {
-      {"szsz", hubbard_ops.sz, hubbard_ops.sz},
-      {"spsm", hubbard_ops.sp, hubbard_ops.sm},
-      {"smsp", hubbard_ops.sm, hubbard_ops.sp},
-      {"nfnf", hubbard_ops.nf, hubbard_ops.nf}
+  const std::vector<std::tuple<std::string, const OpT &, const OpT &> > two_site_meas_ops = {
+    {"szsz", hubbard_ops.sz, hubbard_ops.sz},
+    {"spsm", hubbard_ops.sp, hubbard_ops.sm},
+    {"smsp", hubbard_ops.sm, hubbard_ops.sp},
+    {"nfnf", hubbard_ops.nf, hubbard_ops.nf}
   };
 
-  const std::vector<QLTensor<TenElemT, QNT>> one_site_ops = {hubbard_ops.sz, hubbard_ops.nf};
+  const std::vector<QLTensor<TenElemT, QNT> > one_site_ops = {hubbard_ops.sz, hubbard_ops.nf};
   const std::vector<std::string> one_site_base_labels = {"sz_local", "nf_local"};
 
-  std::vector<std::array<size_t, 2>> target_sites_interlayer_bond_set;
+  std::vector<std::array<size_t, 2> > target_sites_interlayer_bond_set;
   target_sites_interlayer_bond_set.reserve(Lx * Ly);
 
   size_t begin_x = Lx / 4;
@@ -240,17 +239,17 @@ int main(int argc, char *argv[]) {
   struct SCTask {
     const std::array<Tensor, 4> &phys_ops;
     const std::array<size_t, 2> &ref_sites;
-    const std::vector<std::array<size_t, 2>> &target_sites_set;
+    const std::vector<std::array<size_t, 2> > &target_sites_set;
     const char *label;
   };
 
   const SCTask sc_tasks[] = {
-      {sc_phys_ops_a, ref_sites, target_sites_interlayer_bond_set, "scs_a"},
-      {sc_phys_ops_b, ref_sites, target_sites_interlayer_bond_set, "scs_b"},
-      {sc_phys_ops_c, ref_sites, target_sites_interlayer_bond_set, "scs_c"},
-      {sc_phys_ops_d, ref_sites, target_sites_interlayer_bond_set, "scs_d"},
-      {sc_phys_ops_e, ref_sites, target_sites_interlayer_bond_set, "sct_e"},
-      {sc_phys_ops_f, ref_sites, target_sites_interlayer_bond_set, "sct_f"}
+    {sc_phys_ops_a, ref_sites, target_sites_interlayer_bond_set, "scs_a"},
+    {sc_phys_ops_b, ref_sites, target_sites_interlayer_bond_set, "scs_b"},
+    {sc_phys_ops_c, ref_sites, target_sites_interlayer_bond_set, "scs_c"},
+    {sc_phys_ops_d, ref_sites, target_sites_interlayer_bond_set, "scs_d"},
+    {sc_phys_ops_e, ref_sites, target_sites_interlayer_bond_set, "sct_e"},
+    {sc_phys_ops_f, ref_sites, target_sites_interlayer_bond_set, "sct_f"}
   };
   const int total_sc_tasks = sizeof(sc_tasks) / sizeof(sc_tasks[0]);
 
@@ -269,11 +268,11 @@ int main(int argc, char *argv[]) {
       if (idx % mpi_size == rank) {
         const auto &[label, op1, op2] = two_site_meas_ops[idx];
         std::cout << "[rank " << rank << "] D=" << bond_dim
-                  << " start measuring two-site correlation " << label << std::endl;
+            << " start measuring two-site correlation " << label << std::endl;
         auto measu_res = MeasureTwoSiteOpGroup(mps, mps_path, op1, op2, ref_site, target_sites);
         DumpMeasuRes(measu_res, label + file_postfix);
         std::cout << "[rank " << rank << "] D=" << bond_dim
-                  << " complete measuring two-site correlation " << label << std::endl;
+            << " complete measuring two-site correlation " << label << std::endl;
       }
     }
 
@@ -285,15 +284,15 @@ int main(int argc, char *argv[]) {
 
     if ((two_site_meas_ops.size()) % mpi_size == rank) {
       std::cout << "[rank " << rank << "] D=" << bond_dim
-                << " start measuring one-site observables" << std::endl;
+          << " start measuring one-site observables" << std::endl;
       MeasureOneSiteOp(mps, mps_path, one_site_ops, even_sites, one_site_labels);
       std::cout << "[rank " << rank << "] D=" << bond_dim
-                << " complete measuring one-site observables" << std::endl;
+          << " complete measuring one-site observables" << std::endl;
     }
 
     if ((two_site_meas_ops.size() + 1) % mpi_size == rank) {
       std::cout << "[rank " << rank << "] D=" << bond_dim
-                << " start measuring single-particle correlations" << std::endl;
+          << " start measuring single-particle correlations" << std::endl;
       auto sp_up_a = MeasureTwoSiteOpGroupInKondoLattice(mps,
                                                          mps_path,
                                                          ops.bupcF,
@@ -327,7 +326,7 @@ int main(int argc, char *argv[]) {
       DumpMeasuRes(sp_dn_b, std::string("cdown_cdown_dag") + file_postfix);
 
       std::cout << "[rank " << rank << "] D=" << bond_dim
-                << " complete measuring single-particle correlations" << std::endl;
+          << " complete measuring single-particle correlations" << std::endl;
     }
 
     for (int idx = (rank + mpi_size * 5 - static_cast<int>(two_site_meas_ops.size()) - 1) % mpi_size;
@@ -341,13 +340,13 @@ int main(int argc, char *argv[]) {
                                                sc_tasks[idx].target_sites_set,
                                                ops.f);
       std::cout << "[rank " << rank << "] D=" << bond_dim
-                << " start measuring superconducting correlation " << sc_tasks[idx].label << std::endl;
+          << " start measuring superconducting correlation " << sc_tasks[idx].label << std::endl;
       DumpMeasuRes(measu_res, std::string(sc_tasks[idx].label) + file_postfix);
       std::cout << "[rank " << rank << "] D=" << bond_dim
-                << " complete measuring superconducting correlation " << sc_tasks[idx].label << std::endl;
+          << " complete measuring superconducting correlation " << sc_tasks[idx].label << std::endl;
     }
     std::cout << "[rank " << rank << "] D=" << bond_dim
-              << " complete measuring superconducting correlations" << std::endl;
+        << " complete measuring superconducting correlations" << std::endl;
   };
 
   for (size_t i = 0; i < params.Dmax.size(); i++) {
@@ -355,10 +354,12 @@ int main(int argc, char *argv[]) {
       std::cout << "D_max = " << params.Dmax[i] << std::endl;
     }
     qlmps::FiniteVMPSSweepParams sweep_params(
-        params.Sweeps,
-        params.Dmin, params.Dmax[i], params.CutOff,
-        qlmps::LanczosParams(params.LanczErr, params.MaxLanczIter),
-        params.noise
+      params.Sweeps,
+      params.Dmin,
+      params.Dmax[i],
+      params.CutOff,
+      qlmps::LanczosParams(params.LanczErr, params.MaxLanczIter),
+      params.noise
     );
     auto e0 = qlmps::TwoSiteFiniteVMPS(mps, mpo, sweep_params, comm);
     MPI_Barrier(comm);
@@ -368,7 +369,6 @@ int main(int argc, char *argv[]) {
     endTime = clock();
     cout << "CPU Time : " << (double) (endTime - startTime) / CLOCKS_PER_SEC << "s" << endl;
   }
-
 
   MPI_Finalize();
   return 0;

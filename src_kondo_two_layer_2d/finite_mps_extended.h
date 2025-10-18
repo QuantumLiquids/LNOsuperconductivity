@@ -9,7 +9,8 @@
 // The functions mirror the classic MeasureTwoSiteOpGroup API but are tailored for
 // the two-layer Kondo lattice mapping used in this project.
 
-#pragma once
+#ifndef FINITE_MPS_EXTENDED
+#define FINITE_MPS_EXTENDED
 
 #include "qlten/qlten.h"
 #include "qlmps/qlmps.h"
@@ -135,4 +136,5 @@ MeasuRes<TenElemT> MeasureTwoSiteOpGroupInKondoLattice(
 
 } // namespace qlmps
 
+#endif
 
