@@ -315,7 +315,8 @@ int main(int argc, char *argv[]) {
 
     if (rank == hp_numeric::kMPIMasterRank) {
       Timer one_site_timer("measure one site operators");
-      MeasureOneSiteOp(mps, sweep_params.mps_path, one_site_ops, measurement_sites, one_site_labels);
+      //MeasureOneSiteOp(mps, sweep_params.mps_path, one_site_ops, measurement_sites, one_site_labels);
+      MeasureOneSiteOp(mps, sweep_params.mps_path, {ops.sz, ops.nf, ops.nupndn}, {"sz", "nf", "nupndn"});
       one_site_timer.PrintElapsed();
       std::cout << "measured one point function.<====" << std::endl;
     }
