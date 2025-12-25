@@ -78,11 +78,11 @@ For Intel x86 user, we recommand use Intel oneAPI toolkit to include both MPI an
 After building, you'll have the following executables:
 
 ### Single Orbital Models
-| Executable | Description | Usage |
-|------------|-------------|-------|
-| `dmrg_single_orbital` | DMRG for double-layer t-J model | `mpirun -np <num_proc> ./dmrg_single_orbital params.json` |
-| `dmrg_ani_tJ` | DMRG for single-layer anisotropic t-J model | `mpirun -np <num_proc> ./dmrg_ani_tJ params.json` |
-| `measure1_ani_tJ` | Measure correlations for single-layer t-J | `./measure1_ani_tJ params.json` |
+| Executable | Description | Usage                                                               |
+|------------|-------------|---------------------------------------------------------------------|
+| `dmrg_single_orbital` | DMRG for double-layer t-J model | `mpirun -np <num_proc> ./dmrg_single_orbital params.json`           |
+| `dmrg_ani_tJ` | DMRG for single-layer anisotropic t-J model | `mpirun -np <num_proc> ./dmrg_ani_tJ params.json --D=10,30,100,300` |
+| `measure1_ani_tJ` | Measure correlations for single-layer t-J | `./measure1_ani_tJ params.json`                                     |
 
 ### Multi-Orbital Models
 | Executable | Description | Usage |

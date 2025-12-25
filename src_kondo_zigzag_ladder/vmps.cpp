@@ -184,6 +184,11 @@ int main(int argc, char *argv[]) {
   for (size_t i = ref_site + 2; i < N; i += 2) {
     target_sites.push_back(i);
   }
+  const size_t ref_loc = std::min(ref_site + 1, N - 1);
+  std::vector<size_t> loc_target_sites;
+  for (size_t i = ref_loc + 2; i < N; i += 2) {
+    loc_target_sites.push_back(i);
+  }
   std::string mps_path = kMpsPath;
   if (rank == 0) {
     std::ostringstream svg_name;
@@ -195,6 +200,17 @@ int main(int argc, char *argv[]) {
   oss << "t2" << t2 << "Jk" << Jk << "U" << U  << "Ly" << Ly << "Lx" << Lx << "D" << params.Dmax.back();
   std::string file_postfix = oss.str();
 
+  // Simple MPI scheduling assumption:
+  // - each "measurement job" (a full MeasureTwoSiteOpGroup / MeasureOneSiteOp call) costs roughly the same
+  // Then a global round-robin over jobs gives decent load balance.
+  size_t job_idx = 0;
+  auto do_job = [&](auto &&job) {
+    if ((job_idx % static_cast<size_t>(mpi_size)) == static_cast<size_t>(rank)) {
+      job();
+    }
+    ++job_idx;
+  };
+
   // Two-site correlation measurements
   using OpT = Tensor;
   std::vector<std::tuple<std::string, const OpT &, const OpT &>> two_site_meas_ops = {
@@ -203,26 +219,49 @@ int main(int argc, char *argv[]) {
       {"smsp", hubbard_ops.sm, hubbard_ops.sp},
       {"nfnf", hubbard_ops.nf, hubbard_ops.nf}
   };
-  for (size_t i = 0; i < two_site_meas_ops.size(); ++i) {
-    if (i % mpi_size == rank) {
-      const auto &[label, op1, op2] = two_site_meas_ops[i];
+  for (const auto &[label, op1, op2] : two_site_meas_ops) {
+    do_job([&]() {
       auto measu_res = MeasureTwoSiteOpGroup(mps, mps_path, op1, op2, ref_site, target_sites);
       DumpMeasuRes(measu_res, label + file_postfix);
       std::cout << "Measured two-site correlation" + label << std::endl;
-    }
+    });
+  }
+
+  // Localized-spin two-site correlations (odd sites)
+  std::vector<std::tuple<std::string, const OpT &, const OpT &>> loc_two_site_meas_ops = {
+      {"lszsz", local_spin_ops.sz, local_spin_ops.sz},
+      {"lspsm", local_spin_ops.sp, local_spin_ops.sm},
+      {"lsmsp", local_spin_ops.sm, local_spin_ops.sp}
+  };
+  for (const auto &[label, op1, op2] : loc_two_site_meas_ops) {
+    do_job([&]() {
+      auto measu_res = MeasureTwoSiteOpGroup(mps, mps_path, op1, op2, ref_loc, loc_target_sites);
+      DumpMeasuRes(measu_res, label + file_postfix);
+      std::cout << "Measured localized-spin two-site correlation " + label << std::endl;
+    });
   }
 
   // One-site local measurements on all even sites (extended electrons)
   std::vector<size_t> even_sites;
   for (size_t i = 0; i < N; i += 2) even_sites.push_back(i);
+  std::vector<size_t> odd_sites;
+  for (size_t i = 1; i < N; i += 2) odd_sites.push_back(i);
 
   std::vector<QLTensor<TenElemT, QNT>> one_site_ops = {hubbard_ops.sz, hubbard_ops.nf};
   std::vector<std::string> one_site_labels = {"sz_local" + file_postfix, "nf_local" + file_postfix};
 
-  if ((two_site_meas_ops.size()) % mpi_size == rank) {
+  do_job([&]() {
     MeasureOneSiteOp(mps, mps_path, one_site_ops, even_sites, one_site_labels);
     std::cout << "Measured one-site correlation" << std::endl;
-  }
+  });
+
+  // One-site localized-spin measurement on all odd sites
+  const std::vector<QLTensor<TenElemT, QNT>> loc_one_site_ops = {local_spin_ops.sz};
+  const std::vector<std::string> loc_one_site_labels = {"lsz_local" + file_postfix};
+  do_job([&]() {
+    MeasureOneSiteOp(mps, mps_path, loc_one_site_ops, odd_sites, loc_one_site_labels);
+    std::cout << "Measured localized-spin one-site observable" << std::endl;
+  });
 
 #if 0 // intralayer SC pair correlation measurements
   // SC single-pair correlation measurements

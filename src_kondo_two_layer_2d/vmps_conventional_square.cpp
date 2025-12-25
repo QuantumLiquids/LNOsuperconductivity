@@ -303,7 +303,7 @@ int main(int argc, char *argv[]) {
 
       auto sp_up_b = MeasureTwoSiteOpGroupInKondoLattice(mps,
                                                          mps_path,
-                                                         (-1) * ops.bupaF,
+                                                         TenElemT(-1.0) * ops.bupaF,
                                                          ops.bupc,
                                                          ref_site,
                                                          ops.f);
@@ -319,7 +319,7 @@ int main(int argc, char *argv[]) {
 
       auto sp_dn_b = MeasureTwoSiteOpGroupInKondoLattice(mps,
                                                          mps_path,
-                                                         (-1) * ops.bdna,
+                                                         TenElemT(-1.0) * ops.bdna,
                                                          ops.Fbdnc,
                                                          ref_site,
                                                          ops.f);

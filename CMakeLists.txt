@@ -135,21 +135,28 @@ else ()
     message(STATUS "HPTT Lib : " "${hptt_LIBRARY}")
 endif ()
 
-if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
-    set(BLA_VENDOR Intel10_64lp)   #FOR VENDOR CHOICE: https://cmake.org/cmake/help/latest/module/FindBLAS.html
-    set(BLAS_INCLUDE_DIR "$ENV{MKLROOT}/include")
-elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "arm64") # (e.g., Apple Silicon)
-    add_definitions(-DUSE_OPENBLAS)
-    set(BLA_VENDOR OpenBLAS)
-    set(OpenBLAS_ROOT "/opt/homebrew/opt/openblas/") #work for homebrew installed openblas in MacOSX
-    set(Lapack_ROOT "/opt/homebrew/opt/lapack")
-    set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${OpenBLAS_ROOT} ${Lapack_ROOT}) # For find
-    set(BLAS_INCLUDE_DIR "${OpenBLAS_ROOT}/include")
-endif ()
+include(MathBackend)
 
 FIND_PACKAGE(BLAS REQUIRED)
 FIND_PACKAGE(LAPACK REQUIRED)
 find_package(MPI REQUIRED)
+
+# Homebrew on macOS keeps stable symlinks under /opt/homebrew/opt/...
+# If a build directory caches a Cellar path (e.g. llvm/19.*) and you upgrade LLVM,
+# the cached absolute path will break. Prefer opt-prefix so OpenMP can be re-found.
+# Only do this when the compiler is Homebrew LLVM clang (avoid interfering with AppleClang/Xcode).
+set(_use_homebrew_llvm_clang OFF)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER MATCHES "^/opt/homebrew/")
+    set(_use_homebrew_llvm_clang ON)
+elseif (CMAKE_C_COMPILER_ID STREQUAL "Clang" AND CMAKE_C_COMPILER MATCHES "^/opt/homebrew/")
+    set(_use_homebrew_llvm_clang ON)
+endif ()
+
+if (APPLE AND _use_homebrew_llvm_clang)
+    list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew/opt/libomp" "/opt/homebrew/opt/llvm")
+endif ()
+unset(_use_homebrew_llvm_clang)
+
 find_package(OpenMP REQUIRED)
 
 find_path(TENSOR_HEADER_PATH "qlten")
@@ -164,7 +171,7 @@ if (NOT BLA_VENDOR STREQUAL "Intel10_64lp" OR CMAKE_CXX_COMPILER_ID STREQUAL "In
 endif ()
 
 include_directories(
-        ${BLAS_INCLUDE_DIR}
+        ${BLAS_INCLUDE_DIRS}
         ${MPI_CXX_HEADER_DIR}
         ${TENSOR_HEADER_PATH}
         ${MPS_HEADER_PATH})
@@ -203,6 +210,7 @@ add_executable(dmrg_ani_tJ src_tj_single_layer_single_orbital_2d_anisotropic/dmr
 add_executable(measure1_ani_tJ src_tj_single_layer_single_orbital_2d_anisotropic/measure1.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
 
 add_executable(kondo_chain_vmps src_kondo_1d_chain/vmps.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
+add_executable(kondo_chain_measure src_kondo_1d_chain/measure.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
 add_executable(kondo_ladder_vmps src_kondo_zigzag_ladder/vmps.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
 add_executable(kondo_ladder_measure src_kondo_zigzag_ladder/measure.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
 add_executable(kondo_ladder_vmpsJk0 src_kondo_zigzag_ladder/vmps_Jk0.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
@@ -211,6 +219,7 @@ add_executable(kondo_ladder_conventional_square_vmps src_kondo_zigzag_ladder/vmp
 add_executable(visualize_tilted_lattice src_kondo_zigzag_ladder/visualize_tilted_lattice.cpp)
 
 add_executable(kondo_two_layer_vmps src_kondo_two_layer_2d/vmps_conventional_square.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
+add_executable(kondo_two_layer_tilted_zigzag_vmps src_kondo_two_layer_2d/vmps_tilted_zigzag.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
 # Kondo two-layer fix programs
 add_executable(kondo_two_layer_mpo_gen src_kondo_two_layer_2d/mpo_gen.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
 add_executable(kondo_two_layer_fix_env src_kondo_two_layer_2d/fix_env_kondo.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
