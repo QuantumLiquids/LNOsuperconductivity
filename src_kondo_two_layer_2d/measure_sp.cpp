@@ -72,14 +72,14 @@ int main(int argc, char *argv[]) {
   auto sp_up_a = MeasureTwoSiteOpGroupInKondoLattice(mps, mps_path, ops.bupcF, ops.bupa, ref_site, ops.f);
   DumpMeasuRes(sp_up_a, std::string("cup_dag_cup") + file_postfix);
 
-  auto sp_up_b = MeasureTwoSiteOpGroupInKondoLattice(mps, mps_path, (-1) * ops.bupaF, ops.bupc, ref_site, ops.f);
+  auto sp_up_b = MeasureTwoSiteOpGroupInKondoLattice(mps, mps_path, TenElemT(-1) * ops.bupaF, ops.bupc, ref_site, ops.f);
   DumpMeasuRes(sp_up_b, std::string("cup_cup_dag") + file_postfix);
 
   // Down-spin channel
   auto sp_dn_a = MeasureTwoSiteOpGroupInKondoLattice(mps, mps_path, ops.bdnc, ops.Fbdna, ref_site, ops.f);
   DumpMeasuRes(sp_dn_a, std::string("cdown_dag_cdown") + file_postfix);
 
-  auto sp_dn_b = MeasureTwoSiteOpGroupInKondoLattice(mps, mps_path, (-1) * ops.bdna, ops.Fbdnc, ref_site, ops.f);
+  auto sp_dn_b = MeasureTwoSiteOpGroupInKondoLattice(mps, mps_path, TenElemT(-1) * ops.bdna, ops.Fbdnc, ref_site, ops.f);
   DumpMeasuRes(sp_dn_b, std::string("cdown_cdown_dag") + file_postfix);
 
   std::cout << "Measured single-particle correlations (4 variants)" << std::endl;
