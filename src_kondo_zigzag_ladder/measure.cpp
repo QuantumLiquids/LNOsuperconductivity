@@ -29,13 +29,17 @@ int main(int argc, char *argv[]) {
     std::cout << "Set MPS path as " << mps_path << std::endl;
   }
 
-  size_t Lx = params.Lx; // L should be even number, for N/4 should on electron site for measure
+  size_t Lx = params.Lx; // Lx should be even number, for N/4 should on electron site for measure
+  size_t Ly = params.Ly;
   double t = params.t, Jk = params.JK, U = params.U;
   double t2 = params.t2;
-  size_t N = 4 * Lx;
+  // Must match the VMPS program (`src_kondo_zigzag_ladder/vmps.cpp`):
+  // - each geometric electron site expands to two MPS sites: even = itinerant, odd = localized
+  const size_t N = 2 * Ly * Lx;
   /*** Print the model parameter Info ***/
   if (rank == 0) {
     cout << "Lx = " << Lx << endl;
+    cout << "Ly = " << Ly << endl;
     cout << "N = " << N << endl;
     cout << "t = " << t << endl;
     cout << "t2 = " << t2 << endl;
@@ -89,7 +93,8 @@ int main(int argc, char *argv[]) {
   MPI_Barrier(comm);
 
   std::ostringstream oss;
-  oss << "t2" << t2 << "Jk" << Jk << "U" << U << "Lx" << Lx << "D" << params.Dmax.back();
+  // Keep the same filename postfix convention as `vmps.cpp`.
+  oss << "t2" << t2 << "Jk" << Jk << "U" << U << "Ly" << Ly << "Lx" << Lx << "D" << params.Dmax.back();
   std::string file_postfix = oss.str();
 
   // Simple MPI scheduling assumption:
@@ -157,6 +162,8 @@ int main(int argc, char *argv[]) {
 
 
   // SC single-pair correlation measurements
+  // NOTE: The following block measures interlayer SC, and may not work for general Ly.
+#if 0
   std::vector<std::array<size_t, 2>>
       target_sites_diagonal_set;// a special case that do not need include the insertion operator
   std::vector<std::array<size_t, 2>>
@@ -228,6 +235,7 @@ int main(int argc, char *argv[]) {
     DumpMeasuRes(measu_res, tasks[i].label + file_postfix);
     std::cout << "Measured SC correlation" << std::endl;
   }
+#endif
 
   MPI_Finalize();
   return 0;

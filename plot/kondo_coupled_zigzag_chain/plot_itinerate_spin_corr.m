@@ -1,4 +1,4 @@
-% plot_kondo_ladder/plot_spin_corr.m
+% plot_kondo_ladder/plot_localized_spin_corr.m
 %
 % Purpose
 %   Visualize equal-time spin correlations on the tilted zig-zag Kondo lattice
@@ -11,7 +11,7 @@
 %
 % Data dependencies
 %   Reads JSON from ../../data/ with names like:
-%     szszt2...Jk...U...Ly...Lx...D...json
+%     lszszt2...Jk...U...Ly...Lx...D...json
 %   The helper `resolve_corr_path` falls back to Ly-less filenames for Ly=2.
 %
 % Other dependencies
@@ -27,7 +27,7 @@ Ly = 4;         % New generalized ladder width
  t2 = 0.3;
 Jk = -4;
 U  = 2;
-Db = 3000;
+Db = 20000;
 base_marker_size = 300;  % Max size for largest magnitude
 transparent_background = false;  % Set true to export with transparent background
 
@@ -38,9 +38,9 @@ negative_spin_color = [232   132  130]/256;
 % Load spin correlation data with Ly-aware postfix handling
 postfix = build_postfix(t2, Jk, U, Ly, Lx, Db);
 base_path = '../../data/';
-SpinCorrDataZZ = jsondecode(fileread(resolve_corr_path(base_path, 'szsz', postfix, Ly)));
-SpinCorrDataPM = jsondecode(fileread(resolve_corr_path(base_path, 'spsm', postfix, Ly)));
-SpinCorrDataMP = jsondecode(fileread(resolve_corr_path(base_path, 'smsp', postfix, Ly)));
+SpinCorrDataZZ = jsondecode(fileread(resolve_corr_path(base_path, 'lszsz', postfix, Ly)));
+SpinCorrDataPM = jsondecode(fileread(resolve_corr_path(base_path, 'lspsm', postfix, Ly)));
+SpinCorrDataMP = jsondecode(fileread(resolve_corr_path(base_path, 'lsmsp', postfix, Ly)));
 
 data_num = numel(SpinCorrDataZZ);
 ref_site_raw = SpinCorrDataZZ{1}{1}(1);
