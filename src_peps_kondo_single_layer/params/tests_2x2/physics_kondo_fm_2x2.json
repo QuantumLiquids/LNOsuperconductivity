@@ -1,0 +1,16 @@
+{
+  "CaseParams": {
+    "Lx": 2,
+    "Ly": 2,
+    "t": 1.0,
+    "t2": 0.0,
+    "U": 0.0,
+    "Jk": -1.0,
+    "Mu": 0.0,
+    "ElectronNum": 4,
+    "ElectronSz2": 0
+  }
+}
+
+
+

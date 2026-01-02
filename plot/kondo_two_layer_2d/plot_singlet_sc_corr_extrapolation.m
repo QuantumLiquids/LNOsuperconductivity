@@ -5,11 +5,18 @@ function plot_singlet_sc_corr_extrapolation(extrapolation_order)
 %   Extrapolate singlet SC correlators to TE→0 for a single J_perp and plot.
 %   extrapolation_order: 1=linear, 2=quadratic vs truncation error.
 %
+% DMRG lattice mapping (two-layer, two-orbital, two-leg):
+%   - 8 sites per physical x-position: 2 legs × 2 layers × 2 dof.
+%   - For interlayer pairing: use first endpoint indices only
+%     (ref_sites(1), target_bonds(:,1)). A bond has delta y = 0 iff
+%     (target_i - ref_i) is a multiple of 8. Integer x-distance is
+%     |target_i - ref_i| / 8. Only these bonds are used in analysis.
+%
 % Behavior
 %   Documentation only; analysis and plotting unchanged.
 % Plot singlet pairing correlations for Two-Layer Kondo Model with extrapolation
 % extrapolation_order: 1 for linear, 2 for 2nd order polynomial
-% Uses 1/D as truncation error for extrapolation
+% Uses actual truncation errors if available; falls back to 1/D otherwise
 
 if nargin < 1
     extrapolation_order = 2; % Default to linear extrapolation
@@ -54,7 +61,6 @@ end
 files = files(sort_idx_d); % Sort the file list according to D
 
 % Initialize storage for correlations and truncation errors
-distances = [];
 singlet_correlations_by_d = cell(numel(files), 1);
 truncation_errors = zeros(numel(files), 1); % Will be filled with actual truncation errors
 
@@ -82,19 +88,22 @@ for i = 1:numel(files)
     
     % Load the combined data using the helper function
     try
-        [scs, sct, ref_sites, target_bonds] = load_sc_data(data_dir, '', file_postfix);
+        [scs, ~, ref_sites, target_bonds] = load_sc_data(data_dir, '', file_postfix);
         
-        % --- Process distances (same for all D) ---
-        ref_x = ref_sites(1) / (4*2);
-        target_x = target_bonds(:,1) / (4*2);
-        distances = abs(target_x - ref_x);
-        [distances_sorted, sort_idx] = sort(distances);
+        % --- Process distances (delta y = 0 only; integer x using 8 sites/x) ---
+        ref_i = ref_sites(1);
+        target_i = target_bonds(:,1);
+        delta_idx = abs(target_i - ref_i);
+        same_row_idx = mod(delta_idx, 8) == 0;
+        distances_int = delta_idx(same_row_idx) / 8;
+        [distances_sorted, sort_idx] = sort(distances_int);
         
-        % Filter distances <= Lx/2 to remove boundary effects
+        % Filter distances <= Lx/2 and > 0 to remove boundary effects and log(0)
         max_distance = Lx/2;
-        valid_idx = distances_sorted <= max_distance;
+        valid_idx = distances_sorted <= max_distance & distances_sorted > 0;
         distances_filtered = distances_sorted(valid_idx);
-        scs_filtered = scs(sort_idx);
+        scs_selected = scs(same_row_idx);
+        scs_filtered = scs_selected(sort_idx);
         scs_filtered = scs_filtered(valid_idx);
         
         % Store singlet correlations for this D value
@@ -133,7 +142,6 @@ end
 
 % Initialize extrapolated correlations
 extrapolated_correlations = zeros(size(common_distances));
-extrapolation_errors = zeros(size(common_distances));
 
 % For each distance, perform extrapolation
 for d_idx = 1:length(common_distances)
@@ -181,7 +189,7 @@ end
 % Subplot 1: Raw correlations for different D values
 subplot(1, 2, 1);
 hold on; box on; grid on;
-set(gca, 'XScale', 'log', 'YScale', 'log');
+set(gca, 'XScale', 'log', 'YScale', 'log', 'FontName', 'Arial');
 
 colors = lines(numel(files));
 for i = 1:numel(singlet_correlations_by_d)
@@ -201,11 +209,14 @@ set(gca, 'FontSize', 12);
 
 % Subplot 2: Extrapolated correlations with power law fitting
 subplot(1, 2, 2);
-loglog(common_distances, abs(extrapolated_correlations), 'ro-', 'LineWidth', 3, 'MarkerSize', 10, 'DisplayName', 'Extrapolated (TE → 0)');
+set(gca, 'FontName', 'Arial');
+loglog(common_distances, abs(extrapolated_correlations), 'o-', 'Color', [0.2 0.2 0.7], 'LineWidth', 3, 'MarkerSize', 10, 'DisplayName', 'Extrapolated (TE → 0)');
 
 % Power law fitting: |C(r)| = A * r^(-alpha)
 % Take log: log|C(r)| = log(A) - alpha * log(r)
-valid_idx = ~isnan(extrapolated_correlations) & (extrapolated_correlations ~= 0);
+% Use only profile distances r in {3,5,7,...,25}
+profile_r = 3:2:25;
+valid_idx = ~isnan(extrapolated_correlations) & (extrapolated_correlations ~= 0) & ismember(common_distances, profile_r);
 if sum(valid_idx) >= 2
     log_distances = log(common_distances(valid_idx));
     log_correlations = log(abs(extrapolated_correlations(valid_idx)));
@@ -216,8 +227,10 @@ if sum(valid_idx) >= 2
     log_A = p(2);   % Intercept
     A = exp(log_A); % Amplitude
     
-    % Generate fitted curve
-    fit_distances = linspace(min(common_distances), max(common_distances), 100);
+    % Generate fitted curve extended to axis right limit
+    ax2 = gca; r_min = max(min(common_distances(valid_idx)), ax2.XLim(1));
+    r_max = max([ax2.XLim(2), max(common_distances)]);
+    fit_distances = logspace(log10(r_min), log10(r_max), 200);
     fit_correlations = A * fit_distances.^(-K_sc);
     
     % Plot the fitted curve
@@ -231,15 +244,15 @@ else
     title_str = sprintf('Extrapolated Correlations (%s order)', order_str);
 end
 
-xlabel('Distance |x_i - x_{ref}|', 'FontSize', 14);
-ylabel('|Singlet SC Correlation|', 'FontSize', 14);
-title(title_str, 'FontSize', 16);
+xlabel('Distance |x_i - x_{ref}|', 'FontSize', 14, 'FontName', 'Arial');
+ylabel('|Singlet SC Correlation|', 'FontSize', 14, 'FontName', 'Arial');
+title(title_str, 'FontSize', 16, 'FontName', 'Arial');
 grid on; box on;
 set(gca, 'FontSize', 12);
-legend('show', 'Location', 'southwest');
+legend('show', 'Location', 'southwest', 'FontName', 'Arial');
 
 sgtitle(sprintf('Singlet Pairing Extrapolation (J_K=%d, J_{perp}=%g, U=%d, Lx=%d, %s order)', ...
-        Jk, Jperp, U, Lx, order_str), 'FontSize', 18);
+        Jk, Jperp, U, Lx, order_str), 'FontSize', 18, 'FontName', 'Arial');
 
 % Save figure
 filename_base = sprintf('singlet_sc_corr_extrapolation_Jk%dJperp%dU%dLx%d_%sorder', ...
@@ -267,7 +280,6 @@ if sum(valid_idx) >= 2
     
     % Linear fit in log-log space
     p = polyfit(log_distances, log_correlations, 1);
-    alpha = -p(1);  % Power law exponent
     log_A = p(2);   % Intercept
     A = exp(log_A); % Amplitude
     

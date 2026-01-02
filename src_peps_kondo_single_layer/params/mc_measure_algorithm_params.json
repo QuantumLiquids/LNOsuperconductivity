@@ -1,0 +1,27 @@
+{
+  "CaseParams": {
+    "Dbmps_min": 8,
+    "Dbmps_max": 16,
+    "TruncErr": 1e-10,
+    "MPSCompressScheme": 0,
+    "ThreadNum": 2,
+
+    "MC_samples": 200,
+    "WarmUp": 50,
+    "MCLocalUpdateSweepsBetweenSample": 5,
+
+    "WavefunctionBase": "tps",
+    "ConfigurationLoadDir": "tpsfinal",
+    "ConfigurationDumpDir": "tpsfinal",
+    "MeasurementDumpDir": "./",
+
+    "Updater": "KondoNNConserved",
+
+    "ElectronNum": 8,
+    "ElectronSz2": 0,
+    "AllowDoublon": false,
+    "LocalSpinNeel": true
+  }
+}
+
+

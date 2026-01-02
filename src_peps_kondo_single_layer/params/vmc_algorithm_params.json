@@ -1,0 +1,37 @@
+{
+  "CaseParams": {
+    "OptimizerType": "Adam",
+    "MaxIterations": 50,
+    "LearningRate": 0.02,
+    "EnergyTolerance": 0.0,
+    "GradientTolerance": 0.0,
+    "PlateauPatience": 50,
+
+    "Beta1": 0.9,
+    "Beta2": 0.999,
+    "Epsilon": 1e-8,
+    "WeightDecay": 0.0,
+
+    "WavefunctionBase": "tps",
+    "ConfigurationLoadDir": "tpsfinal",
+    "ConfigurationDumpDir": "tpsfinal",
+    "TPSDumpPath": "./",
+
+    "MC_samples": 200,
+    "WarmUp": 100,
+    "MCLocalUpdateSweepsBetweenSample": 5,
+
+    "Db_min": 4,
+    "Db_max": 8,
+    "TruncErr": 1e-10,
+    "MPSCompressScheme": 0,
+    "ThreadNum": 4,
+
+    "ElectronNum": 8,
+    "ElectronSz2": 0,
+    "AllowDoublon": false,
+    "LocalSpinNeel": true
+  }
+}
+
+

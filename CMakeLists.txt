@@ -154,6 +154,10 @@ endif ()
 
 if (APPLE AND _use_homebrew_llvm_clang)
     list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew/opt/libomp" "/opt/homebrew/opt/llvm")
+    # Prefer stable Homebrew opt-prefix for libomp to avoid stale Cellar paths after upgrades.
+    if (EXISTS "/opt/homebrew/opt/llvm/lib/libomp.dylib")
+        set(OpenMP_omp_LIBRARY "/opt/homebrew/opt/llvm/lib/libomp.dylib" CACHE FILEPATH "OpenMP runtime library" FORCE)
+    endif ()
 endif ()
 unset(_use_homebrew_llvm_clang)
 
@@ -161,6 +165,7 @@ find_package(OpenMP REQUIRED)
 
 find_path(TENSOR_HEADER_PATH "qlten")
 find_path(MPS_HEADER_PATH "qlmps")
+find_path(PEPS_HEADER_PATH "qlpeps")
 
 
 # Intel MKL multi-thread may conflict with other compiler's OpenMP
@@ -174,7 +179,8 @@ include_directories(
         ${BLAS_INCLUDE_DIRS}
         ${MPI_CXX_HEADER_DIR}
         ${TENSOR_HEADER_PATH}
-        ${MPS_HEADER_PATH})
+        ${MPS_HEADER_PATH}
+        ${PEPS_HEADER_PATH})
 
 link_libraries(BLAS::BLAS
         LAPACK::LAPACK
@@ -228,3 +234,69 @@ add_executable(kondo_two_layer_fix_update_lenv src_kondo_two_layer_2d/fix_update
 add_executable(kondo_two_layer_move_center src_kondo_two_layer_2d/move_center.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
 add_executable(kondo_two_layer_fix_mps2 src_kondo_two_layer_2d/fix_mps2_kondo.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
 add_executable(kondo_two_layer_measure_sp src_kondo_two_layer_2d/measure_sp.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
+
+# ---------------------------------------------------------------------------
+# PEPS: single-layer Kondo lattice (new)
+# ---------------------------------------------------------------------------
+# Default TENSOR_SYMMETRY_LEVEL=3 (fZ2U1QN) for standard targets.
+# We also provide _z2 targets with TENSOR_SYMMETRY_LEVEL=0 (fZ2QN) for robustness checks.
+
+# --- Standard Targets (Level 3) ---
+
+add_executable(peps_kondo_square_simple_update
+        src_peps_kondo_single_layer/peps_kondo_square_simple_update.cpp)
+target_compile_definitions(peps_kondo_square_simple_update PRIVATE TENSOR_SYMMETRY_LEVEL=3)
+set_target_properties(peps_kondo_square_simple_update PROPERTIES
+        CXX_STANDARD 20
+        CXX_STANDARD_REQUIRED YES)
+
+add_executable(peps_kondo_square_mc_measure
+        src_peps_kondo_single_layer/mc_measure.cpp)
+target_compile_definitions(peps_kondo_square_mc_measure PRIVATE TENSOR_SYMMETRY_LEVEL=3)
+set_target_properties(peps_kondo_square_mc_measure PROPERTIES
+        CXX_STANDARD 20
+        CXX_STANDARD_REQUIRED YES)
+
+add_executable(peps_kondo_square_vmc_optimize
+        src_peps_kondo_single_layer/vmc_optimize.cpp)
+target_compile_definitions(peps_kondo_square_vmc_optimize PRIVATE TENSOR_SYMMETRY_LEVEL=3)
+set_target_properties(peps_kondo_square_vmc_optimize PROPERTIES
+        CXX_STANDARD 20
+        CXX_STANDARD_REQUIRED YES)
+
+add_executable(peps_kondo_2x2_exact_sum_optimize
+        src_peps_kondo_single_layer/peps_kondo_2x2_exact_sum_optimize.cpp)
+target_compile_definitions(peps_kondo_2x2_exact_sum_optimize PRIVATE TENSOR_SYMMETRY_LEVEL=3)
+set_target_properties(peps_kondo_2x2_exact_sum_optimize PROPERTIES
+        CXX_STANDARD 20
+        CXX_STANDARD_REQUIRED YES)
+
+# --- Z2 Symmetry Targets (Level 0) ---
+
+add_executable(peps_kondo_square_simple_update_z2
+        src_peps_kondo_single_layer/peps_kondo_square_simple_update.cpp)
+target_compile_definitions(peps_kondo_square_simple_update_z2 PRIVATE TENSOR_SYMMETRY_LEVEL=0)
+set_target_properties(peps_kondo_square_simple_update_z2 PROPERTIES
+        CXX_STANDARD 20
+        CXX_STANDARD_REQUIRED YES)
+
+add_executable(peps_kondo_square_mc_measure_z2
+        src_peps_kondo_single_layer/mc_measure.cpp)
+target_compile_definitions(peps_kondo_square_mc_measure_z2 PRIVATE TENSOR_SYMMETRY_LEVEL=0)
+set_target_properties(peps_kondo_square_mc_measure_z2 PROPERTIES
+        CXX_STANDARD 20
+        CXX_STANDARD_REQUIRED YES)
+
+add_executable(peps_kondo_square_vmc_optimize_z2
+        src_peps_kondo_single_layer/vmc_optimize.cpp)
+target_compile_definitions(peps_kondo_square_vmc_optimize_z2 PRIVATE TENSOR_SYMMETRY_LEVEL=0)
+set_target_properties(peps_kondo_square_vmc_optimize_z2 PROPERTIES
+        CXX_STANDARD 20
+        CXX_STANDARD_REQUIRED YES)
+
+add_executable(peps_kondo_2x2_exact_sum_optimize_z2
+        src_peps_kondo_single_layer/peps_kondo_2x2_exact_sum_optimize.cpp)
+target_compile_definitions(peps_kondo_2x2_exact_sum_optimize_z2 PRIVATE TENSOR_SYMMETRY_LEVEL=0)
+set_target_properties(peps_kondo_2x2_exact_sum_optimize_z2 PROPERTIES
+        CXX_STANDARD 20
+        CXX_STANDARD_REQUIRED YES)

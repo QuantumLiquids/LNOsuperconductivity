@@ -1,0 +1,23 @@
+{
+  "CaseParams": {
+    "OptimizerType": "SR",
+    "MaxIterations": 120,
+    "LearningRate": 0.2,
+    "EnergyTolerance": 0.0,
+    "GradientTolerance": 0.0,
+
+    "CGMaxIter": 200,
+    "CGTol": 1e-10,
+    "CGResidueRestart": 50,
+    "CGDiagShift": 1e-4,
+    "NormalizeUpdate": false,
+
+    "Db_min": 8,
+    "Db_max": 8,
+    "TruncErr": 0.0,
+    "MPSCompressScheme": 0
+  }
+}
+
+
+

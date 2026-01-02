@@ -1,0 +1,19 @@
+{
+  "CaseParams": {
+    "OptimizerType": "AdaGrad",
+    "MaxIterations": 80,
+    "LearningRate": 0.2,
+    "EnergyTolerance": 0.0,
+    "GradientTolerance": 0.0,
+    "Epsilon": 1e-8,
+    "InitialAccumulator": 0.0,
+
+    "Db_min": 4,
+    "Db_max": 32,
+    "TruncErr": 1e-14,
+    "MPSCompressScheme": 0
+  }
+}
+
+
+

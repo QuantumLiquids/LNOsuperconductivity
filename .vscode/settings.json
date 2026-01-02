@@ -60,4 +60,25 @@
         "vector": "cpp",
         "algorithm": "cpp"
     }
+
+       // AI Learning and Search Configuration
+       "search.include": [
+        "${workspaceFolder}/**",
+        "${workspaceFolder}/../TensorToolkit/docs/build/html/**",
+        "${workspaceFolder}/../TensorToolkit/docs/TensorToolkit.tag",
+        "${workspaceFolder}/../TensorToolkit/include/**",
+        "${workspaceFolder}/../TensorToolkit/src/**",
+        "${workspaceFolder}/../TensorToolkit/docs/mainpage.md",
+        "${workspaceFolder}/../TensorToolkit/docs/tutorials/**",
+        "${workspaceFolder}/../TensorToolkit/docs/developer/**",
+        "${workspaceFolder}/../PEPS/build/docs/html/**",
+        "${workspaceFolder}/../PEPS/include/**",
+        "${workspaceFolder}/../UltraDMRG/include/**",
+        "${workspaceFolder}/../PEPS/docs/PEPS.tag",
+        "${workspaceFolder}/../HeisenbergVMCPEPS/**",
+        "${workspaceFolder}/docs/**",
+        "${workspaceFolder}/include/**",
+        "${workspaceFolder}/tests/**",
+        "${workspaceFolder}/tutorial/**"
+    ],
 }

@@ -40,11 +40,16 @@ For Intel x86 user, we recommand use Intel oneAPI toolkit to include both MPI an
 2. Create build directory and configure:
    ```bash
    mkdir build && cd build
-   cmake .. -DCMAKE_CXX_COMPILER=your_cxx_compiler \
+   cmake .. -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm/bin/clang++ \
             -DCMAKE_PREFIX_PATH=path/to/tensortoolkit/and/ultradmrg \
             -DQLMPS_USE_GPU=ON/OFF \
             -DCUTENSOR_ROOT=path/to/cutensor/if/using/cuda
    ```
+
+   If CMake fails with:
+   - `Could NOT find OpenMP_CXX (missing: OpenMP_CXX_FLAGS OpenMP_CXX_LIB_NAMES)`
+
+   rerun **the exact same** `cmake .. -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm/bin/clang++ ...` command once again.
 
 3. Build the project:
    ```bash
@@ -73,6 +78,24 @@ For Intel x86 user, we recommand use Intel oneAPI toolkit to include both MPI an
 - Set `BLA_VENDOR=OpenBLAS`
 - Set `OpenBLAS_ROOT=/opt/homebrew/opt/openblas/` (for Homebrew installations)
 
+#### macOS (Homebrew LLVM) libc++ headers/libs mismatch
+
+If you see link errors like:
+- `Undefined symbols for architecture arm64: "std::__1::__hash_memory(...)" ...`
+
+Use the following (no CMakeLists changes) to force **macOS SDK libc++ headers**:
+
+```bash
+cd build
+rm -rf CMakeCache.txt CMakeFiles
+SDK="$(xcrun --sdk macosx --show-sdk-path)"
+
+cmake .. \
+  -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm/bin/clang++ \
+  -DCMAKE_OSX_SYSROOT="$SDK" \
+  -DCMAKE_CXX_FLAGS="-nostdinc++ -isystem $SDK/usr/include/c++/v1"
+```
+
 ## Executables and Usage
 
 After building, you'll have the following executables:
@@ -99,6 +122,17 @@ After building, you'll have the following executables:
 | `kondo_ladder_measure` | Measure correlations for Kondo ladder | `./kondo_ladder_measure params.json` |
 | `kondo_ladder_conventional_square_vmps` | VMPS for Kondo ladder on 2d lattice | `mpirun -np <num_proc> ./kondo_ladder_conventional_square_vmps params.json` |
 | `kondo_two_layer_vmps` | VMPS for Kondo two-layer on 2d lattice | `mpirun -np <num_proc> ./kondo_two_layer_vmps params.json` |
+
+### PEPS Models (new)
+| Executable | Description | Usage |
+|------------|-------------|-------|
+| `peps_kondo_square_simple_update` | Simple Update for **single-layer Kondo lattice** on square lattice (OBC) | `./peps_kondo_square_simple_update src_peps_kondo_single_layer/params/physics_params.json src_peps_kondo_single_layer/params/simple_update_algo.json` |
+
+**Important conventions (PEPS Kondo)**:
+- Local Hilbert space is **8D** = (itinerant Hubbard electron 4 states) × (localized spin-1/2 2 states). See `src_peps_kondo_single_layer/README.md`.
+- Kondo/Hund coupling sign matches the existing DMRG/VMPS code in this repo:
+  - \(H_K = J_K\,\mathbf{s}\cdot\mathbf{S}\)
+  - **FM corresponds to \(J_K<0\)** (paper's \(-J_H\,\mathbf{s}\cdot\mathbf{S}\) with \(J_H>0\) maps to \(J_K=-J_H\)).
 
 ## Parameter Files
 

@@ -1,0 +1,27 @@
+{
+  "CaseParams": {
+    "WavefunctionBase": "tps",
+    "ConfigurationLoadDir": "tpsfinal",
+    "ConfigurationDumpDir": "tpsfinal",
+    "MeasurementDumpDir": "./measure_out",
+    "Updater": "KondoNNConserved",
+
+    "ElectronNum": 4,
+    "ElectronSz2": 0,
+    "AllowDoublon": false,
+    "LocalSpinNeel": true,
+
+    "MC_samples": 200,
+    "WarmUp": 50,
+    "MCLocalUpdateSweepsBetweenSample": 5,
+
+    "Db_min": 4,
+    "Db_max": 8,
+    "TruncErr": 1e-10,
+    "MPSCompressScheme": 0,
+    "ThreadNum": 1
+  }
+}
+
+
+

@@ -5,6 +5,13 @@ function plot_singlet_sc_corr_extrapolation_all()
 %   Extrapolate singlet SC correlations to TE→0 for several J_perp values and
 %   plot together. Uses linear if <=3 D points else quadratic vs truncation error.
 %
+% DMRG lattice mapping (two-layer, two-orbital, two-leg):
+%   - 8 sites per physical x-position: 2 legs × 2 layers × 2 dof.
+%   - For interlayer pairing we can use the first endpoint indices only
+%     (ref_sites(1), target_bonds(:,1)). A bond has delta y = 0 iff
+%     (target_i - ref_i) is a multiple of 8. The integer x-distance is
+%     |target_i - ref_i| / 8. We keep only these bonds for analysis.
+%
 % Behavior
 %   Documentation only; analysis and plotting unchanged.
 % Plot extrapolated singlet SC correlations for multiple J_perp on one figure
@@ -26,15 +33,26 @@ min_D = 6000;
 data_dir = '../../data/';
 
 % --- Figure setup ---
-figure('Position', [100, 100, 800, 600]);
-hold on; box on; grid on;
-set(gca, 'XScale', 'log', 'YScale', 'log');
-colors = lines(numel(Jperp_list));
+figure('Position', [100, 100, 800, 400]);
+hold on; box on; 
+%grid on;
+set(gca, 'XScale', 'log', 'YScale', 'log', 'FontName', 'Arial');
+% Muted, paper-friendly palette (no bright yellow)
+base_colors = [
+    0.121 0.466 0.705;  % blue
+    0.172 0.627 0.172;  % green
+    0.580 0.404 0.741;  % purple
+    0.839 0.152 0.156   % red
+];
+colors = base_colors(1:numel(Jperp_list), :);
 legend_entries = cell(1, numel(Jperp_list));
 
 % Track limits across all J_perp for nice axes
 all_extrapolated_distances = [];
 all_extrapolated_values = [];
+
+% Store fit params to draw dashed lines after axes limits are finalized
+fit_params = repmat(struct('has_fit', false, 'A', NaN, 'K', NaN, 'rmin', NaN, 'color', [0 0 0]), 1, numel(Jperp_list));
 
 for jidx = 1:numel(Jperp_list)
     Jperp = Jperp_list(jidx);
@@ -98,18 +116,24 @@ for jidx = 1:numel(Jperp_list)
         % Load combined data
         try
             [scs, ~, ref_sites, target_bonds] = load_sc_data(data_dir, '', file_postfix);
-            % Distances processing
-            ref_x = ref_sites(1) / (4*2);
-            target_x = target_bonds(:,1) / (4*2);
-            distances = abs(target_x - ref_x);
-            [distances_sorted, sort_idx] = sort(distances);
+            % Distances processing (delta y = 0 only; integer x using 8 sites/x)
+            ref_i = ref_sites(1);
+            target_i = target_bonds(:,1);
+            delta_idx = abs(target_i - ref_i);
+            same_row_idx = mod(delta_idx, 8) == 0;
+            distances_int = delta_idx(same_row_idx) / 8;
+            if isempty(distances_int)
+                error('No delta y = 0 bonds for this D');
+            end
+            [distances_sorted, sort_idx] = sort(distances_int);
             
             % Boundary effect removal: keep <= Lx/2
             max_distance = Lx/2;
-            valid_idx = distances_sorted <= max_distance;
+            valid_idx = distances_sorted <= max_distance & distances_sorted > 0;
             distances_filtered = distances_sorted(valid_idx);
 
-            scs_filtered = scs(sort_idx);
+            scs_selected = scs(same_row_idx);
+            scs_filtered = scs_selected(sort_idx);
             scs_filtered = scs_filtered(valid_idx);
 
             singlet_correlations_by_d{i} = struct('D', D, 'distances', distances_filtered, 'correlations', scs_filtered);
@@ -175,23 +199,28 @@ for jidx = 1:numel(Jperp_list)
 
     % Plot extrapolated results for this Jperp
     color = colors(jidx, :);
-    loglog(common_distances, abs(extrapolated_correlations), '-', 'LineWidth', 2.5, 'Color', color);
+    loglog(common_distances, (extrapolated_correlations), '-', 'LineWidth', 2.5, 'Color', color);
     
     % Power-law fit on extrapolated data: |C(r)| = A * r^{-K_sc}
+    % Use only profile distances r in {3,5,7,...,25}
+    profile_r = 3:2:25;
     valid_fit = ~isnan(extrapolated_correlations) & (extrapolated_correlations > 0) & (common_distances > 0);
-    if any(valid_fit)
-        log_r = log(common_distances(valid_fit));
-        log_c = log(abs(extrapolated_correlations(valid_fit)));
+    on_profile = ismember(common_distances, profile_r);
+    selected = valid_fit & on_profile;
+    if any(selected)
+        log_r = log(common_distances(selected));
+        log_c = log((extrapolated_correlations(selected)));
         if numel(log_r) >= 2
             pfit = polyfit(log_r, log_c, 1);
             K_sc = -pfit(1);
             A_fit = exp(pfit(2));
-            r_min = min(common_distances(valid_fit));
-            r_max = max(common_distances(valid_fit));
-            r_fit = logspace(log10(r_min), log10(r_max), 100);
-            c_fit = A_fit * r_fit.^(-K_sc);
-            hold on;
-            loglog(r_fit, c_fit, '--', 'LineWidth', 2, 'Color', color, 'HandleVisibility', 'off');
+            r_min = min(common_distances(selected));
+            % defer drawing dashed fit until after we finalize axis limits
+            fit_params(jidx).has_fit = true;
+            fit_params(jidx).A = A_fit;
+            fit_params(jidx).K = K_sc;
+            fit_params(jidx).rmin = r_min;
+            fit_params(jidx).color = color;
         else
             K_sc = NaN;
         end
@@ -200,39 +229,56 @@ for jidx = 1:numel(Jperp_list)
     end
     
     % Legend entry with method info and K_sc
-    method_str = ternary_str(extrapolation_order == 1, 'linear', 'quadratic');
+    method_str = ternary_str(extrapolation_order == 1, 'linear', 'quadratic'); %#ok<NASGU>
     if ~isnan(K_sc)
-        legend_entries{jidx} = sprintf('J_{\\perp}=%g (%s), K_{sc}=%.3f', Jperp, method_str, K_sc);
+        legend_entries{jidx} = sprintf('J_{\\perp}=%gt, K_{sc}=%.2f', Jperp, K_sc);
     else
-        legend_entries{jidx} = sprintf('J_{\\perp}=%g (%s)', Jperp, method_str);
+        legend_entries{jidx} = sprintf('J_{\\perp}=%gt', Jperp);
     end
 
     % Track global ranges
     all_extrapolated_distances = [all_extrapolated_distances; common_distances(:)]; %#ok<AGROW>
-    all_extrapolated_values = [all_extrapolated_values; abs(extrapolated_correlations(:))]; %#ok<AGROW>
+    all_extrapolated_values = [all_extrapolated_values; (extrapolated_correlations(:))]; %#ok<AGROW>
 end
 
 % Finalize plot
-xlabel('Distance |x_i - x_{ref}|', 'FontSize', 16, 'FontWeight', 'bold');
-ylabel('|Singlet SC Correlation| (TE \rightarrow 0)', 'FontSize', 16, 'FontWeight', 'bold');
-title('Extrapolated Singlet SC Correlations for J_{\\perp} = 0.1, 0.5, 1, 4', 'FontSize', 18, 'FontWeight', 'bold');
-legend(legend_entries, 'Location', 'southwest', 'FontSize', 12);
-ax = gca; ax.FontSize = 14; ax.FontWeight = 'bold';
+xlabel('Distance r', 'FontSize', 18, 'FontWeight', 'bold', 'FontName', 'Arial');
+ylabel('\Phi_s(r)', 'FontSize', 18, 'FontWeight', 'bold', 'FontName', 'Arial');
+legend(legend_entries, 'Location', 'southwest', 'FontSize', 16, 'FontName', 'Arial','Box','off');
+ax = gca; ax.FontSize = 18; ax.FontWeight = 'bold'; ax.FontName = 'Arial';
+
+% Set axis limits once based on data if available
+xlim([2,25]);
+ylim([1e-6,1e-2]);
+set(gca, 'XTick', [2 10 20], 'XTickLabel', {'2','10','20'});
+% Now draw dashed power-law fits extended to the current rightmost x-limit
+ax = gca; r_max_global = ax.XLim(2);
+for jidx = 1:numel(Jperp_list)
+    if fit_params(jidx).has_fit
+        r_min = max(fit_params(jidx).rmin, ax.XLim(1));
+        r_fit = logspace(log10(r_min), log10(r_max_global), 200);
+        c_fit = fit_params(jidx).A * r_fit.^(-fit_params(jidx).K);
+        loglog(r_fit, c_fit, '--', 'LineWidth', 2, 'Color', fit_params(jidx).color, 'HandleVisibility', 'off');
+    end
+end
 
 % Disable axes toolbar to avoid export warning
 ax.Toolbar.Visible = 'off';
 
-% Set reasonable axis limits if data exists
-if ~isempty(all_extrapolated_distances) && ~isempty(all_extrapolated_values)
-    xlim([min(all_extrapolated_distances(all_extrapolated_distances>0)), max(all_extrapolated_distances)]);
-    y_min = min(all_extrapolated_values(all_extrapolated_values>0));
-    y_max = max(all_extrapolated_values);
-    ylim([y_min, y_max]);
+% Save figure (no white margins for PDF/EPS)
+try
+    set(gcf, 'Color','none', 'InvertHardcopy','off', 'Renderer','painters');
+    % Vector PDF with tight padding
+    exportgraphics(gcf, 'singlet_sc_corr_extrapolation_all.pdf', 'ContentType','vector', ...
+                   'BackgroundColor','none', 'Padding','tight');
+    % EPS with page size matching figure
+    set(gcf, 'Units','inches');
+    pos = get(gcf, 'Position');
+    set(gcf, 'PaperPositionMode','auto', 'PaperUnits','inches', 'PaperSize', [pos(3), pos(4)]);
+    print(gcf, '-depsc', '-painters', '-r600', 'singlet_sc_corr_extrapolation_all.eps');
+catch ME
+    warning(ME.identifier, '%s', ME.message);
 end
-
-% Save figure
-saveas(gcf, 'singlet_sc_corr_extrapolation_all.png');
-saveas(gcf, 'singlet_sc_corr_extrapolation_all.pdf');
 
 end
 

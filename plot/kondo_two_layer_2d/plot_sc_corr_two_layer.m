@@ -4,8 +4,17 @@
 %   Plot singlet and triplet (Sz=0) pairing correlators vs distance for
 %   multiple D to check convergence in the two-layer Kondo model.
 %
+% DMRG lattice mapping (two-layer, two-orbital, two-leg):
+%   - There are 8 sites per physical x-position: 2 legs (y=0,1) × 2 layers × 2 dof
+%     (itinerant, localized). Site indices advance along x; within each x-block,
+%     the 8 internal sites are enumerated.
+%   - For interlayer pairing data, we can use only the first endpoint indices
+%     (ref_sites(1), target_bonds(:,1)). A bond lies on the same y-row as the
+%     reference (delta y = 0) iff (target_i - ref_i) is a multiple of 8.
+%   - The integer x-distance is then |target_i - ref_i| / 8.
+%
 % Behavior
-%   Documentation only; plotting logic unchanged.
+%   Documentation updated; plotting filters to delta y = 0 and uses integer x.
 % Plot Superconductivity Correlations for Two-Layer Kondo Model to check convergence vs. D
 clear;
 close all;
@@ -83,20 +92,42 @@ for i = 1:numel(files)
         continue;
     end
     
-    % --- Process distances (same for all D) ---
-    ref_x = ref_sites(1) / (4*2);
-    target_x = target_bonds(:,1) / (4*2);
-    distances = abs(target_x - ref_x);
+    % --- Process distances (delta y = 0 only, integer x using 8 sites/x) ---
+    ref_i = ref_sites(1);
+    target_i = target_bonds(:,1);
+    delta_idx = abs(target_i - ref_i);%since interlayer pairing, we only need to consider the first endpoint
+    same_row_idx = mod(delta_idx, 8) == 0; % delta y = 0
+    distances = delta_idx(same_row_idx) / 8; % integer x-distance
+    % Note: distances are now integer x-distances
+
+    if isempty(distances)
+        warning('D=%d: No bonds with delta y = 0 relative to reference. Skipping.', D);
+        continue;
+    end
+
+    scs_filtered = scs(same_row_idx);
+    sct_filtered = sct(:, same_row_idx);
+
+    nonzero_idx = distances > 0; % avoid log(0)
+    distances = distances(nonzero_idx);
+    scs_filtered = scs_filtered(nonzero_idx);
+    sct_filtered = sct_filtered(:, nonzero_idx);
+
+    if isempty(distances)
+        warning('D=%d: All delta y = 0 bonds are at zero x-distance. Skipping.', D);
+        continue;
+    end
+
     [distances_sorted, sort_idx] = sort(distances);
     
     % --- Plot Singlet Data for current D ---
     subplot(1, 2, 1);
-    scs_sorted = scs(sort_idx);
+    scs_sorted = scs_filtered(sort_idx);
     loglog(distances_sorted, abs(scs_sorted), '-o', 'LineWidth', 2, 'MarkerSize', 6, 'Color', color, 'DisplayName', ['D = ', num2str(D)]);
     
     % --- Plot Triplet Data (Sz=0 component) for current D ---
     subplot(1, 2, 2);
-    triplet_sz0_sorted = sct(1, sort_idx);
+    triplet_sz0_sorted = sct_filtered(1, sort_idx);
     loglog(distances_sorted, abs(triplet_sz0_sorted), '-s', 'LineWidth', 2, 'MarkerSize', 6, 'Color', color, 'DisplayName', ['D = ', num2str(D)]);
 end
 

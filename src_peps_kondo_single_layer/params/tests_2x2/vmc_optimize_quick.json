@@ -1,0 +1,33 @@
+{
+  "CaseParams": {
+    "OptimizerType": "SGD",
+    "MaxIterations": 8,
+    "LearningRate": 0.05,
+    "EnergyTolerance": 0.0,
+    "GradientTolerance": 0.0,
+    "PlateauPatience": 8,
+
+    "WavefunctionBase": "tps",
+    "ConfigurationLoadDir": "tpsfinal",
+    "ConfigurationDumpDir": "tpsfinal",
+    "TPSDumpPath": "./vmc_dump",
+
+    "ElectronNum": 4,
+    "ElectronSz2": 0,
+    "AllowDoublon": false,
+    "LocalSpinNeel": true,
+
+    "MC_samples": 400,
+    "WarmUp": 80,
+    "MCLocalUpdateSweepsBetweenSample": 5,
+
+    "Db_min": 4,
+    "Db_max": 12,
+    "TruncErr": 1e-10,
+    "MPSCompressScheme": 0,
+    "ThreadNum": 1
+  }
+}
+
+
+

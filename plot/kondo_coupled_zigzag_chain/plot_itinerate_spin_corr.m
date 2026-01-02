@@ -1,4 +1,4 @@
-% plot_kondo_ladder/plot_localized_spin_corr.m
+% plot_kondo_ladder/plot_itinerate_spin_corr.m
 %
 % Purpose
 %   Visualize equal-time spin correlations on the tilted zig-zag Kondo lattice
@@ -11,7 +11,7 @@
 %
 % Data dependencies
 %   Reads JSON from ../../data/ with names like:
-%     lszszt2...Jk...U...Ly...Lx...D...json
+%     szszt2...Jk...U...Ly...Lx...D...json
 %   The helper `resolve_corr_path` falls back to Ly-less filenames for Ly=2.
 %
 % Other dependencies
@@ -24,9 +24,9 @@ close all;
 % itinerant orbitals in this effective 2D mapping.
 Lx = 20;
 Ly = 4;         % New generalized ladder width
- t2 = 0.3;
+ t2 = 0.6;
 Jk = -4;
-U  = 2;
+U  = 18;
 Db = 20000;
 base_marker_size = 300;  % Max size for largest magnitude
 transparent_background = false;  % Set true to export with transparent background
@@ -38,9 +38,9 @@ negative_spin_color = [232   132  130]/256;
 % Load spin correlation data with Ly-aware postfix handling
 postfix = build_postfix(t2, Jk, U, Ly, Lx, Db);
 base_path = '../../data/';
-SpinCorrDataZZ = jsondecode(fileread(resolve_corr_path(base_path, 'lszsz', postfix, Ly)));
-SpinCorrDataPM = jsondecode(fileread(resolve_corr_path(base_path, 'lspsm', postfix, Ly)));
-SpinCorrDataMP = jsondecode(fileread(resolve_corr_path(base_path, 'lsmsp', postfix, Ly)));
+SpinCorrDataZZ = jsondecode(fileread(resolve_corr_path(base_path, 'szsz', postfix, Ly)));
+SpinCorrDataPM = jsondecode(fileread(resolve_corr_path(base_path, 'spsm', postfix, Ly)));
+SpinCorrDataMP = jsondecode(fileread(resolve_corr_path(base_path, 'smsp', postfix, Ly)));
 
 data_num = numel(SpinCorrDataZZ);
 ref_site_raw = SpinCorrDataZZ{1}{1}(1);
@@ -52,17 +52,38 @@ for i = 1:data_num
 end
 
 raw_indices = [ref_site_raw; target_site_idx'];
-% Legacy data stored even/odd indices for itinerant/localized sites. Modern
-% files already use itinerant-only indexing. Accept both without breaking.
-if any(mod(raw_indices, 2) ~= 0)
-    error('Spin correlation dataset includes localized-site indices (odd). Expected even indices for itinerant electrons.');
-end
-
-ref_site_idx = ref_site_raw / 2;
-site_indices = target_site_idx' / 2;
-corr_data = [site_indices, SpinCorr'];
-
+% -----------------------------------------------------------------------------
+% Index convention health-check (itinerant-spin dataset)
+%
+% Expected sources:
+% - Raw MPS indices from C++ (historic convention):
+%     even = itinerant electrons, odd = localized spins
+% - Some postprocessed datasets may already store geometry indices (0..Ly*Lx-1)
+%
+% For THIS script (itinerant spins), acceptable inputs are:
+% - geometry indices
+% - raw itinerant indices (all even): idx_geom = idx_raw/2
+%
+% If you accidentally load localized data (all odd raw indices), fail loudly.
+% -----------------------------------------------------------------------------
 lattice = TiltedZigZagLattice(Ly, Lx, 'OBC');
+Ngeom = lattice.N;
+
+if all(raw_indices >= 0 & raw_indices < Ngeom)
+    % Already geometry indices
+    ref_site_idx = ref_site_raw;
+    site_indices = target_site_idx';
+elseif all(mod(raw_indices, 2) == 0)
+    % Raw itinerant indices
+    ref_site_idx = ref_site_raw / 2;
+    site_indices = target_site_idx' / 2;
+elseif all(mod(raw_indices, 2) == 1)
+    error(['Loaded an all-odd index dataset while reading szsz/spsm/smsp. ' ...
+           'This looks like localized-spin data (lszsz/lspsm/lsmsp). Fix the file prefix.']);
+else
+    error('Spin correlation dataset mixes even/odd indices. Dataset is inconsistent or you mixed prefixes.');
+end
+corr_data = [site_indices, SpinCorr'];
 figure;
 lattice.drawLattice(1.5, 0);
 hold on;
@@ -105,6 +126,9 @@ if isempty(other_corr)
     real_max_abs = 0;
 else
     real_max_abs = max(abs(other_corr(:,2)));
+end
+if real_max_abs == 0
+    real_max_abs = 1;
 end
 
 legend_max_abs = str2double(sprintf('%.1g', real_max_abs));
