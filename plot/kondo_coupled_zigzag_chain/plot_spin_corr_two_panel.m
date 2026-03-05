@@ -24,8 +24,8 @@ close all;
 % -----------------------------------------------------------------------------
 % Parameter sets (edit these as needed)
 % NOTE: J_H = -Jk in the figure annotation.
-params(1).Lx  = 20; params(1).Ly = 2; params(1).t2 = 0.3; params(1).Jk = -4; params(1).U = 14.0; params(1).Db = 0;
-params(2).Lx  = 20; params(2).Ly = 4; params(2).t2 = 0.3; params(2).Jk = -4; params(2).U = 14.0; params(2).Db = 12000;
+params(1).Lx  = 20; params(1).Ly = 2; params(1).t2 = 0.3; params(1).Jk = -4; params(1).U = 14.0; params(1).Db = 0;    params(1).Geometry = 'OBC';
+params(2).Lx  = 20; params(2).Ly = 4; params(2).t2 = 0.3; params(2).Jk = -4; params(2).U = 14.0; params(2).Db = 12000; params(2).Geometry = 'OBC';
 
 base_marker_size = 300;  % Max size for largest magnitude
 
@@ -186,7 +186,7 @@ hold(ax, 'off');
 % =============================================================================
 % Helpers
 function [corr_data, ref_site_idx, other_corr] = load_corr_data(p)
-    postfix = build_postfix(p.t2, p.Jk, p.U, p.Ly, p.Lx, p.Db);
+    postfix = build_postfix(p.t2, p.Jk, p.U, p.Ly, p.Lx, p.Db, p.Geometry);
     base_path = '../../data/';
     SpinCorrDataZZ = jsondecode(fileread(resolve_corr_path(base_path, 'szsz', postfix, p.Ly)));
     SpinCorrDataPM = jsondecode(fileread(resolve_corr_path(base_path, 'spsm', postfix, p.Ly)));
@@ -269,18 +269,24 @@ function path = resolve_corr_path(base_dir, prefix, postfix, ly)
         path = candidate;
         return;
     end
-    if ly ~= 2
-        error('Correlation file not found for Ly=%d: %s', ly, candidate);
-    end
-    fallback = strrep(candidate, ['Ly', num2str(ly)], '');
-    if exist(fallback, 'file')
-        path = fallback;
+    % Fallback: strip geometry suffix (_OBC / _PBC) for legacy data
+    legacy = regexprep(candidate, '_(OBC|PBC)\.json$', '.json');
+    if ~strcmp(legacy, candidate) && exist(legacy, 'file')
+        path = legacy;
         return;
     end
-    error('Correlation file missing: tried %s and %s', candidate, fallback);
+    if ly == 2
+        % Also try stripping Ly token for very old Ly=2 data
+        fallback = strrep(legacy, ['Ly', num2str(ly)], '');
+        if exist(fallback, 'file')
+            path = fallback;
+            return;
+        end
+    end
+    error('Correlation file missing: tried %s and %s', candidate, legacy);
 end
 
-function postfix = build_postfix(t2, Jk, U, Ly, Lx, Db)
+function postfix = build_postfix(t2, Jk, U, Ly, Lx, Db, Geometry)
     parts = {
         ['t2', num2str(t2)], ...
         ['Jk', num2str(Jk)], ...
@@ -288,6 +294,7 @@ function postfix = build_postfix(t2, Jk, U, Ly, Lx, Db)
         ['Ly', num2str(Ly)], ...
         ['Lx', num2str(Lx)], ...
         ['D', num2str(Db)], ...
+        ['_', Geometry], ...
         '.json'
     };
     postfix = strjoin(parts, '');

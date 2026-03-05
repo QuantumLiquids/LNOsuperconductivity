@@ -94,7 +94,8 @@ int main(int argc, char *argv[]) {
 
   std::ostringstream oss;
   // Keep the same filename postfix convention as `vmps.cpp`.
-  oss << "t2" << t2 << "Jk" << Jk << "U" << U << "Ly" << Ly << "Lx" << Lx << "D" << params.Dmax.back();
+  oss << "t2" << t2 << "Jk" << Jk << "U" << U << "Ly" << Ly << "Lx" << Lx << "D" << params.Dmax.back()
+      << "_" << params.Geometry;
   std::string file_postfix = oss.str();
 
   // Simple MPI scheduling assumption:

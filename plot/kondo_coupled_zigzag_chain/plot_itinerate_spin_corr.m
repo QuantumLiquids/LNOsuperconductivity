@@ -28,6 +28,7 @@ Ly = 4;         % New generalized ladder width
 Jk = -4;
 U  = 18;
 Db = 20000;
+Geometry = 'OBC';  % 'OBC' or 'PBC'; legacy data have no suffix
 base_marker_size = 300;  % Max size for largest magnitude
 transparent_background = false;  % Set true to export with transparent background
 
@@ -36,7 +37,7 @@ positive_spin_color = [142   139  254]/256;
 negative_spin_color = [232   132  130]/256;
 
 % Load spin correlation data with Ly-aware postfix handling
-postfix = build_postfix(t2, Jk, U, Ly, Lx, Db);
+postfix = build_postfix(t2, Jk, U, Ly, Lx, Db, Geometry);
 base_path = '../../data/';
 SpinCorrDataZZ = jsondecode(fileread(resolve_corr_path(base_path, 'szsz', postfix, Ly)));
 SpinCorrDataPM = jsondecode(fileread(resolve_corr_path(base_path, 'spsm', postfix, Ly)));
@@ -235,18 +236,24 @@ function path = resolve_corr_path(base_dir, prefix, postfix, ly)
         path = candidate;
         return;
     end
-    if ly ~= 2
-        error('Correlation file not found for Ly=%d: %s', ly, candidate);
-    end
-    fallback = strrep(candidate, ['Ly', num2str(ly)], '');
-    if exist(fallback, 'file')
-        path = fallback;
+    % Fallback: strip geometry suffix (_OBC / _PBC) for legacy data
+    legacy = regexprep(candidate, '_(OBC|PBC)\.json$', '.json');
+    if ~strcmp(legacy, candidate) && exist(legacy, 'file')
+        path = legacy;
         return;
     end
-    error('Correlation file missing: tried %s and %s', candidate, fallback);
+    if ly == 2
+        % Also try stripping Ly token for very old Ly=2 data
+        fallback = strrep(legacy, ['Ly', num2str(ly)], '');
+        if exist(fallback, 'file')
+            path = fallback;
+            return;
+        end
+    end
+    error('Correlation file missing: tried %s and %s', candidate, legacy);
 end
 
-function postfix = build_postfix(t2, Jk, U, Ly, Lx, Db)
+function postfix = build_postfix(t2, Jk, U, Ly, Lx, Db, Geometry)
     parts = {
         ['t2', num2str(t2)], ...
         ['Jk', num2str(Jk)], ...
@@ -254,6 +261,7 @@ function postfix = build_postfix(t2, Jk, U, Ly, Lx, Db)
         ['Ly', num2str(Ly)], ...
         ['Lx', num2str(Lx)], ...
         ['D', num2str(Db)], ...
+        ['_', Geometry], ...
         '.json'
     };
     postfix = strjoin(parts, '');

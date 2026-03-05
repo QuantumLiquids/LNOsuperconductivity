@@ -344,7 +344,8 @@ int main(int argc, char *argv[]) {
   auto run_measurements = [&](size_t bond_dim) {
     std::ostringstream oss;
     oss << "Jperp" << Jperp << "Jk" << Jk << "t2" << t2 << "U" << U
-        << "Ly" << Ly << "Lx" << Lx << "D" << bond_dim;
+        << "Ly" << Ly << "Lx" << Lx << "D" << bond_dim
+        << "_" << params.Geometry;
     const std::string file_postfix = oss.str();
 
     size_t job_idx = 0;
