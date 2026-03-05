@@ -417,11 +417,12 @@ int main(int argc, char *argv[]) {
 
   for (size_t di = 0; di < params.Dmax.size(); ++di) {
     const size_t bond_dim = params.Dmax[di];
+    const size_t effective_dmin = std::min(params.Dmin, bond_dim);
     if (rank == 0) cout << "D_max = " << bond_dim << endl;
 
     qlmps::FiniteVMPSSweepParams sweep_params(
         params.Sweeps,
-        params.Dmin, bond_dim, params.CutOff,
+        effective_dmin, bond_dim, params.CutOff,
         qlmps::LanczosParams(params.LanczErr, params.MaxLanczIter),
         params.noise
     );
