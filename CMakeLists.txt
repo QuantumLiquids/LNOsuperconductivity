@@ -118,6 +118,7 @@ if (QLMPS_USE_GPU)
             ${PROJECT_SOURCE_DIR}/src_tj_single_layer_single_orbital_2d_anisotropic
             ${PROJECT_SOURCE_DIR}/src_kondo_zigzag_ladder
             ${PROJECT_SOURCE_DIR}/src_kondo_two_layer_2d
+            ${PROJECT_SOURCE_DIR}/src_kondo_two_layer_zigzag
             ${PROJECT_SOURCE_DIR}/src_kondo_1d_chain)
 
     set(GPU_SOURCES "")
@@ -223,6 +224,8 @@ add_executable(kondo_ladder_vmpsJk0 src_kondo_zigzag_ladder/vmps_Jk0.cpp src_tj_
 add_executable(kondo_ladder_dmrgJk0 src_kondo_zigzag_ladder/dmrg_Jk0.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
 add_executable(kondo_ladder_conventional_square_vmps src_kondo_zigzag_ladder/vmps_conventional_square.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
 add_executable(visualize_tilted_lattice src_kondo_zigzag_ladder/visualize_tilted_lattice.cpp)
+
+add_executable(kondo_two_layer_zigzag_vmps src_kondo_two_layer_zigzag/vmps.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
 
 add_executable(kondo_two_layer_vmps src_kondo_two_layer_2d/vmps_conventional_square.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
 add_executable(kondo_two_layer_tilted_zigzag_vmps src_kondo_two_layer_2d/vmps_tilted_zigzag.cpp src_tj_double_layer_single_orbital_2d/myutil.cpp)
