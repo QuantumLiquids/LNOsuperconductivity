@@ -49,6 +49,7 @@
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
+#include <stdexcept>
 
 using namespace qlmps;
 using namespace qlten;
@@ -100,6 +101,7 @@ int main(int argc, char *argv[]) {
     cout << "U  = " << U << "\n";
     cout << "Jperp = " << Jperp << "\n";
     cout << "Geometry = " << params.Geometry << "\n";
+    cout << "InitState = " << params.InitState << "\n";
   }
 
   // -----------------------------------------------------------------------
@@ -236,31 +238,91 @@ int main(int argc, char *argv[]) {
   // Quarter filling: Lx*Ly electrons distributed across 2*Lx*Ly itinerant sites
   const size_t n_itinerant = 2 * Ly * Lx;
 
-  std::vector<size_t> elec_labs(n_itinerant);
-  std::fill(elec_labs.begin(),
-            elec_labs.begin() + (ptrdiff_t)(Lx * Ly / 2),
-            hubbard_site.spin_up);
-  std::fill(elec_labs.begin() + (ptrdiff_t)(Lx * Ly / 2),
-            elec_labs.begin() + (ptrdiff_t)(Lx * Ly),
-            hubbard_site.spin_down);
-  std::fill(elec_labs.begin() + (ptrdiff_t)(Lx * Ly),
-            elec_labs.end(),
-            hubbard_site.empty);
-  std::random_device rd;
-  std::mt19937 g(rd());
-  std::shuffle(elec_labs.begin(), elec_labs.end(), g);
-
-  // Localized spins: alternating up/down (one per orbital-site pair)
-  const size_t n_loc = 2 * Ly * Lx;
-  std::vector<size_t> loc_labs(n_loc);
-  for (size_t i = 0; i < n_loc; ++i) loc_labs[i] = i % 2;
-  std::shuffle(loc_labs.begin(), loc_labs.end(), g);
-
-  // Build stat_labs: N entries, even -> electron, odd -> localized
   std::vector<size_t> stat_labs(N);
-  for (size_t i = 0; i < N; i += 2) {
-    stat_labs[i]     = elec_labs[i / 2];
-    stat_labs[i + 1] = loc_labs[i / 2];
+
+  if (params.InitState == "stripe_pi2pi2") {
+    // (pi/2, pi/2) stripe: FM within each chain, AFM between chains,
+    // reversed between layers.  Electrons on even-x sites only (quarter filling).
+    // Requires Lx even for exact filling and Sz=0.
+    //
+    // Layer 0: y even → loc ↓, elec ↓ (occupied) or empty
+    //          y odd  → loc ↑, elec ↑ (occupied) or empty
+    // Layer 1: reversed spin.
+    if (Lx % 2 != 0)
+      throw std::runtime_error("stripe_pi2pi2 requires even Lx (got " + std::to_string(Lx) + ")");
+    if (rank == 0) cout << "InitState: stripe_pi2pi2\n";
+    for (size_t x = 0; x < Lx; ++x) {
+      for (size_t y = 0; y < Ly; ++y) {
+        bool y_even = (y % 2 == 0);
+        bool x_occupied = (x % 2 == 0);  // quarter filling
+        for (size_t layer = 0; layer < 2; ++layer) {
+          // Layer 0: y_even → spin down;  Layer 1: reversed
+          bool spin_up_here = y_even ? (layer == 1) : (layer == 0);
+          size_t e_lab = hubbard_site.empty;
+          if (x_occupied) {
+            e_lab = spin_up_here ? hubbard_site.spin_up : hubbard_site.spin_down;
+          }
+          size_t l_lab = spin_up_here ? 0 : 1;  // 0=↑, 1=↓
+          stat_labs[elec_site(x, y, layer)] = e_lab;
+          stat_labs[loc_site(x, y, layer)]  = l_lab;
+        }
+      }
+    }
+  } else if (params.InitState == "stripe_pi0") {
+    // (pi, 0) stripe: period-2 along x, uniform across chains.
+    // x even → ↑, x odd → ↓ for localized spins (layer 0).
+    // Electrons on every other x to maintain quarter filling.
+    // Requires Lx even for exact filling and Sz=0.
+    if (Lx % 2 != 0)
+      throw std::runtime_error("stripe_pi0 requires even Lx (got " + std::to_string(Lx) + ")");
+    if (rank == 0) cout << "InitState: stripe_pi0\n";
+    for (size_t x = 0; x < Lx; ++x) {
+      for (size_t y = 0; y < Ly; ++y) {
+        for (size_t layer = 0; layer < 2; ++layer) {
+          bool x_even = (x % 2 == 0);
+          // Layer 0: x_even → ↑;  Layer 1: reversed
+          bool spin_up_here = x_even ? (layer == 0) : (layer == 1);
+          // Quarter filling: occupy every other x, alternating spin
+          bool x_occupied = (x % 2 == 0);
+          size_t e_lab = hubbard_site.empty;
+          if (x_occupied) {
+            e_lab = spin_up_here ? hubbard_site.spin_up : hubbard_site.spin_down;
+          }
+          size_t l_lab = spin_up_here ? 0 : 1;
+          stat_labs[elec_site(x, y, layer)] = e_lab;
+          stat_labs[loc_site(x, y, layer)]  = l_lab;
+        }
+      }
+    }
+  } else {
+    // Default: random initial state
+    if (params.InitState != "random" && rank == 0)
+      cerr << "WARNING: unrecognized InitState '" << params.InitState
+           << "', falling back to random\n";
+    if (rank == 0) cout << "InitState: random\n";
+    std::vector<size_t> elec_labs(n_itinerant);
+    std::fill(elec_labs.begin(),
+              elec_labs.begin() + (ptrdiff_t)(Lx * Ly / 2),
+              hubbard_site.spin_up);
+    std::fill(elec_labs.begin() + (ptrdiff_t)(Lx * Ly / 2),
+              elec_labs.begin() + (ptrdiff_t)(Lx * Ly),
+              hubbard_site.spin_down);
+    std::fill(elec_labs.begin() + (ptrdiff_t)(Lx * Ly),
+              elec_labs.end(),
+              hubbard_site.empty);
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(elec_labs.begin(), elec_labs.end(), g);
+
+    const size_t n_loc = 2 * Ly * Lx;
+    std::vector<size_t> loc_labs(n_loc);
+    for (size_t i = 0; i < n_loc; ++i) loc_labs[i] = i % 2;
+    std::shuffle(loc_labs.begin(), loc_labs.end(), g);
+
+    for (size_t i = 0; i < N; i += 2) {
+      stat_labs[i]     = elec_labs[i / 2];
+      stat_labs[i + 1] = loc_labs[i / 2];
+    }
   }
 
   if (IsPathExist(kMpsPath)) {

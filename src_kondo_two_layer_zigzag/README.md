@@ -97,6 +97,7 @@ Quarter filling of the itinerant band: $L_x \times L_y$ electrons distributed ac
 | Key          | Type       | Description                                    |
 |--------------|------------|------------------------------------------------|
 | `Geometry`   | string     | `"OBC"` or `"PBC"` (y-direction)               |
+| `InitState`  | string     | Initial MPS product state (default `"random"`)  |
 | `Lx`         | int        | Length along x (chain direction)                |
 | `Ly`         | int        | Number of zigzag chains per layer               |
 | `t`          | double     | Intra-chain NN hopping                          |
@@ -119,6 +120,7 @@ Example (ambient pressure, small $J_\perp$):
 {
   "CaseParams": {
     "Geometry": "OBC",
+    "InitState": "stripe_pi2pi2",
     "Lx": 20, "Ly": 2,
     "t": 1.0, "t2": 0.3,
     "Jk": -4.0, "Jperp": 0.1, "U": 14.0,
@@ -130,6 +132,38 @@ Example (ambient pressure, small $J_\perp$):
   }
 }
 ```
+
+## Initial State Options (`InitState`)
+
+The `InitState` parameter selects the product-state seed for the MPS before DMRG sweeps begin. A physically motivated initial state can dramatically improve convergence, especially for wide systems ($L_y = 4$).
+
+| Value | Description |
+|-------|-------------|
+| `"random"` | **(default)** Quarter-filled electrons and localized spins placed randomly with correct total $N$ and $S^z = 0$. |
+| `"stripe_pi2pi2"` | $(\pi/2, \pi/2)$ diagonal stripe. FM within each chain, AFM between adjacent chains, spin-reversed between layers. Electrons occupy even-$x$ sites only (quarter filling). |
+| `"stripe_pi0"` | $(\pi, 0)$ collinear stripe. Period-2 along $x$, uniform across chains, reversed between layers. Electrons on even-$x$ sites. |
+
+### `"stripe_pi2pi2"` detail
+
+For each geometric position $(x, y)$ and layer $\ell$:
+
+| | Layer 0 electron | Layer 0 loc spin | Layer 1 electron | Layer 1 loc spin |
+|---|---|---|---|---|
+| $x$ even, $y$ even | $\downarrow$ | $\downarrow$ | $\uparrow$ | $\uparrow$ |
+| $x$ odd, $y$ even | empty | $\downarrow$ | empty | $\uparrow$ |
+| $x$ even, $y$ odd | $\uparrow$ | $\uparrow$ | $\downarrow$ | $\downarrow$ |
+| $x$ odd, $y$ odd | empty | $\uparrow$ | empty | $\downarrow$ |
+
+This gives quarter filling ($L_x L_y$ electrons total), equal $\uparrow/\downarrow$ per layer, and $S^z_{\text{total}} = 0$. Requires even $L_y$.
+
+### `"stripe_pi0"` detail
+
+| | Layer 0 electron | Layer 0 loc spin | Layer 1 electron | Layer 1 loc spin |
+|---|---|---|---|---|
+| $x$ even (any $y$) | $\uparrow$ | $\uparrow$ | $\downarrow$ | $\downarrow$ |
+| $x$ odd (any $y$) | empty | $\downarrow$ | empty | $\uparrow$ |
+
+Each layer has nonzero $S^z_\ell$, but the two layers cancel: $S^z_{\text{total}} = 0$.
 
 ## Measurements
 

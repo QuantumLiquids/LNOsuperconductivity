@@ -6,6 +6,7 @@ using qlmps::CaseParamsParserBasic;
 struct CaseParams : public CaseParamsParserBasic {
   CaseParams(const char *pf) : CaseParamsParserBasic(pf) {
     Geometry = ParseStr("Geometry");
+    InitState = ParseStrOr("InitState", "random");
     Lx = ParseInt("Lx");
     Ly = ParseIntOr("Ly", 2);
     t = ParseDouble("t");
@@ -24,6 +25,7 @@ struct CaseParams : public CaseParamsParserBasic {
   }
 
   std::string Geometry; // PBC, OBC
+  std::string InitState; // "random", "stripe_pi2pi2", "stripe_pi0"
   size_t Lx;
   size_t Ly; // number of zig-zag chains (tilted cylinder circumference)
   double t;

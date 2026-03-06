@@ -8,6 +8,7 @@ using qlmps::CaseParamsParserBasic;
 struct CaseParams : public CaseParamsParserBasic {
   CaseParams(const char *pf) : CaseParamsParserBasic(pf) {
     Geometry = ParseStr("Geometry");
+    InitState = ParseStrOr("InitState", "random");
     Lx = ParseInt("Lx");
     const int ly_raw = ParseIntOr("Ly", 2);
     if (ly_raw <= 0) {
@@ -31,6 +32,7 @@ struct CaseParams : public CaseParamsParserBasic {
   }
 
   std::string Geometry; // PBC or OBC (along y)
+  std::string InitState; // "random", "stripe_pi2pi2", "stripe_pi0"
   size_t Lx;
   size_t Ly; // number of zigzag chains per layer
   double t;  // intra-chain NN hopping

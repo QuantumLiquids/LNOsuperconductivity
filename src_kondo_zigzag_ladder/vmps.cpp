@@ -13,6 +13,7 @@
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
+#include <stdexcept>
 #include "tilted_zigzag_lattice.h"
 
 using namespace qlmps;
@@ -42,6 +43,7 @@ int main(int argc, char *argv[]) {
     cout << "Jk = " << Jk << endl;
     cout << "U = " << U << endl;
     cout << "Geometry = " << params.Geometry << endl;
+    cout << "InitState = " << params.InitState << endl;
   }
 
   clock_t startTime, endTime;
@@ -113,27 +115,80 @@ int main(int argc, char *argv[]) {
   qlten::hp_numeric::SetTensorManipulationThreads(params.Threads);
 #endif
 
-  std::vector<size_t> elec_labs(Lx * Ly);
-  // electron quarter filling on itinerant sites: total electrons = (Lx*Ly)/2
-  const size_t total_itinerant = Lx * Ly;
-  const size_t num_electrons = total_itinerant / 2;
-  const size_t num_up = num_electrons / 2 + num_electrons % 2;
-  const size_t num_down = num_electrons - num_up;
-  std::fill(elec_labs.begin(), elec_labs.begin() + num_up, hubbard_site.spin_up);
-  std::fill(elec_labs.begin() + num_up, elec_labs.begin() + num_up + num_down, hubbard_site.spin_down);
-  std::fill(elec_labs.begin() + num_up + num_down, elec_labs.end(), hubbard_site.empty);
-  std::random_device rd;
-  std::mt19937 g(rd());
-  std::shuffle(elec_labs.begin(), elec_labs.end(), g);
+  // Site index helpers: electron at 2*(y + Ly*x), localized at 2*(y + Ly*x)+1
+  auto elec_idx = [&](size_t x, size_t y) -> size_t { return 2 * (y + Ly * x); };
+  auto loc_idx  = [&](size_t x, size_t y) -> size_t { return elec_idx(x, y) + 1; };
 
   std::vector<size_t> stat_labs(N);
-  for (size_t i = 0; i < N; i = i + 2) {
-    stat_labs[i] = elec_labs[i / 2];
-  }
-  int sz_lab = 0;
-  for (size_t i = 1; i < N; i = i + 2) {
-    stat_labs[i] = sz_lab % 2;
-    sz_lab++;
+
+  if (params.InitState == "stripe_pi2pi2") {
+    // (pi/2, pi/2) stripe: FM within each chain, AFM between chains.
+    // y even → loc ↓, elec ↓ (if occupied);  y odd → loc ↑, elec ↑.
+    // Quarter filling: electrons on even-x sites only.  Requires Lx even.
+    if (Lx % 2 != 0)
+      throw std::runtime_error("stripe_pi2pi2 requires even Lx (got " + std::to_string(Lx) + ")");
+    if (rank == 0) cout << "InitState: stripe_pi2pi2\n";
+    for (size_t x = 0; x < Lx; ++x) {
+      for (size_t y = 0; y < Ly; ++y) {
+        bool spin_up_here = (y % 2 != 0);  // y odd → ↑
+        bool x_occupied = (x % 2 == 0);    // quarter filling
+        size_t e_lab = hubbard_site.empty;
+        if (x_occupied) {
+          e_lab = spin_up_here ? hubbard_site.spin_up : hubbard_site.spin_down;
+        }
+        size_t l_lab = spin_up_here ? 0 : 1;  // 0=↑, 1=↓
+        stat_labs[elec_idx(x, y)] = e_lab;
+        stat_labs[loc_idx(x, y)]  = l_lab;
+      }
+    }
+  } else if (params.InitState == "stripe_pi0") {
+    // (pi, 0) stripe: alternating spin along x, uniform across y.
+    // Period-4 unit cell to satisfy quarter filling + Sz=0:
+    //   x%4==0: ↑ electron + ↑ loc,  x%4==1: ↓ electron + ↓ loc,
+    //   x%4==2: empty + ↑ loc,        x%4==3: empty + ↓ loc.
+    if (Lx % 4 != 0)
+      throw std::runtime_error("stripe_pi0 requires Lx divisible by 4 (got " + std::to_string(Lx) + ")");
+    if (rank == 0) cout << "InitState: stripe_pi0\n";
+    for (size_t x = 0; x < Lx; ++x) {
+      for (size_t y = 0; y < Ly; ++y) {
+        size_t xmod = x % 4;
+        bool spin_up_here = (xmod == 0 || xmod == 2);
+        bool x_occupied = (xmod < 2);
+        size_t e_lab = hubbard_site.empty;
+        if (x_occupied) {
+          e_lab = spin_up_here ? hubbard_site.spin_up : hubbard_site.spin_down;
+        }
+        size_t l_lab = spin_up_here ? 0 : 1;
+        stat_labs[elec_idx(x, y)] = e_lab;
+        stat_labs[loc_idx(x, y)]  = l_lab;
+      }
+    }
+  } else {
+    // Default: random initial state
+    if (params.InitState != "random" && rank == 0)
+      cerr << "WARNING: unrecognized InitState '" << params.InitState
+           << "', falling back to random\n";
+    if (rank == 0) cout << "InitState: random\n";
+    const size_t total_itinerant = Lx * Ly;
+    const size_t num_electrons = total_itinerant / 2;
+    const size_t num_up = num_electrons / 2 + num_electrons % 2;
+    const size_t num_down = num_electrons - num_up;
+    std::vector<size_t> elec_labs(total_itinerant);
+    std::fill(elec_labs.begin(), elec_labs.begin() + num_up, hubbard_site.spin_up);
+    std::fill(elec_labs.begin() + num_up, elec_labs.begin() + num_up + num_down, hubbard_site.spin_down);
+    std::fill(elec_labs.begin() + num_up + num_down, elec_labs.end(), hubbard_site.empty);
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(elec_labs.begin(), elec_labs.end(), g);
+
+    for (size_t i = 0; i < N; i += 2) {
+      stat_labs[i] = elec_labs[i / 2];
+    }
+    int sz_lab = 0;
+    for (size_t i = 1; i < N; i += 2) {
+      stat_labs[i] = sz_lab % 2;
+      sz_lab++;
+    }
   }
 
   if (IsPathExist(kMpsPath)) {
