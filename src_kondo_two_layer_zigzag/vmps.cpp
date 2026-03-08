@@ -43,6 +43,7 @@
 #include "../src_kondo_zigzag_ladder/tilted_zigzag_lattice.h"
 
 #include <algorithm>
+#include <functional>
 #include <array>
 #include <iomanip>
 #include <iostream>
@@ -144,6 +145,8 @@ int main(int argc, char *argv[]) {
     cout << "U  = " << U << "\n";
     cout << "Geometry = " << params.Geometry << "\n";
     cout << "InitState = " << params.InitState << "\n";
+    cout << "PinField = " << params.PinField << "\n";
+    cout << "PinPattern = " << params.PinPattern << "\n";
   }
 
   clock_t startTime = clock();
@@ -223,6 +226,51 @@ int main(int argc, char *argv[]) {
     mpo_gen.AddTerm(Jperp, local_spin_ops.sz, sl0, local_spin_ops.sz, sl1);
     mpo_gen.AddTerm(Jperp / 2, local_spin_ops.sp, sl0, local_spin_ops.sm, sl1);
     mpo_gen.AddTerm(Jperp / 2, local_spin_ops.sm, sl0, local_spin_ops.sp, sl1);
+  }
+
+  // 7. Boundary pinning field on localized spins
+  if (params.PinField != 0.0 && params.PinPattern != "none") {
+    std::function<double(size_t, size_t, size_t)> pin_sign;
+
+    if (params.PinPattern == "pi2pi2") {
+      // FM within each chain, AFM between chains, reversed between layers
+      // Matches stripe_pi2pi2 init: spin_up = y_even ? (layer==1) : (layer==0)
+      pin_sign = [](size_t, size_t y, size_t layer) -> double {
+        bool y_even = (y % 2 == 0);
+        bool spin_up = y_even ? (layer == 1) : (layer == 0);
+        return spin_up ? 1.0 : -1.0;
+      };
+    } else if (params.PinPattern == "pi0") {
+      // Period-2 along x, uniform across chains, reversed between layers
+      // Matches stripe_pi0 init: spin_up = x_even ? (layer==0) : (layer==1)
+      pin_sign = [](size_t x, size_t, size_t layer) -> double {
+        bool x_even = (x % 2 == 0);
+        bool spin_up = x_even ? (layer == 0) : (layer == 1);
+        return spin_up ? 1.0 : -1.0;
+      };
+    } else {
+      throw std::runtime_error(
+          "Unknown PinPattern '" + params.PinPattern +
+          "'; expected 'none', 'pi2pi2', or 'pi0'");
+    }
+
+    // Apply to left (x=0) and right (x=Lx-1) boundary columns
+    std::vector<size_t> boundary_xs = {0};
+    if (Lx > 1) boundary_xs.push_back(Lx - 1);
+    for (size_t x : boundary_xs) {
+      for (size_t y = 0; y < Ly; ++y) {
+        for (size_t layer = 0; layer < 2; ++layer) {
+          double coeff = params.PinField * pin_sign(x, y, layer);
+          mpo_gen.AddTerm(coeff, local_spin_ops.sz, loc_site(x, y, layer));
+        }
+      }
+    }
+    if (rank == 0) {
+      cout << "Applied " << params.PinPattern << " pinning field (h="
+           << params.PinField << ") on x=0";
+      if (Lx > 1) cout << " and x=" << (Lx - 1);
+      cout << endl;
+    }
   }
 
   qlmps::MPO<Tensor> mpo = mpo_gen.Gen();

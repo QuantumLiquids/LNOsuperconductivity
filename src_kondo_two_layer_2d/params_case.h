@@ -9,6 +9,8 @@ struct CaseParams : public CaseParamsParserBasic {
   CaseParams(const char *pf) : CaseParamsParserBasic(pf) {
     Geometry = ParseStr("Geometry");
     InitState = ParseStrOr("InitState", "random");
+    PinField = ParseDoubleOr("PinField", 0.0);
+    PinPattern = ParseStrOr("PinPattern", "none");
     Lx = ParseInt("Lx");
     const int ly_raw = ParseIntOr("Ly", 2);
     if (ly_raw <= 0) {
@@ -34,6 +36,8 @@ struct CaseParams : public CaseParamsParserBasic {
 
   std::string Geometry; // PBC, OBC
   std::string InitState; // "random", "stripe_pi2pi2", "stripe_pi0"
+  double PinField;        // Boundary pinning field strength (0 = no pinning)
+  std::string PinPattern; // "none", "pi2pi2", "pi0"
   size_t Lx;
   size_t Ly;
   double t;
