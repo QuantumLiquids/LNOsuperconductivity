@@ -628,17 +628,19 @@ int main(int argc, char *argv[]) {
     }
 
     // --- Interlayer SC correlations (4-site operators) ---
-    DeallocAllSites(mps);
-    for (size_t i = 0; i < sizeof(sc_tasks) / sizeof(sc_tasks[0]); ++i) {
-      if ((job_idx++) % mpi_size == static_cast<size_t>(rank)) {
-        auto res = MeasureFourSiteOpGroupInKondoLattice(
-            mps,
-            mps_path,
-            sc_tasks[i].phys_ops,
-            ref_sites_sc,
-            target_sites_interlayer_bond_set,
-            ops.f);
-        DumpMeasuRes(res, std::string(sc_tasks[i].label) + "_" + file_postfix);
+    if (!params.SkipSC) {
+      DeallocAllSites(mps);
+      for (size_t i = 0; i < sizeof(sc_tasks) / sizeof(sc_tasks[0]); ++i) {
+        if ((job_idx++) % mpi_size == static_cast<size_t>(rank)) {
+          auto res = MeasureFourSiteOpGroupInKondoLattice(
+              mps,
+              mps_path,
+              sc_tasks[i].phys_ops,
+              ref_sites_sc,
+              target_sites_interlayer_bond_set,
+              ops.f);
+          DumpMeasuRes(res, std::string(sc_tasks[i].label) + "_" + file_postfix);
+        }
       }
     }
   };

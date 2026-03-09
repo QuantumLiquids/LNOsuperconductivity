@@ -11,6 +11,7 @@ struct CaseParams : public CaseParamsParserBasic {
     InitState = ParseStrOr("InitState", "random");
     PinField = ParseDoubleOr("PinField", 0.0);
     PinPattern = ParseStrOr("PinPattern", "none");
+    SkipSC = ParseIntOr("SkipSC", 0);
     Lx = ParseInt("Lx");
     const int ly_raw = ParseIntOr("Ly", 2);
     if (ly_raw <= 0) {
@@ -37,6 +38,7 @@ struct CaseParams : public CaseParamsParserBasic {
   std::string InitState; // "random", "stripe_pi2pi2", "stripe_pi0"
   double PinField;        // Boundary pinning field strength (0 = no pinning)
   std::string PinPattern; // "none", "pi2pi2", "pi0"
+  int SkipSC;             // 1 = skip SC 4-site measurements (saves memory)
   size_t Lx;
   size_t Ly; // number of zigzag chains per layer
   double t;  // intra-chain NN hopping
