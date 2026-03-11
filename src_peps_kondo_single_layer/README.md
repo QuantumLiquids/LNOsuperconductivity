@@ -31,7 +31,7 @@ Then the bond hopping amplitudes are:
 | Horizontal $(r,c) \to (r,c{+}1)$ | $t$ (intra-chain) | $t_2$ (inter-chain) |
 | Vertical $(r,c) \to (r{+}1,c)$ | $t_2$ (inter-chain) | $t$ (intra-chain) |
 
-If $t_2$ is not set (or set to 0), it defaults to $t$ (isotropic square
+If $t_2$ is not set, it defaults to $t$ (isotropic square
 lattice, no zigzag structure).
 
 **ASCII diagram** (4×4 lattice, `—` = horizontal, `|` = vertical):
@@ -238,7 +238,7 @@ For 2×2 lattices, exact contraction replaces Monte Carlo:
     "Lx": 4,                // lattice width (number of columns)
     "Ly": 4,                // lattice height (number of rows)
     "t": 1.0,               // intra-chain hopping (zigzag)
-    "t2": 0.3,              // inter-chain hopping (zigzag); omit or 0 for isotropic
+    "t2": 0.3,              // inter-chain hopping (zigzag); omit or set t2=t for isotropic
     "U": 14.0,              // Hubbard U
     "Jk": -4.0,             // Kondo coupling J_K (FM = negative)
     "Mu": 0.0,              // chemical potential (optional)
@@ -250,7 +250,7 @@ For 2×2 lattices, exact contraction replaces Monte Carlo:
 **Notes:**
 - `ElectronNum` must be even (restricted sector).
 - $L_x \times L_y$ must be even (for $S^z_{\text{total}} = 0$ compatibility).
-- If `t2` is omitted or 0, it defaults to `t`.
+- If `t2` is omitted, it defaults to `t`.
 - JSON key for Kondo coupling is `Jk` (capital J, lowercase k).
 
 ### `simple_update_algo.json`

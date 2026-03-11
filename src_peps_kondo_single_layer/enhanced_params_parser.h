@@ -62,6 +62,10 @@ struct EnhancedVMCOptimizeParams : public qlmps::CaseParamsParserBasic {
     allow_doublon = ParseBoolOr("AllowDoublon", false);
     local_spin_neel = ParseBoolOr("LocalSpinNeel", true);
     EnforceRestrictedSectorOrDie(physical_params.Lx, physical_params.Ly, electron_num, "vmc_optimize params");
+    if (!allow_doublon) {
+      EnforceNoDoublonInitializerSectorOrDie(
+          physical_params.Lx, physical_params.Ly, electron_num, sz2_electron, "vmc_optimize params");
+    }
 
     // Optimizer-specific knobs
     if (optimizer_type == "SGD") {
@@ -197,5 +201,4 @@ struct EnhancedVMCOptimizeParams : public qlmps::CaseParamsParserBasic {
 } // namespace peps_kondo_params
 
 #endif // LNO_PEPS_KONDO_ENHANCED_PARAMS_PARSER_H
-
 

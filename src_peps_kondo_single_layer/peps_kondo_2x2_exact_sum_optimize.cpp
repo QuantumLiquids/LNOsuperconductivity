@@ -373,7 +373,7 @@ int main(int argc, char **argv) {
     MaterializeDefaultSplitTensorsInPlace(sitps);
 
     // Model solver
-    peps_kondo::SquareKondoModel model(phys.t, phys.U, phys.JK, phys.mu, phys.t2);
+    peps_kondo::SquareKondoModel model(phys.t, phys.U, phys.JK, phys.mu, phys.ResolvedT2());
 
     // BMPS truncation parameters for exact contraction
     using RealT = typename qlten::RealTypeTrait<TenElemT>::type;
@@ -436,5 +436,4 @@ int main(int argc, char **argv) {
   MPI_Finalize();
   return 0;
 }
-
 

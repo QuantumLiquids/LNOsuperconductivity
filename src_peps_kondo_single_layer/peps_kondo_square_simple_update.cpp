@@ -232,7 +232,6 @@ int main(int argc, char **argv) {
   const size_t Ly = params.physical.Ly;
 
   const double t = params.physical.t;
-  const double t2 = params.physical.t2;
   const double U = params.physical.U;
   const double JK = params.physical.JK;
   const double mu = params.physical.mu;
@@ -245,11 +244,13 @@ int main(int argc, char **argv) {
   }
   try {
     peps_kondo_params::EnforceRestrictedSectorOrDie(Lx, Ly, Ne, "simple_update");
+    peps_kondo_params::EnforceNoDoublonInitializerSectorOrDie(
+        Lx, Ly, Ne, Sz2e, "simple_update");
   } catch (const std::exception &e) {
     std::cerr << e.what() << "\n";
     return 1;
   }
-  const double t2_eff = (t2 != 0.0) ? t2 : t;  // default t2 to t if not set
+  const double t2_eff = params.physical.ResolvedT2();
 
   // Thread control: keep it simple and portable (do not depend on qlten hp_numeric here).
 #ifdef _OPENMP
@@ -277,17 +278,9 @@ int main(int argc, char **argv) {
     // The Hamiltonian implemented in this SU driver conserves electron number.
     // So we must initialize the desired electron filling sector here.
     const size_t N = Lx * Ly;
-    size_t Ne_clamped = Ne;
-    if (Ne_clamped > 2 * N) Ne_clamped = 2 * N;
-    long Ne_single = static_cast<long>(Ne_clamped); // we do not place doublons in the initializer
+    const long Ne_single = static_cast<long>(Ne); // validated to fit the no-doublon initializer
     long Nup = (Ne_single + static_cast<long>(Sz2e)) / 2;
     long Ndn = Ne_single - Nup;
-    if (Nup < 0) Nup = 0;
-    if (Ndn < 0) Ndn = 0;
-    if (static_cast<size_t>(Nup + Ndn) > N) { // fallback: cap to one electron per site
-      Nup = static_cast<long>(N / 2);
-      Ndn = static_cast<long>(N / 2);
-    }
 
     std::vector<size_t> e_labels;
     e_labels.reserve(N);
@@ -404,5 +397,3 @@ int main(int argc, char **argv) {
   }
   return 0;
 }
-
-

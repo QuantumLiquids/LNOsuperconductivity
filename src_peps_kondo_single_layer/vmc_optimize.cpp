@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
                                       params.physical_params.U,
                                       params.physical_params.JK,
                                       params.physical_params.mu,
-                                      params.physical_params.t2);
+                                      params.physical_params.ResolvedT2());
 
   using Updater = peps_kondo::MCUpdateSquareKondoNNConservedOBC<>;
   Updater updater(static_cast<int>(params.electron_num),
@@ -91,5 +91,4 @@ int main(int argc, char **argv) {
   MPI_Finalize();
   return 0;
 }
-
 

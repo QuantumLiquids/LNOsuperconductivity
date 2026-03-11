@@ -9,6 +9,7 @@
 #ifndef LNO_PEPS_KONDO_SINGLE_LAYER_COMMON_PARAMS_H
 #define LNO_PEPS_KONDO_SINGLE_LAYER_COMMON_PARAMS_H
 
+#include <cstdlib>
 #include <cstddef>
 #include <stdexcept>
 #include <string>
@@ -36,15 +37,41 @@ inline void EnforceRestrictedSectorOrDie(size_t Lx, size_t Ly, size_t electron_n
   }
 }
 
+// Product-state initializers used by SU/VMC/measurement currently place at most one itinerant
+// electron per site. Reject sectors that would otherwise be silently clamped or truncated.
+inline void EnforceNoDoublonInitializerSectorOrDie(
+    size_t Lx,
+    size_t Ly,
+    size_t electron_num,
+    int electron_sz2,
+    const std::string &who) {
+  const size_t N = Lx * Ly;
+  const long long ne = static_cast<long long>(electron_num);
+  const long long sz2 = static_cast<long long>(electron_sz2);
+  if (electron_num > N) {
+    throw std::runtime_error(
+        who + ": current no-doublon initializer requires ElectronNum <= Lx*Ly.");
+  }
+  if (((ne + sz2) % 2) != 0) {
+    throw std::runtime_error(
+        who + ": ElectronNum and ElectronSz2 have inconsistent parity.");
+  }
+  if (std::llabs(sz2) > ne) {
+    throw std::runtime_error(
+        who + ": |ElectronSz2| cannot exceed ElectronNum.");
+  }
+}
+
 struct PhysicalParams : public qlmps::CaseParamsParserBasic {
   size_t Lx{0};
   size_t Ly{0};
 
   // NN hopping amplitudes: checkerboard zigzag pattern on square lattice.
   // t = intra-chain hopping, t2 = inter-chain hopping.
-  // If t2 is 0 or unset, defaults to t (isotropic).
+  // If t2 is omitted, it defaults to t (isotropic).
   double t{0.0};
   double t2{0.0};
+  bool has_explicit_t2{false};
 
   // On-site Hubbard U for itinerant electrons.
   double U{0.0};
@@ -65,6 +92,7 @@ struct PhysicalParams : public qlmps::CaseParamsParserBasic {
     Lx = ParseInt("Lx");
     Ly = ParseInt("Ly");
     t = ParseDouble("t");
+    has_explicit_t2 = Has("t2");
     t2 = ParseDoubleOr("t2", 0.0);
     U = ParseDoubleOr("U", 0.0);
     JK = ParseDoubleOr("Jk", 0.0);
@@ -76,6 +104,8 @@ struct PhysicalParams : public qlmps::CaseParamsParserBasic {
     ElectronNum = static_cast<size_t>(ParseIntOr("ElectronNum", static_cast<int>(default_ne)));
     ElectronSz2 = ParseIntOr("ElectronSz2", 0);
   }
+
+  double ResolvedT2() const { return has_explicit_t2 ? t2 : t; }
 };
 
 struct SimpleUpdateAlgorithmParams : public qlmps::CaseParamsParserBasic {
@@ -106,5 +136,4 @@ struct Params {
 }  // namespace peps_kondo_params
 
 #endif  // LNO_PEPS_KONDO_SINGLE_LAYER_COMMON_PARAMS_H
-
 

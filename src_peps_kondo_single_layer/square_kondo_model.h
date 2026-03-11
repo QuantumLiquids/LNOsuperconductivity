@@ -10,7 +10,7 @@
  *   At site (row, col) with parity = (row+col) % 2:
  *     horizontal bond: parity==0 → t (intra-chain), parity==1 → t2 (inter-chain)
  *     vertical bond:   parity==0 → t2 (inter-chain), parity==1 → t (intra-chain)
- *   If t2 is not specified, it defaults to t (isotropic, no checkerboard).
+ *   If t2 is omitted in input params, callers should pass t2=t for the isotropic case.
  * - On-site: U * n_up n_dn  - mu * n
  * - On-site Kondo: JK * s·S = JK*(sz*Sz + 1/2(s+S- + s-S+))
  *
@@ -86,8 +86,8 @@ class SquareKondoModel : public qlpeps::ModelEnergySolver<SquareKondoModel>,
   static constexpr bool requires_spin_sz_measurement = true;   // we report total Sz as "spin_z"
 
   SquareKondoModel() = delete;
-  SquareKondoModel(double t, double U, double JK, double mu, double t2 = 0.0)
-      : t_(t), U_(U), JK_(JK), mu_(mu), t2_(t2 != 0.0 ? t2 : t) {}
+  SquareKondoModel(double t, double U, double JK, double mu, double t2)
+      : t_(t), U_(U), JK_(JK), mu_(mu), t2_(t2) {}
 
   // =====================================================================
   // CalEnergyAndHolesImpl: Full energy calculation including:
@@ -483,11 +483,10 @@ class SquareKondoModel : public qlpeps::ModelEnergySolver<SquareKondoModel>,
   double U_;
   double JK_;
   double mu_;
-  double t2_;  // inter-chain hopping (zigzag), defaults to t if not set
+  double t2_;  // inter-chain hopping (zigzag)
 };
 
 }  // namespace peps_kondo
 
 #endif  // LNO_PEPS_KONDO_SQUARE_KONDO_MODEL_H
-
 

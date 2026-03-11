@@ -121,7 +121,10 @@ inline LoadedConfigurationResult BuildAndMaybeLoadConfigurationKondo(
   // Build from scratch
   const size_t N = Lx * Ly;
   EnforceRestrictedSectorOrDie(Lx, Ly, electron_num, "mc_measure/vmc (config generator)");
-  if (electron_num > 2 * N) electron_num = 2 * N;
+  if (!allow_doublon) {
+    EnforceNoDoublonInitializerSectorOrDie(
+        Lx, Ly, electron_num, sz2_electron, "mc_measure/vmc (config generator)");
+  }
 
   // Default: no doublons unless explicitly requested (keep it simple)
   size_t Nd = 0;
@@ -135,8 +138,6 @@ inline LoadedConfigurationResult BuildAndMaybeLoadConfigurationKondo(
   const long Ne_single = static_cast<long>(electron_num) - 2L * static_cast<long>(Nd);
   long Nup = (Ne_single + static_cast<long>(sz2_electron)) / 2;
   long Ndn = Ne_single - Nup;
-  if (Nup < 0) Nup = 0;
-  if (Ndn < 0) Ndn = 0;
 
   // Place electrons into site list: label is combined state index 0..7 (see qldouble.h).
   // electron basis: D(0), U(1), d(2), 0(3)
@@ -229,6 +230,10 @@ struct EnhancedMCMeasureParams : public qlmps::CaseParamsParserBasic {
 
     // Fail-fast: project restriction (Ne even, Sz_total=0 feasible).
     EnforceRestrictedSectorOrDie(physical_params.Lx, physical_params.Ly, electron_num, "mc_measure params");
+    if (!allow_doublon) {
+      EnforceNoDoublonInitializerSectorOrDie(
+          physical_params.Lx, physical_params.Ly, electron_num, sz2_electron, "mc_measure params");
+    }
   }
 
   PhysicalParams physical_params;
@@ -280,5 +285,4 @@ struct EnhancedMCMeasureParams : public qlmps::CaseParamsParserBasic {
 }  // namespace peps_kondo_params
 
 #endif  // LNO_PEPS_KONDO_MC_MEASURE_PARAMS_H
-
 

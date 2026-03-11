@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
                                       params.physical_params.U,
                                       params.physical_params.JK,
                                       params.physical_params.mu,
-                                      params.physical_params.t2);
+                                      params.physical_params.ResolvedT2());
 
   // Updater:
   // We intentionally only use the Kondo-aware NN updater here, because it preserves the
@@ -94,5 +94,4 @@ int main(int argc, char **argv) {
   MPI_Finalize();
   return 0;
 }
-
 
