@@ -83,6 +83,17 @@ int main(int argc, char *argv[]) {
     bond_dim = static_cast<size_t>(std::stoul(argv[2]));
   }
 
+  // --skip-load: skip Load/Centralize/Dump when MPS is already centralized
+  // at site 0 on disk (e.g., after a completed VMPS run). Saves memory for
+  // large-D MPS that cannot fit entirely in RAM.
+  bool skip_load = false;
+  for (int i = 2; i < argc; ++i) {
+    if (std::string(argv[i]) == "--skip-load") {
+      skip_load = true;
+      break;
+    }
+  }
+
   // N = 4 * Ly * Lx: 2 layers x 2 orbitals (itinerant + localized)
   const size_t num_geom_sites = Ly * Lx;
   const size_t N = 4 * num_geom_sites;
@@ -144,23 +155,28 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  cout << "Loading MPS from " << mps_path << " ..." << endl;
-  mps.Load(mps_path);
-  cout << "MPS loaded successfully." << endl;
+  if (skip_load) {
+    cout << "Skipping MPS Load/Centralize (--skip-load). "
+         << "MPS must already be centralized at site 0 on disk." << endl;
+  } else {
+    cout << "Loading MPS from " << mps_path << " ..." << endl;
+    mps.Load(mps_path);
+    cout << "MPS loaded successfully." << endl;
 
-  // Centralize to site 0 for measurement.
-  // Dump back to disk because MeasureTwoSiteOpGroup reads from disk
-  // and expects the MPS to be centralized at site 0.
-  mps.Centralize(0);
-  cout << "MPS centralized to site 0." << endl;
-  mps.Dump(mps_path, true);
-  cout << "MPS dumped back to disk." << endl;
+    // Centralize to site 0 for measurement.
+    // Dump back to disk because MeasureTwoSiteOpGroup reads from disk
+    // and expects the MPS to be centralized at site 0.
+    mps.Centralize(0);
+    cout << "MPS centralized to site 0." << endl;
+    mps.Dump(mps_path, true);
+    cout << "MPS dumped back to disk." << endl;
 
-  // Print entanglement entropy
-  auto ee_list = mps.GetEntanglementEntropy(1);
-  std::copy(ee_list.begin(), ee_list.end(),
-            std::ostream_iterator<double>(std::cout, " "));
-  cout << "\nmiddle EE = " << ee_list[N / 2] << endl;
+    // Print entanglement entropy
+    auto ee_list = mps.GetEntanglementEntropy(1);
+    std::copy(ee_list.begin(), ee_list.end(),
+              std::ostream_iterator<double>(std::cout, " "));
+    cout << "\nmiddle EE = " << ee_list[N / 2] << endl;
+  }
 
   // -----------------------------------------------------------------------
   // Reference sites and target lists
