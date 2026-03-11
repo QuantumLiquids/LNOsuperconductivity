@@ -406,17 +406,21 @@ int main(int argc, char *argv[]) {
   }
 
   // --- Interlayer SC correlations (4-site operators) ---
-  DeallocAllSites(mps);
-  for (size_t i = 0; i < sizeof(sc_tasks) / sizeof(sc_tasks[0]); ++i) {
-    auto res = MeasureFourSiteOpGroupInKondoLattice(
-        mps,
-        mps_path,
-        sc_tasks[i].phys_ops,
-        ref_sites_sc,
-        target_sites_interlayer_bond_set,
-        ops.f);
-    DumpMeasuRes(res, std::string(sc_tasks[i].label) + "_" + file_postfix);
-    cout << "Measured " << sc_tasks[i].label << " at D=" << bond_dim << endl;
+  if (params.SkipSC) {
+    cout << "Skipping interlayer SC correlations at D=" << bond_dim << endl;
+  } else {
+    DeallocAllSites(mps);
+    for (size_t i = 0; i < sizeof(sc_tasks) / sizeof(sc_tasks[0]); ++i) {
+      auto res = MeasureFourSiteOpGroupInKondoLattice(
+          mps,
+          mps_path,
+          sc_tasks[i].phys_ops,
+          ref_sites_sc,
+          target_sites_interlayer_bond_set,
+          ops.f);
+      DumpMeasuRes(res, std::string(sc_tasks[i].label) + "_" + file_postfix);
+      cout << "Measured " << sc_tasks[i].label << " at D=" << bond_dim << endl;
+    }
   }
 
   clock_t endTime = clock();

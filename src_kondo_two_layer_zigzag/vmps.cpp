@@ -229,6 +229,10 @@ int main(int argc, char *argv[]) {
   }
 
   // 7. Boundary pinning field on localized spins
+  //    H_pin = PinField * pin_sign(x,y,layer) * Sz
+  //    Since E = h*<Sz> is minimized at <Sz> = -sign(h)/2,
+  //    use PinField < 0 to pin spins in the direction of pin_sign
+  //    (i.e., PinField = -0.5 stabilizes the stripe pattern).
   if (params.PinField != 0.0 && params.PinPattern != "none") {
     std::function<double(size_t, size_t, size_t)> pin_sign;
 
