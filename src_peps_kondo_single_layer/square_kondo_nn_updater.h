@@ -72,8 +72,8 @@ class MCUpdateSquareKondoNNConservedOBC
   int target_ne_ = -1;
   int target_sz2_ = 0;
 
-  MCUpdateSquareKondoNNConservedOBC(size_t seed, size_t thread_num, int ne = -1, int sz2 = 0)
-      : Base(seed, thread_num), target_ne_(ne), target_sz2_(sz2) {}
+  MCUpdateSquareKondoNNConservedOBC(int ne = -1, int sz2 = 0)
+      : Base(), target_ne_(ne), target_sz2_(sz2) {}
 
   // Override initialization to enforce symmetry sector if requested.
   template<typename TenElemT, typename QNT>

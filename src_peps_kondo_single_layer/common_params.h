@@ -40,7 +40,9 @@ struct PhysicalParams : public qlmps::CaseParamsParserBasic {
   size_t Lx{0};
   size_t Ly{0};
 
-  // NN hopping amplitudes (baseline: uniform t; t2 reserved for future NN bond-order pattern)
+  // NN hopping amplitudes: checkerboard zigzag pattern on square lattice.
+  // t = intra-chain hopping, t2 = inter-chain hopping.
+  // If t2 is 0 or unset, defaults to t (isotropic).
   double t{0.0};
   double t2{0.0};
 

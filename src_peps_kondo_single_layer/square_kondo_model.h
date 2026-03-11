@@ -6,7 +6,11 @@
  * The basis encoding MUST match `src_peps_kondo_single_layer/qldouble.h`.
  *
  * Hamiltonian pieces implemented here:
- * - NN hopping for itinerant electrons:  H_t = -t Σ_<i,j>,σ (c†_{iσ} c_{jσ} + h.c.)
+ * - Checkerboard NN hopping (zigzag chains on square lattice):
+ *   At site (row, col) with parity = (row+col) % 2:
+ *     horizontal bond: parity==0 → t (intra-chain), parity==1 → t2 (inter-chain)
+ *     vertical bond:   parity==0 → t2 (inter-chain), parity==1 → t (intra-chain)
+ *   If t2 is not specified, it defaults to t (isotropic, no checkerboard).
  * - On-site: U * n_up n_dn  - mu * n
  * - On-site Kondo: JK * s·S = JK*(sz*Sz + 1/2(s+S- + s-S+))
  *
@@ -26,7 +30,7 @@
 #include "qlpeps/algorithm/vmc_update/model_energy_solver.h"  // ModelEnergySolver base (CRTP)
 #include "qlpeps/algorithm/vmc_update/model_solvers/base/square_nn_model_measurement_solver.h"
 #include "qlpeps/algorithm/vmc_update/model_solvers/base/bond_traversal_mixin.h"  // BondTraversalMixin
-#include "qlpeps/two_dim_tn/tensor_network_2d/bmps_contractor.h"
+#include "qlpeps/two_dim_tn/tensor_network_2d/bmps/bmps_contractor.h"
 #include "qlpeps/utility/helpers.h" // ComplexConjugate
 
 namespace peps_kondo {
@@ -82,7 +86,8 @@ class SquareKondoModel : public qlpeps::ModelEnergySolver<SquareKondoModel>,
   static constexpr bool requires_spin_sz_measurement = true;   // we report total Sz as "spin_z"
 
   SquareKondoModel() = delete;
-  SquareKondoModel(double t, double U, double JK, double mu) : t_(t), U_(U), JK_(JK), mu_(mu) {}
+  SquareKondoModel(double t, double U, double JK, double mu, double t2 = 0.0)
+      : t_(t), U_(U), JK_(JK), mu_(mu), t2_(t2 != 0.0 ? t2 : t) {}
 
   // =====================================================================
   // CalEnergyAndHolesImpl: Full energy calculation including:
@@ -139,22 +144,23 @@ class SquareKondoModel : public qlpeps::ModelEnergySolver<SquareKondoModel>,
     const auto &config = tps_sample->config;
     const qlpeps::BMPSTruncateParams<RealT> &trunc_para = tps_sample->trun_para;
     
-    contractor.GenerateBMPSApproach(tn, qlpeps::UP, trunc_para);
+    contractor.SetTruncateParams(trunc_para);
+    contractor.GenerateBMPSApproach(tn, qlpeps::UP);
     psi_list.reserve(tn.rows() + tn.cols());
-    
+
     for (size_t row = 0; row < tn.rows(); ++row) {
       contractor.InitBTen(tn, qlpeps::LEFT, row);
       contractor.GrowFullBTen(tn, qlpeps::RIGHT, row, 1, true);
-      
+
       bool psi_added = false;
       for (size_t col = 0; col < tn.cols(); ++col) {
         const qlpeps::SiteIdx site1 = {row, col};
-        
+
         // Calculate holes if needed
         if constexpr (calchols) {
           hole_res(site1) = Dag(contractor.PunchHole(tn, site1, qlpeps::HORIZONTAL));
         }
-        
+
         if (col < tn.cols() - 1) {
           const qlpeps::SiteIdx site2 = {row, col + 1};
           std::optional<TenElemT> psi;
@@ -163,17 +169,17 @@ class SquareKondoModel : public qlpeps::ModelEnergySolver<SquareKondoModel>,
               qlpeps::HORIZONTAL, tn, contractor,
               (*split_index_tps)(site1), (*split_index_tps)(site2), psi);
           bond_energy_set.push_back(bond_energy);
-          
+
           if (!psi_added && psi.has_value()) {
             psi_list.push_back(psi.value());
             psi_added = true;
           }
-          contractor.BTenMoveStep(tn, qlpeps::RIGHT);
+          contractor.ShiftBTenWindow(tn, qlpeps::RIGHT);
         }
       }
-      
+
       if (row < tn.rows() - 1) {
-        contractor.BMPSMoveStep(tn, qlpeps::DOWN, trunc_para);
+        contractor.ShiftBMPSWindow(tn, qlpeps::DOWN);
       }
     }
   }
@@ -192,7 +198,6 @@ class SquareKondoModel : public qlpeps::ModelEnergySolver<SquareKondoModel>,
     qlpeps::BondTraversalMixin::TraverseVerticalBonds(
         tps_sample->tn,
         tps_sample->contractor,
-        tps_sample->trun_para,
         [&, split_index_tps](const qlpeps::SiteIdx &site1,
                              const qlpeps::SiteIdx &site2,
                              const qlpeps::BondOrientation bond_orient,
@@ -230,7 +235,8 @@ class SquareKondoModel : public qlpeps::ModelEnergySolver<SquareKondoModel>,
 
     TenElemT e_flip = TenElemT(0);
 
-    contractor.GenerateBMPSApproach(tn, qlpeps::UP, trunc_para);
+    contractor.SetTruncateParams(trunc_para);
+    contractor.GenerateBMPSApproach(tn, qlpeps::UP);
     for (size_t row = 0; row < ly; ++row) {
       contractor.InitBTen(tn, qlpeps::LEFT, row);
       contractor.GrowFullBTen(tn, qlpeps::RIGHT, row, 1, true);
@@ -251,32 +257,26 @@ class SquareKondoModel : public qlpeps::ModelEnergySolver<SquareKondoModel>,
         }
 
         if (coeff != TenElemT(0)) {
-          // For single-site operations, use ReplaceOneSiteTrace for both psi and psi_ex.
-          // This is safer than Trace(tn, site, orient) which requires a valid neighbor site.
-          // psi = <bra|current_tensor> at this site
-          // psi_ex = <bra|flipped_tensor> at this site
           TenElemT psi = contractor.ReplaceOneSiteTrace(
               tn, site, (*split_index_tps)(site)[c], qlpeps::HORIZONTAL);
           if (psi == TenElemT(0)) [[unlikely]] {
-            // Skip if amplitude is zero at this site
             if (col + 1 < lx) {
-              contractor.BTenMoveStep(tn, qlpeps::RIGHT);
+              contractor.ShiftBTenWindow(tn, qlpeps::RIGHT);
             }
             continue;
           }
           TenElemT psi_ex = contractor.ReplaceOneSiteTrace(
               tn, site, (*split_index_tps)(site)[c2], qlpeps::HORIZONTAL);
-          // Use local psi, calculated at this exact site
           TenElemT ratio = qlpeps::ComplexConjugate(psi_ex / psi);
           e_flip += coeff * ratio;
         }
 
         if (col + 1 < lx) {
-          contractor.BTenMoveStep(tn, qlpeps::RIGHT);
+          contractor.ShiftBTenWindow(tn, qlpeps::RIGHT);
         }
       }
       if (row + 1 < ly) {
-        contractor.BMPSMoveStep(tn, qlpeps::DOWN, trunc_para);
+        contractor.ShiftBMPSWindow(tn, qlpeps::DOWN);
       }
     }
 
@@ -363,6 +363,13 @@ class SquareKondoModel : public qlpeps::ModelEnergySolver<SquareKondoModel>,
       return true;
     };
 
+    // Checkerboard hopping (zigzag chain on square lattice):
+    // At site (row, col) with parity = (row+col) % 2:
+    //   horizontal bond: parity==0 → t (intra-chain), parity==1 → t2 (inter-chain)
+    //   vertical bond:   parity==0 → t2 (inter-chain), parity==1 → t (intra-chain)
+    const size_t parity = (site1.row() + site1.col()) % 2;
+    const double hop_t = ((orient == qlpeps::HORIZONTAL) == (parity == 0)) ? t_ : t2_;
+
     TenElemT e_bond = TenElemT(0);
     // Enumerate the two spin species (up/down)
     for (int sigma = 0; sigma < 2; ++sigma) {
@@ -382,7 +389,7 @@ class SquareKondoModel : public qlpeps::ModelEnergySolver<SquareKondoModel>,
                                                          split_index_tps_on_site1[ket1],
                                                          split_index_tps_on_site2[ket2]);
           TenElemT ratio = qlpeps::ComplexConjugate(psi_ex / psi.value());
-          e_bond += TenElemT((-t_) * sgn) * ratio;
+          e_bond += TenElemT((-hop_t) * sgn) * ratio;
         }
       }
       // c2^dag c1: site1 -> site2
@@ -398,7 +405,7 @@ class SquareKondoModel : public qlpeps::ModelEnergySolver<SquareKondoModel>,
                                                          split_index_tps_on_site1[ket1],
                                                          split_index_tps_on_site2[ket2]);
           TenElemT ratio = qlpeps::ComplexConjugate(psi_ex / psi.value());
-          e_bond += TenElemT((-t_) * sgn) * ratio;
+          e_bond += TenElemT((-hop_t) * sgn) * ratio;
         }
       }
     }
@@ -472,10 +479,11 @@ class SquareKondoModel : public qlpeps::ModelEnergySolver<SquareKondoModel>,
   }
 
  private:
-  double t_;
+  double t_;   // intra-chain hopping (zigzag)
   double U_;
   double JK_;
   double mu_;
+  double t2_;  // inter-chain hopping (zigzag), defaults to t if not set
 };
 
 }  // namespace peps_kondo

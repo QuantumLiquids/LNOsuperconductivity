@@ -266,7 +266,7 @@ struct EnhancedMCMeasureParams : public qlmps::CaseParamsParserBasic {
         configuration_dump_dir);
 
     qlpeps::PEPSParams peps_params_obj(
-        qlpeps::BMPSTruncatePara(bmps_params.Db_min, bmps_params.Db_max,
+        qlpeps::BMPSTruncateParams<double>(bmps_params.Db_min, bmps_params.Db_max,
                                  bmps_params.TruncErr,
                                  bmps_params.MPSCompressScheme,
                                  std::make_optional<double>(bmps_params.TruncErr),

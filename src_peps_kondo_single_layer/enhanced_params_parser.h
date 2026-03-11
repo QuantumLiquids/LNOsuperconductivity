@@ -159,7 +159,7 @@ struct EnhancedVMCOptimizeParams : public qlmps::CaseParamsParserBasic {
         configuration_dump_dir);
 
     qlpeps::PEPSParams peps_params_obj(
-        qlpeps::BMPSTruncatePara(bmps_params.Db_min, bmps_params.Db_max,
+        qlpeps::BMPSTruncateParams<double>(bmps_params.Db_min, bmps_params.Db_max,
                                  bmps_params.TruncErr,
                                  bmps_params.MPSCompressScheme,
                                  std::make_optional<double>(bmps_params.TruncErr),
@@ -177,8 +177,17 @@ struct EnhancedVMCOptimizeParams : public qlmps::CaseParamsParserBasic {
     } else if (optimizer_type == "AdaGrad") {
       opt = qlpeps::OptimizerParams(base_params, qlpeps::AdaGradParams(epsilon, initial_accumulator));
     } else {
-      qlpeps::ConjugateGradientParams cg(cg_max_iter, cg_tol, cg_residue_restart, cg_diag_shift);
-      opt = qlpeps::OptimizerParams(base_params, qlpeps::StochasticReconfigurationParams(cg, normalize_update));
+      qlpeps::ConjugateGradientParams cg{
+        .max_iter = cg_max_iter,
+        .relative_tolerance = cg_tol,
+        .residual_recompute_interval = static_cast<int>(cg_residue_restart),
+      };
+      qlpeps::StochasticReconfigurationParams sr{
+        .cg_params = cg,
+        .diag_shift = cg_diag_shift,
+        .normalize_update = normalize_update,
+      };
+      opt = qlpeps::OptimizerParams(base_params, sr);
     }
 
     return qlpeps::VMCPEPSOptimizerParams(opt, mc_params_obj, peps_params_obj, tps_dump_path);

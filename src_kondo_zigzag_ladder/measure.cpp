@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
 
   CaseParams params(argv[1]);
   //additional optional argument for set the MPS path
-  std::string mps_path = kMpsPath;
+  std::string mps_path = params.ResolvedMpsPath();
   if (argc > 2) {
     mps_path = argv[2];
     std::cout << "Set MPS path as " << mps_path << std::endl;
@@ -46,6 +46,8 @@ int main(int argc, char *argv[]) {
     cout << "Jk = " << Jk << endl;
     cout << "U = " << U << endl;
     cout << "Geometry = " << params.Geometry << endl;
+    cout << "NumHole = " << params.NumHole << endl;
+    cout << "MpsPath = " << mps_path << endl;
   }
 
   clock_t startTime, endTime;
@@ -96,6 +98,9 @@ int main(int argc, char *argv[]) {
   // Keep the same filename postfix convention as `vmps.cpp`.
   oss << "t2" << t2 << "Jk" << Jk << "U" << U << "Ly" << Ly << "Lx" << Lx << "D" << params.Dmax.back()
       << "_" << params.Geometry;
+  if (params.NumHole > 0) {
+    oss << "_Nh" << params.NumHole;
+  }
   std::string file_postfix = oss.str();
 
   // Simple MPI scheduling assumption:

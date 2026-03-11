@@ -77,15 +77,14 @@ int main(int argc, char **argv) {
   // Build optimizer params (rank-aware config load)
   auto vmc_params = params.CreateVMCOptimizerParams(rank);
 
-  // Model energy solver (NN only for now; t2 can be added later)
   peps_kondo::SquareKondoModel solver(params.physical_params.t,
                                       params.physical_params.U,
                                       params.physical_params.JK,
-                                      params.physical_params.mu);
+                                      params.physical_params.mu,
+                                      params.physical_params.t2);
 
   using Updater = peps_kondo::MCUpdateSquareKondoNNConservedOBC<>;
-  Updater updater(params.bmps_params.Seed, params.bmps_params.ThreadNum,
-                  static_cast<int>(params.electron_num),
+  Updater updater(static_cast<int>(params.electron_num),
                   params.sz2_electron);
   (void) qlpeps::VmcOptimize(vmc_params, sitps, comm, solver, updater);
 

@@ -20,6 +20,45 @@ using namespace qlmps;
 using namespace qlten;
 using namespace std;
 
+namespace {
+
+size_t GetNumofMpsAtPath(const std::string &mps_path) {
+  size_t number_of_mps_file = 0;
+  for (; number_of_mps_file < 100000; ++number_of_mps_file) {
+    const std::string file = mps_path + "/" + qlmps::kMpsTenBaseName +
+                             std::to_string(number_of_mps_file) + "." +
+                             qlmps::kQLTenFileSuffix;
+    std::ifstream ifs(file, std::ifstream::binary);
+    if (!ifs.good()) {
+      break;
+    }
+  }
+  return number_of_mps_file;
+}
+
+std::vector<size_t> BoundaryFirstXOrder(const size_t lx) {
+  std::vector<size_t> order;
+  order.reserve(lx);
+  if (lx == 0) {
+    return order;
+  }
+
+  size_t left = 0;
+  size_t right = lx - 1;
+  while (left < right) {
+    order.push_back(left);
+    order.push_back(right);
+    ++left;
+    --right;
+  }
+  if (left == right) {
+    order.push_back(left);
+  }
+  return order;
+}
+
+}  // namespace
+
 int main(int argc, char *argv[]) {
   MPI_Init(nullptr, nullptr);
   MPI_Comm comm = MPI_COMM_WORLD;
@@ -33,6 +72,8 @@ int main(int argc, char *argv[]) {
   double t = params.t, Jk = params.JK, U = params.U;
   double t2 = params.t2;
   size_t N = 2 * Ly * Lx;
+  const std::string mps_path = params.ResolvedMpsPath();
+  const std::string temp_path = params.ResolvedTempPath();
   /*** Print the model parameter Info ***/
   if (rank == 0) {
     cout << "Lx = " << Lx << endl;
@@ -44,6 +85,14 @@ int main(int argc, char *argv[]) {
     cout << "U = " << U << endl;
     cout << "Geometry = " << params.Geometry << endl;
     cout << "InitState = " << params.InitState << endl;
+    cout << "NumHole = " << params.NumHole << endl;
+    cout << "QuarterFilledNumEle = " << params.QuarterFilledElectronCount() << endl;
+    cout << "NumEle = " << params.NumElectrons() << endl;
+    cout << "ItinerantFilling = " << params.NumElectrons() << " / "
+         << params.NumItinerantSites() << " = " << fixed << setprecision(6)
+         << params.Filling() << defaultfloat << endl;
+    cout << "MpsPath = " << mps_path << endl;
+    cout << "TempPath = " << temp_path << endl;
   }
 
   clock_t startTime, endTime;
@@ -118,8 +167,55 @@ int main(int argc, char *argv[]) {
   // Site index helpers: electron at 2*(y + Ly*x), localized at 2*(y + Ly*x)+1
   auto elec_idx = [&](size_t x, size_t y) -> size_t { return 2 * (y + Ly * x); };
   auto loc_idx  = [&](size_t x, size_t y) -> size_t { return elec_idx(x, y) + 1; };
+  const size_t num_electrons = params.NumElectrons();
+  const size_t target_num_up = num_electrons / 2 + num_electrons % 2;
+  const size_t target_num_down = num_electrons - target_num_up;
+  const auto boundary_first_x_order = BoundaryFirstXOrder(Lx);
 
   std::vector<size_t> stat_labs(N);
+  auto apply_ordered_holes = [&](const std::string &init_state_name) {
+    auto collect_sites = [&](size_t spin_lab) {
+      std::vector<std::pair<size_t, size_t>> sites;
+      for (const size_t x : boundary_first_x_order) {
+        for (size_t y = 0; y < Ly; ++y) {
+          if (stat_labs[elec_idx(x, y)] == spin_lab) {
+            sites.emplace_back(x, y);
+          }
+        }
+      }
+      return sites;
+    };
+    const auto up_sites = collect_sites(hubbard_site.spin_up);
+    const auto down_sites = collect_sites(hubbard_site.spin_down);
+    if (target_num_up > up_sites.size() || target_num_down > down_sites.size()) {
+      throw std::runtime_error(
+          init_state_name + " cannot realize NumHole = " + std::to_string(params.NumHole) +
+          " with target (Nup, Ndown) = (" + std::to_string(target_num_up) + ", " +
+          std::to_string(target_num_down) + ") from base counts (" +
+          std::to_string(up_sites.size()) + ", " + std::to_string(down_sites.size()) + ")");
+    }
+
+    auto remove_front_sites = [&](const std::vector<std::pair<size_t, size_t>> &sites,
+                                  const size_t num_to_remove) {
+      for (size_t i = 0; i < num_to_remove; ++i) {
+        const auto &[x, y] = sites[i];
+        stat_labs[elec_idx(x, y)] = hubbard_site.empty;
+      }
+    };
+    remove_front_sites(up_sites, up_sites.size() - target_num_up);
+    remove_front_sites(down_sites, down_sites.size() - target_num_down);
+  };
+  auto count_spin = [&](size_t spin_lab) {
+    size_t count = 0;
+    for (size_t x = 0; x < Lx; ++x) {
+      for (size_t y = 0; y < Ly; ++y) {
+        if (stat_labs[elec_idx(x, y)] == spin_lab) {
+          ++count;
+        }
+      }
+    }
+    return count;
+  };
 
   if (params.InitState == "stripe_pi2pi2") {
     // (pi/2, pi/2) stripe: FM within each chain, AFM between chains.
@@ -141,6 +237,7 @@ int main(int argc, char *argv[]) {
         stat_labs[loc_idx(x, y)]  = l_lab;
       }
     }
+    apply_ordered_holes("stripe_pi2pi2");
   } else if (params.InitState == "stripe_pi0") {
     // (pi, 0) stripe: alternating spin along x, uniform across y.
     // Period-4 unit cell to satisfy quarter filling + Sz=0:
@@ -163,20 +260,21 @@ int main(int argc, char *argv[]) {
         stat_labs[loc_idx(x, y)]  = l_lab;
       }
     }
+    apply_ordered_holes("stripe_pi0");
   } else {
     // Default: random initial state
     if (params.InitState != "random" && rank == 0)
       cerr << "WARNING: unrecognized InitState '" << params.InitState
            << "', falling back to random\n";
     if (rank == 0) cout << "InitState: random\n";
-    const size_t total_itinerant = Lx * Ly;
-    const size_t num_electrons = total_itinerant / 2;
-    const size_t num_up = num_electrons / 2 + num_electrons % 2;
-    const size_t num_down = num_electrons - num_up;
+    const size_t total_itinerant = params.NumItinerantSites();
     std::vector<size_t> elec_labs(total_itinerant);
-    std::fill(elec_labs.begin(), elec_labs.begin() + num_up, hubbard_site.spin_up);
-    std::fill(elec_labs.begin() + num_up, elec_labs.begin() + num_up + num_down, hubbard_site.spin_down);
-    std::fill(elec_labs.begin() + num_up + num_down, elec_labs.end(), hubbard_site.empty);
+    std::fill(elec_labs.begin(), elec_labs.begin() + target_num_up, hubbard_site.spin_up);
+    std::fill(elec_labs.begin() + target_num_up,
+              elec_labs.begin() + target_num_up + target_num_down,
+              hubbard_site.spin_down);
+    std::fill(elec_labs.begin() + target_num_up + target_num_down, elec_labs.end(),
+              hubbard_site.empty);
     std::random_device rd;
     std::mt19937 g(rd());
     std::shuffle(elec_labs.begin(), elec_labs.end(), g);
@@ -191,21 +289,37 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (IsPathExist(kMpsPath)) {
-    if (N == GetNumofMps()) {
+  const size_t actual_num_up = count_spin(hubbard_site.spin_up);
+  const size_t actual_num_down = count_spin(hubbard_site.spin_down);
+  if (actual_num_up != target_num_up || actual_num_down != target_num_down) {
+    throw std::runtime_error(
+        "Initial state electron count mismatch: expected (Nup, Ndown) = (" +
+        std::to_string(target_num_up) + ", " + std::to_string(target_num_down) +
+        "), got (" + std::to_string(actual_num_up) + ", " + std::to_string(actual_num_down) +
+        ")");
+  }
+  if (rank == 0) {
+    cout << "Initialized itinerant electrons: up = " << actual_num_up
+         << ", down = " << actual_num_down
+         << ", total = " << (actual_num_up + actual_num_down) << endl;
+  }
+
+  if (IsPathExist(mps_path)) {
+    if (N == GetNumofMpsAtPath(mps_path)) {
       cout << "The number of mps files is consistent with mps size." << endl;
       cout << "Directly use mps from files." << endl;
+      mps.Load(mps_path);
     } else {
       qlmps::DirectStateInitMps(mps, stat_labs);
       cout << "Initial mps as direct product state." << endl;
       if (rank == 0)
-        mps.Dump(kMpsPath, true);
+        mps.Dump(mps_path, true);
     }
   } else {
     qlmps::DirectStateInitMps(mps, stat_labs);
     cout << "Initial mps as direct product state." << endl;
     if (rank == 0)
-      mps.Dump(kMpsPath, true);
+      mps.Dump(mps_path, true);
   }
 
   for (size_t i = 0; i < params.Dmax.size(); i++) {
@@ -218,6 +332,8 @@ int main(int argc, char *argv[]) {
         qlmps::LanczosParams(params.LanczErr, params.MaxLanczIter),
         params.noise
     );
+    sweep_params.mps_path = mps_path;
+    sweep_params.temp_path = temp_path;
     auto e0 = qlmps::TwoSiteFiniteVMPS(mps, mpo, sweep_params, comm);
   }
   if (rank == 0) {
@@ -226,7 +342,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (rank == hp_numeric::kMPIMasterRank) {
-    mps.Load(kMpsPath);
+    mps.Load(mps_path);
     auto ee_list = mps.GetEntanglementEntropy(1);
     std::copy(ee_list.begin(), ee_list.end(), std::ostream_iterator<double>(std::cout, " "));
 
@@ -244,7 +360,6 @@ int main(int argc, char *argv[]) {
   for (size_t i = ref_loc + 2; i < N; i += 2) {
     loc_target_sites.push_back(i);
   }
-  std::string mps_path = kMpsPath;
   if (rank == 0) {
     std::ostringstream svg_name;
     svg_name << "figures/tilted_lattice_Ly" << Ly << "_Lx" << Lx << ".svg";
@@ -254,6 +369,9 @@ int main(int argc, char *argv[]) {
   std::ostringstream oss;
   oss << "t2" << t2 << "Jk" << Jk << "U" << U  << "Ly" << Ly << "Lx" << Lx << "D" << params.Dmax.back()
       << "_" << params.Geometry;
+  if (params.NumHole > 0) {
+    oss << "_Nh" << params.NumHole;
+  }
   std::string file_postfix = oss.str();
 
   // Simple MPI scheduling assumption:

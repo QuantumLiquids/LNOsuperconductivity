@@ -6,7 +6,7 @@
  * - local 8D basis encoding (electron x local spin)
  * - fermion parity / (optional) Sz quantum numbers
  * - on-site terms: U, JK * s·S, -mu * n
- * - NN hopping term for itinerant electrons (uniform t for now)
+ * - NN hopping term for itinerant electrons (checkerboard zigzag: t intra-chain, t2 inter-chain)
  *
  * Usage:
  *   ./peps_kondo_square_simple_update <physics_params.json> <simple_update_algo.json>
@@ -14,10 +14,14 @@
  * Notes:
  * - JK convention matches existing DMRG/VMPS code in this repo:
  *     H_K = JK * (s · S).  FM corresponds to JK < 0.
- * - NN bond anisotropy (t vs t2 bond-order pattern) is not implemented yet in SU executor.
+ * - For anisotropic hopping (t != t2), SU uses checkerboard per-bond Hamiltonians:
+ *     At site (row,col) with parity = (row+col) % 2:
+ *       horizontal bond: parity==0 → t, parity==1 → t2
+ *       vertical bond:   parity==0 → t2, parity==1 → t
  */
 
 #include <iostream>
+#include <memory>
 #include <vector>
 
 #include "qlpeps/qlpeps.h"
@@ -245,11 +249,7 @@ int main(int argc, char **argv) {
     std::cerr << e.what() << "\n";
     return 1;
   }
-  if (t2 != 0.0 && t2 != t) {
-    std::cerr << "NN bond anisotropy (t vs t2) is not implemented in SU executor yet.\n"
-              << "For now, use t2=0 or t2=t.\n";
-    return 1;
-  }
+  const double t2_eff = (t2 != 0.0) ? t2 : t;  // default t2 to t if not set
 
   // Thread control: keep it simple and portable (do not depend on qlten hp_numeric here).
 #ifdef _OPENMP
@@ -258,7 +258,6 @@ int main(int argc, char **argv) {
   }
 #endif
 
-  const Tensor ham_nn = MakeHoppingBondHam(t);
   const Tensor ham_onsite = MakeOnsiteHam(U, JK, mu);
 
   qlpeps::SimpleUpdatePara su_para(params.algo.Step, params.algo.Tau,
@@ -343,20 +342,51 @@ int main(int argc, char **argv) {
     init_activates = activates; // dump after we dump tpsfinal/
   }
 
-  qlpeps::SquareLatticeNNSimpleUpdateExecutor<TenElemT, QNT> exe(su_para, peps0, ham_nn, ham_onsite);
+  using ExeT = qlpeps::SquareLatticeNNSimpleUpdateExecutor<TenElemT, QNT>;
+  std::unique_ptr<ExeT> exe;
+
+  if (t != t2_eff) {
+    // Checkerboard hopping pattern (zigzag chains on square lattice):
+    // parity = (row+col) % 2
+    //   horizontal bond: parity==0 → t, parity==1 → t2
+    //   vertical bond:   parity==0 → t2, parity==1 → t
+    std::cout << "[Kondo-PEPS-SU] Checkerboard hopping: t=" << t << " t2=" << t2_eff << "\n";
+    const Tensor ham_t = MakeHoppingBondHam(t);
+    const Tensor ham_t2 = MakeHoppingBondHam(t2_eff);
+
+    qlpeps::TenMatrix<Tensor> h_hams(Ly, Lx - 1);  // horizontal bonds (OBC)
+    qlpeps::TenMatrix<Tensor> v_hams(Ly - 1, Lx);   // vertical bonds (OBC)
+
+    for (size_t col = 0; col < Lx - 1; col++) {
+      for (size_t row = 0; row < Ly; row++) {
+        h_hams({row, col}) = ((row + col) % 2 == 0) ? ham_t : ham_t2;
+      }
+    }
+    for (size_t col = 0; col < Lx; col++) {
+      for (size_t row = 0; row < Ly - 1; row++) {
+        v_hams({row, col}) = ((row + col) % 2 == 0) ? ham_t2 : ham_t;
+      }
+    }
+
+    exe = std::make_unique<ExeT>(su_para, peps0, h_hams, v_hams, ham_onsite);
+  } else {
+    const Tensor ham_nn = MakeHoppingBondHam(t);
+    exe = std::make_unique<ExeT>(su_para, peps0, ham_nn, ham_onsite);
+  }
+
   std::cout << "[Kondo-PEPS-SU] Lx=" << Lx << " Ly=" << Ly
-            << " t=" << t << " U=" << U << " JK=" << JK << " mu=" << mu
+            << " t=" << t << " t2=" << t2_eff << " U=" << U << " JK=" << JK << " mu=" << mu
             << " Ne=" << Ne << " Sz2e=" << Sz2e
             << " steps=" << su_para.steps << " tau=" << su_para.tau
             << " Dmax=" << su_para.Dmax
             << "\n";
-  exe.Execute();
+  exe->Execute();
   // Dump PEPS tensors
-  exe.DumpResult(peps_path, /*release_mem=*/false);
+  exe->DumpResult(peps_path, /*release_mem=*/false);
 
   // Also dump SplitIndexTPS for VMC/measurement (convention: "tpsfinal/")
   // This matches the workflow used in finite-size_PEPS_tJ.
-  auto tps = qlpeps::ToTPS<TenElemT, QNT>(exe.GetPEPS());
+  auto tps = qlpeps::ToTPS<TenElemT, QNT>(exe->GetPEPS());
   for (auto &tensor : tps) {
     auto max_abs = tensor.GetMaxAbs();
     if (max_abs != 0.0) {

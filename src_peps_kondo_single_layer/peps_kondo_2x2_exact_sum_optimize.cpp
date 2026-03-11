@@ -148,8 +148,17 @@ qlpeps::OptimizerParams BuildOptimizerParams(const ExactSumAlgoParams &p) {
   }
 
   // Default: SR
-  qlpeps::ConjugateGradientParams cg(p.cg_max_iter, p.cg_tol, p.cg_residue_restart, p.cg_diag_shift);
-  return qlpeps::OptimizerParams(base, qlpeps::StochasticReconfigurationParams(cg, p.normalize_update));
+  qlpeps::ConjugateGradientParams cg{
+    .max_iter = p.cg_max_iter,
+    .relative_tolerance = p.cg_tol,
+    .residual_recompute_interval = static_cast<int>(p.cg_residue_restart),
+  };
+  qlpeps::StochasticReconfigurationParams sr{
+    .cg_params = cg,
+    .diag_shift = p.cg_diag_shift,
+    .normalize_update = p.normalize_update,
+  };
+  return qlpeps::OptimizerParams(base, sr);
 }
 
 std::vector<qlpeps::Configuration> GenerateAll2x2ConfigsSector(size_t Ne_target) {
@@ -364,7 +373,7 @@ int main(int argc, char **argv) {
     MaterializeDefaultSplitTensorsInPlace(sitps);
 
     // Model solver
-    peps_kondo::SquareKondoModel model(phys.t, phys.U, phys.JK, phys.mu);
+    peps_kondo::SquareKondoModel model(phys.t, phys.U, phys.JK, phys.mu, phys.t2);
 
     // BMPS truncation parameters for exact contraction
     using RealT = typename qlten::RealTypeTrait<TenElemT>::type;

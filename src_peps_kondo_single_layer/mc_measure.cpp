@@ -73,7 +73,8 @@ int main(int argc, char **argv) {
   peps_kondo::SquareKondoModel solver(params.physical_params.t,
                                       params.physical_params.U,
                                       params.physical_params.JK,
-                                      params.physical_params.mu);
+                                      params.physical_params.mu,
+                                      params.physical_params.t2);
 
   // Updater:
   // We intentionally only use the Kondo-aware NN updater here, because it preserves the
@@ -85,8 +86,7 @@ int main(int argc, char **argv) {
     }
   }
   using Updater = peps_kondo::MCUpdateSquareKondoNNConservedOBC<>;
-  Updater updater(params.bmps_params.Seed, params.bmps_params.ThreadNum,
-                  static_cast<int>(params.electron_num),
+  Updater updater(static_cast<int>(params.electron_num),
                   params.sz2_electron);
   (void) qlpeps::MonteCarloMeasure<TenElemT, QNT, Updater, peps_kondo::SquareKondoModel>(
       sitps, measure_params, comm, solver, updater);
