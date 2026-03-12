@@ -1,0 +1,10 @@
+{
+  "CaseParams": {
+    "Step": 100,
+    "Tau": 0.05,
+    "Dmin": 4,
+    "Dmax": 4,
+    "TruncErr": 1e-12,
+    "ThreadNum": 4
+  }
+}

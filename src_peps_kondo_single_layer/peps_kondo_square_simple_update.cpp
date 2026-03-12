@@ -20,8 +20,12 @@
  *       vertical bond:   parity==0 → t2, parity==1 → t
  */
 
+#include <algorithm>
 #include <iostream>
 #include <memory>
+#include <random>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "qlpeps/qlpeps.h"
@@ -58,6 +62,224 @@ inline ElectronState ElectronOf(const size_t combined) {
 
 inline LocalSpinState SpinOf(const size_t combined) {
   return static_cast<LocalSpinState>(combined % 2);
+}
+
+struct InitialSiteState {
+  size_t row;
+  size_t col;
+  size_t x_zigzag;
+  long y_chain;
+  ElectronState electron;
+  LocalSpinState local_spin;
+};
+
+std::vector<size_t> BoundaryFirstOrder(const size_t size) {
+  std::vector<size_t> order;
+  order.reserve(size);
+  if (size == 0) return order;
+  size_t left = 0;
+  size_t right = size - 1;
+  while (left < right) {
+    order.push_back(left);
+    order.push_back(right);
+    ++left;
+    --right;
+  }
+  if (left == right) {
+    order.push_back(left);
+  }
+  return order;
+}
+
+std::vector<InitialSiteState> BuildRandomInitialSites(const size_t Lx,
+                                                      const size_t Ly,
+                                                      const size_t Ne,
+                                                      const int Sz2e) {
+  const size_t N = Lx * Ly;
+  const long Ne_single = static_cast<long>(Ne);
+  long Nup = (Ne_single + static_cast<long>(Sz2e)) / 2;
+  long Ndn = Ne_single - Nup;
+
+  std::vector<size_t> e_labels;
+  e_labels.reserve(N);
+  for (size_t i = 0; i < static_cast<size_t>(Nup); ++i) e_labels.push_back(E_U);
+  for (size_t i = 0; i < static_cast<size_t>(Ndn); ++i) e_labels.push_back(E_d);
+  while (e_labels.size() < N) e_labels.push_back(E_0);
+  e_labels.resize(N);
+
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::shuffle(e_labels.begin(), e_labels.end(), gen);
+
+  if ((static_cast<long>(N) - static_cast<long>(Sz2e)) % 2 != 0) {
+    throw std::runtime_error(
+        "Initializer error: cannot satisfy Sz_total=0 due to parity mismatch (need (N - Sz2e) even).");
+  }
+  const long Nup_local = (static_cast<long>(N) - static_cast<long>(Sz2e)) / 2;
+  if (Nup_local < 0 || Nup_local > static_cast<long>(N)) {
+    throw std::runtime_error(
+        "Initializer error: cannot satisfy Sz_total=0 (invalid local spin magnetization).");
+  }
+
+  std::vector<LocalSpinState> s_labels;
+  s_labels.reserve(N);
+  if (Sz2e == 0) {
+    for (size_t y = 0; y < Ly; ++y) {
+      for (size_t x = 0; x < Lx; ++x) {
+        s_labels.push_back(((x + y) % 2 == 0) ? S_U : S_d);
+      }
+    }
+  } else {
+    for (size_t i = 0; i < static_cast<size_t>(Nup_local); ++i) s_labels.push_back(S_U);
+    while (s_labels.size() < N) s_labels.push_back(S_d);
+    std::shuffle(s_labels.begin(), s_labels.end(), gen);
+  }
+
+  std::vector<InitialSiteState> sites;
+  sites.reserve(N);
+  size_t idx = 0;
+  for (size_t row = 0; row < Ly; ++row) {
+    for (size_t col = 0; col < Lx; ++col) {
+      const size_t x_zigzag = row + col;
+      const long y_chain = static_cast<long>(row) - static_cast<long>(x_zigzag / 2);
+      sites.push_back({
+          .row = row,
+          .col = col,
+          .x_zigzag = x_zigzag,
+          .y_chain = y_chain,
+          .electron = static_cast<ElectronState>(e_labels[idx]),
+          .local_spin = s_labels[idx],
+      });
+      ++idx;
+    }
+  }
+  return sites;
+}
+
+std::vector<InitialSiteState> BuildNamedStripeInitialSites(const size_t Lx,
+                                                           const size_t Ly,
+                                                           const size_t Ne,
+                                                           const int Sz2e,
+                                                           const std::string &init_state) {
+  if (Sz2e != 0) {
+    throw std::runtime_error(init_state + ": current PEPS named stripe initializers require ElectronSz2 = 0.");
+  }
+
+  std::vector<InitialSiteState> sites;
+  sites.reserve(Lx * Ly);
+  long local_sz2_total = 0;
+  size_t base_num_up = 0;
+  size_t base_num_down = 0;
+
+  for (size_t row = 0; row < Ly; ++row) {
+    for (size_t col = 0; col < Lx; ++col) {
+      const size_t x_zigzag = row + col;
+      const long y_chain = static_cast<long>(row) - static_cast<long>(x_zigzag / 2);
+      bool spin_up = false;
+      bool occupied = false;
+      if (init_state == "stripe_pi2pi2") {
+        spin_up = (y_chain % 2 != 0);
+        occupied = (x_zigzag % 2 == 0);
+      } else if (init_state == "stripe_pi0") {
+        const size_t x_mod = x_zigzag % 4;
+        spin_up = (x_mod == 0 || x_mod == 2);
+        occupied = (x_mod < 2);
+      } else {
+        throw std::runtime_error("Unsupported named InitState '" + init_state + "'.");
+      }
+      const LocalSpinState local_spin = spin_up ? S_U : S_d;
+      const ElectronState electron = occupied ? (spin_up ? E_U : E_d) : E_0;
+      local_sz2_total += (local_spin == S_U) ? 1 : -1;
+      if (electron == E_U) ++base_num_up;
+      if (electron == E_d) ++base_num_down;
+      sites.push_back({
+          .row = row,
+          .col = col,
+          .x_zigzag = x_zigzag,
+          .y_chain = y_chain,
+          .electron = electron,
+          .local_spin = local_spin,
+      });
+    }
+  }
+
+  if (local_sz2_total != 0) {
+    throw std::runtime_error(
+        init_state + ": this PEPS geometry cannot realize total Sz_total = 0 with the named stripe pattern.");
+  }
+
+  const size_t base_electron_num = base_num_up + base_num_down;
+  if (Ne > base_electron_num) {
+    throw std::runtime_error(
+        init_state + ": requested ElectronNum = " + std::to_string(Ne) +
+        " exceeds the base stripe filling = " + std::to_string(base_electron_num) + ".");
+  }
+
+  const size_t target_num_up = Ne / 2;
+  const size_t target_num_down = Ne / 2;
+  if (target_num_up > base_num_up || target_num_down > base_num_down) {
+    throw std::runtime_error(
+        init_state + ": target (Nup, Ndown) = (" + std::to_string(target_num_up) + ", " +
+        std::to_string(target_num_down) + ") exceeds base stripe counts (" +
+        std::to_string(base_num_up) + ", " + std::to_string(base_num_down) + ").");
+  }
+
+  size_t remove_up = base_num_up - target_num_up;
+  size_t remove_down = base_num_down - target_num_down;
+  const auto x_order = BoundaryFirstOrder(Lx + Ly - 1);
+  for (const size_t x_zigzag : x_order) {
+    std::vector<InitialSiteState *> layer_sites;
+    for (auto &site : sites) {
+      if (site.x_zigzag == x_zigzag) {
+        layer_sites.push_back(&site);
+      }
+    }
+    std::sort(layer_sites.begin(), layer_sites.end(),
+              [](const InitialSiteState *lhs, const InitialSiteState *rhs) {
+                if (lhs->y_chain != rhs->y_chain) return lhs->y_chain < rhs->y_chain;
+                return lhs->row < rhs->row;
+              });
+    for (InitialSiteState *site : layer_sites) {
+      if (site->electron == E_U && remove_up > 0) {
+        site->electron = E_0;
+        --remove_up;
+      } else if (site->electron == E_d && remove_down > 0) {
+        site->electron = E_0;
+        --remove_down;
+      }
+    }
+  }
+
+  if (remove_up != 0 || remove_down != 0) {
+    throw std::runtime_error(
+        init_state + ": failed to realize requested electron counts after ordered hole removal.");
+  }
+  return sites;
+}
+
+std::vector<std::vector<size_t>> SitesToActivates(const size_t Lx,
+                                                  const size_t Ly,
+                                                  const std::vector<InitialSiteState> &sites) {
+  std::vector<std::vector<size_t>> activates(Ly, std::vector<size_t>(Lx, 0));
+  for (const auto &site : sites) {
+    activates[site.row][site.col] = Combine(site.electron, site.local_spin);
+  }
+  return activates;
+}
+
+std::vector<std::vector<size_t>> BuildInitialActivates(const size_t Lx,
+                                                       const size_t Ly,
+                                                       const size_t Ne,
+                                                       const int Sz2e,
+                                                       const std::string &init_state) {
+  if (init_state == "random") {
+    return SitesToActivates(Lx, Ly, BuildRandomInitialSites(Lx, Ly, Ne, Sz2e));
+  }
+  if (init_state == "stripe_pi2pi2" || init_state == "stripe_pi0") {
+    return SitesToActivates(Lx, Ly, BuildNamedStripeInitialSites(Lx, Ly, Ne, Sz2e, init_state));
+  }
+  std::cerr << "WARNING: unrecognized InitState '" << init_state << "', falling back to random.\n";
+  return SitesToActivates(Lx, Ly, BuildRandomInitialSites(Lx, Ly, Ne, Sz2e));
 }
 
 // Build a one-site operator tensor in index order (OUT, IN) expected by qlpeps onsite terms.
@@ -237,6 +459,7 @@ int main(int argc, char **argv) {
   const double mu = params.physical.mu;
   const size_t Ne = params.physical.ElectronNum;
   const int Sz2e = params.physical.ElectronSz2;
+  const std::string init_state = params.physical.InitState;
 
   if (Lx == 0 || Ly == 0) {
     std::cerr << "Invalid lattice size.\n";
@@ -274,62 +497,13 @@ int main(int argc, char **argv) {
     peps0.Load(peps_path);
   } else {
     std::cout << "Initialize PEPS as a direct product state.\n";
-    // IMPORTANT:
-    // The Hamiltonian implemented in this SU driver conserves electron number.
-    // So we must initialize the desired electron filling sector here.
-    const size_t N = Lx * Ly;
-    const long Ne_single = static_cast<long>(Ne); // validated to fit the no-doublon initializer
-    long Nup = (Ne_single + static_cast<long>(Sz2e)) / 2;
-    long Ndn = Ne_single - Nup;
-
-    std::vector<size_t> e_labels;
-    e_labels.reserve(N);
-    for (size_t i = 0; i < static_cast<size_t>(Nup); ++i) e_labels.push_back(E_U);
-    for (size_t i = 0; i < static_cast<size_t>(Ndn); ++i) e_labels.push_back(E_d);
-    while (e_labels.size() < N) e_labels.push_back(E_0);
-    e_labels.resize(N);
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::shuffle(e_labels.begin(), e_labels.end(), gen);
-
-    // Enforce total Sz_total = 0 by choosing local spins such that:
-    //   Sz2_total = Sz2e + Sz2_local = 0
-    //   Sz2_local = 2*Nup_local - N
-    // => Nup_local = (N - Sz2e) / 2
-    if ((static_cast<long>(N) - static_cast<long>(Sz2e)) % 2 != 0) {
-      std::cerr << "Initializer error: cannot satisfy Sz_total=0 due to parity mismatch "
-                   "(need (N - Sz2e) even).\n";
+    std::cout << "InitState: " << init_state << "\n";
+    std::vector<std::vector<size_t>> activates;
+    try {
+      activates = BuildInitialActivates(Lx, Ly, Ne, Sz2e, init_state);
+    } catch (const std::exception &e) {
+      std::cerr << e.what() << "\n";
       return 1;
-    }
-    const long Nup_local = (static_cast<long>(N) - static_cast<long>(Sz2e)) / 2;
-    if (Nup_local < 0 || Nup_local > static_cast<long>(N)) {
-      std::cerr << "Initializer error: cannot satisfy Sz_total=0 (invalid local spin magnetization).\n";
-      return 1;
-    }
-    std::vector<LocalSpinState> s_labels;
-    s_labels.reserve(N);
-    if (Sz2e == 0) {
-      // Prefer a clean Neel pattern when compatible with Sz_total=0.
-      for (size_t y = 0; y < Ly; ++y) {
-        for (size_t x = 0; x < Lx; ++x) {
-          s_labels.push_back(((x + y) % 2 == 0) ? S_U : S_d);
-        }
-      }
-    } else {
-      for (size_t i = 0; i < static_cast<size_t>(Nup_local); ++i) s_labels.push_back(S_U);
-      while (s_labels.size() < N) s_labels.push_back(S_d);
-      std::shuffle(s_labels.begin(), s_labels.end(), gen);
-    }
-
-    std::vector<std::vector<size_t>> activates(Ly, std::vector<size_t>(Lx, 0));
-    size_t idx = 0;
-    for (size_t y = 0; y < Ly; ++y) {
-      for (size_t x = 0; x < Lx; ++x) {
-        const auto e = static_cast<ElectronState>(e_labels[idx]);
-        const auto s = s_labels[idx];
-        activates[y][x] = Combine(e, s);
-        ++idx;
-      }
     }
     peps0.Initial(activates);
     init_activates = activates; // dump after we dump tpsfinal/

@@ -65,6 +65,7 @@ inline void EnforceNoDoublonInitializerSectorOrDie(
 struct PhysicalParams : public qlmps::CaseParamsParserBasic {
   size_t Lx{0};
   size_t Ly{0};
+  std::string InitState{"random"};
 
   // NN hopping amplitudes: checkerboard zigzag pattern on square lattice.
   // t = intra-chain hopping, t2 = inter-chain hopping.
@@ -91,6 +92,7 @@ struct PhysicalParams : public qlmps::CaseParamsParserBasic {
   explicit PhysicalParams(const char *physics_file) : qlmps::CaseParamsParserBasic(physics_file) {
     Lx = ParseInt("Lx");
     Ly = ParseInt("Ly");
+    InitState = ParseStrOr("InitState", "random");
     t = ParseDouble("t");
     has_explicit_t2 = Has("t2");
     t2 = ParseDoubleOr("t2", 0.0);
@@ -136,4 +138,3 @@ struct Params {
 }  // namespace peps_kondo_params
 
 #endif  // LNO_PEPS_KONDO_SINGLE_LAYER_COMMON_PARAMS_H
-

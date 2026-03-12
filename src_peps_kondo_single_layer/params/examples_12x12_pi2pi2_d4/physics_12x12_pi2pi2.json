@@ -1,0 +1,14 @@
+{
+  "CaseParams": {
+    "Lx": 12,
+    "Ly": 12,
+    "InitState": "stripe_pi2pi2",
+    "t": 1.0,
+    "t2": 0.3,
+    "U": 14.0,
+    "Jk": -4.0,
+    "Mu": 0.0,
+    "ElectronNum": 72,
+    "ElectronSz2": 0
+  }
+}

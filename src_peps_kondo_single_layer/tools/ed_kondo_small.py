@@ -4,7 +4,7 @@
 Exact diagonalization benchmarks for the single-layer Kondo lattice (OBC square).
 
 Model (consistent with src_peps_kondo_single_layer code conventions):
-  H = -t * sum_<ij>,σ ( c†_{iσ} c_{jσ} + h.c. )
+  H = -sum_<ij>,σ t_ij ( c†_{iσ} c_{jσ} + h.c. )
       + U * sum_i n_{i↑} n_{i↓}
       + JK * sum_i s_i · S_i
       - mu * sum_i (n_{i↑}+n_{i↓})
@@ -134,20 +134,33 @@ class Sector:
 @dataclass(frozen=True)
 class Params:
     t: float
+    t2: Optional[float]
     U: float
     JK: float
     mu: float
 
 
-def bonds_obc_square(Lx: int, Ly: int) -> List[Tuple[int, int]]:
+def checkerboard_hopping_amplitude(x: int, y: int, t: float, t2: Optional[float], horizontal: bool) -> float:
+    t2_eff = t if t2 is None else t2
+    parity = (x + y) % 2
+    if horizontal:
+        return t if parity == 0 else t2_eff
+    return t2_eff if parity == 0 else t
+
+
+def bonds_obc_square(Lx: int, Ly: int, t: float, t2: Optional[float] = None) -> List[Tuple[int, int, float]]:
     bonds = []
     for y in range(Ly):
         for x in range(Lx):
             s = site_index(x, y, Lx)
             if x + 1 < Lx:
-                bonds.append((s, site_index(x + 1, y, Lx)))
+                bonds.append(
+                    (s, site_index(x + 1, y, Lx), checkerboard_hopping_amplitude(x, y, t, t2, horizontal=True))
+                )
             if y + 1 < Ly:
-                bonds.append((s, site_index(x, y + 1, Lx)))
+                bonds.append(
+                    (s, site_index(x, y + 1, Lx), checkerboard_hopping_amplitude(x, y, t, t2, horizontal=False))
+                )
     return bonds
 
 
@@ -172,9 +185,19 @@ def build_hamiltonian_dense(*_args, **_kwargs):
     raise RuntimeError("Dense build disabled (no numpy in this repo environment). Use Lanczos sparse ED.")
 
 
-def ground_energy_ed(Lx: int, Ly: int, Ne: int, Sz2_total: int, t: float, U: float, JK: float, mu: float) -> Tuple[float, int]:
+def ground_energy_ed(
+    Lx: int,
+    Ly: int,
+    Ne: int,
+    Sz2_total: int,
+    t: float,
+    U: float,
+    JK: float,
+    mu: float,
+    t2: Optional[float] = None,
+) -> Tuple[float, int]:
     sector = Sector(Lx=Lx, Ly=Ly, Ne=Ne, Sz2_total=Sz2_total)
-    params = Params(t=t, U=U, JK=JK, mu=mu)
+    params = Params(t=t, t2=t2, U=U, JK=JK, mu=mu)
     basis, index = build_basis(sector)
     if len(basis) == 0:
         raise ValueError(f"Empty sector: L={Lx}x{Ly}, Ne={Ne}, Sz2_total={Sz2_total}")
@@ -185,6 +208,7 @@ def ground_energy_ed(Lx: int, Ly: int, Ne: int, Sz2_total: int, t: float, U: flo
 
 def ground_state_ed_vector(
     Lx: int, Ly: int, Ne: int, Sz2_total: int, t: float, U: float, JK: float, mu: float, *,
+    t2: Optional[float] = None,
     max_iter: int = 300, tol: float = 1e-12, seed: int = 0,
 ) -> Tuple[float, List[float], List[Tuple[int, int]]]:
     """Return (E0, vec, basis) for tiny clusters using Lanczos (no numpy).
@@ -193,7 +217,7 @@ def ground_state_ed_vector(
       basis[i] = (electron_occ_bits, local_up_bits)
     """
     sector = Sector(Lx=Lx, Ly=Ly, Ne=Ne, Sz2_total=Sz2_total)
-    params = Params(t=t, U=U, JK=JK, mu=mu)
+    params = Params(t=t, t2=t2, U=U, JK=JK, mu=mu)
     basis, index = build_basis(sector)
     if len(basis) == 0:
         raise ValueError(f"Empty sector: L={Lx}x{Ly}, Ne={Ne}, Sz2_total={Sz2_total}")
@@ -240,14 +264,14 @@ def build_hamiltonian_rows(
     nsites = sector.nsites
     dim = len(basis)
     rows: List[List[Tuple[int, float]]] = [[] for _ in range(dim)]
-    bonds = bonds_obc_square(sector.Lx, sector.Ly)
+    bonds = bonds_obc_square(sector.Lx, sector.Ly, params.t, params.t2)
 
     for i, (occ, local_up_bits) in enumerate(basis):
         acc: Dict[int, float] = {}
 
         # Hopping
-        if params.t != 0.0:
-            for (a, b) in bonds:
+        if params.t != 0.0 or (params.t2 is not None and params.t2 != 0.0):
+            for (a, b, hop_t) in bonds:
                 for spin in (0, 1):
                     pa = orbital_index(a, spin)
                     pb = orbital_index(b, spin)
@@ -256,13 +280,13 @@ def build_hamiltonian_rows(
                         occ2, ph = res
                         j = index.get((occ2, local_up_bits))
                         if j is not None:
-                            acc[j] = acc.get(j, 0.0) + (-params.t * ph)
+                            acc[j] = acc.get(j, 0.0) + (-hop_t * ph)
                     res = apply_hop(occ, pb, pa)
                     if res is not None:
                         occ2, ph = res
                         j = index.get((occ2, local_up_bits))
                         if j is not None:
-                            acc[j] = acc.get(j, 0.0) + (-params.t * ph)
+                            acc[j] = acc.get(j, 0.0) + (-hop_t * ph)
 
         # Onsite diagonal (U, mu, JK*s_z*S_z)
         diag = 0.0
@@ -624,6 +648,8 @@ def main() -> None:
     ap.add_argument("--Ne", type=int, default=4)
     ap.add_argument("--Sz2_total", type=int, default=0)
     ap.add_argument("--t", type=float, default=1.0)
+    ap.add_argument("--t2", type=float, default=None,
+                    help="Checkerboard inter-chain hopping. If omitted, use t (isotropic square).")
     ap.add_argument("--U", type=float, default=0.0)
     ap.add_argument("--JK", type=float, default=0.0)
     ap.add_argument("--mu", type=float, default=0.0)
@@ -641,13 +667,15 @@ def main() -> None:
             Ne=int(args.Ne),
             Sz2_total=int(args.Sz2_total),
             t=float(args.t),
+            t2=None if args.t2 is None else float(args.t2),
             U=float(args.U),
             JK=float(args.JK),
             mu=float(args.mu),
         )
+        t2_display = args.t if args.t2 is None else args.t2
         print("# ED one-shot (OBC square)")
         print(f"L={args.Lx}x{args.Ly}, Ne={args.Ne}, Sz2_total={args.Sz2_total}")
-        print(f"t={args.t}, U={args.U}, JK={args.JK}, mu={args.mu}")
+        print(f"t={args.t}, t2={t2_display}, U={args.U}, JK={args.JK}, mu={args.mu}")
         print(f"E0={E:.12f}   (dim={dim})")
         return
 
@@ -658,6 +686,7 @@ def main() -> None:
             Ne=int(args.Ne),
             Sz2_total=int(args.Sz2_total),
             t=float(args.t),
+            t2=None if args.t2 is None else float(args.t2),
             U=float(args.U),
             JK=float(args.JK),
             mu=float(args.mu),
@@ -679,7 +708,8 @@ def main() -> None:
                 small.append((i, amp, cfg))
 
         print("# ED ground-state near-zero components in configuration basis")
-        print(f"# L={Lx}x{Ly}, Ne={args.Ne}, Sz2_total={args.Sz2_total}  t={args.t} U={args.U} JK={args.JK} mu={args.mu}")
+        t2_display = args.t if args.t2 is None else args.t2
+        print(f"# L={Lx}x{Ly}, Ne={args.Ne}, Sz2_total={args.Sz2_total}  t={args.t} t2={t2_display} U={args.U} JK={args.JK} mu={args.mu}")
         print(f"# E0={E0:.12f}")
         print(f"# eps={eps}  count(|amp|<eps)={len(small)} / dim={len(vec)}")
         print("# Format: basis_idx, amp, cfg(site0..siteN-1) where cfg is combined local label 0..7 (2*electron + spin)")
@@ -752,5 +782,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
 

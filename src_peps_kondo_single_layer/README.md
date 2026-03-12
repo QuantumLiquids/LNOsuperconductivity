@@ -237,6 +237,7 @@ For 2×2 lattices, exact contraction replaces Monte Carlo:
 {
     "Lx": 4,                // lattice width (number of columns)
     "Ly": 4,                // lattice height (number of rows)
+    "InitState": "random",  // optional: "random", "stripe_pi2pi2", "stripe_pi0"
     "t": 1.0,               // intra-chain hopping (zigzag)
     "t2": 0.3,              // inter-chain hopping (zigzag); omit or set t2=t for isotropic
     "U": 14.0,              // Hubbard U
@@ -250,6 +251,15 @@ For 2×2 lattices, exact contraction replaces Monte Carlo:
 **Notes:**
 - `ElectronNum` must be even (restricted sector).
 - $L_x \times L_y$ must be even (for $S^z_{\text{total}} = 0$ compatibility).
+- `InitState` affects only the Simple Update product-state initializer in this directory.
+- `InitState = "stripe_pi2pi2"` seeds the square-grid zigzag analog of the DMRG diagonal stripe:
+  FM along each zigzag chain, AFM between neighboring chains, with electrons on even `row+col`.
+- `InitState = "stripe_pi0"` seeds the square-grid zigzag analog of the DMRG columnar stripe:
+  a period-4 pattern in `row+col` with occupied layers at `0,1` and empty layers at `2,3`.
+- Named stripe initializers currently require `ElectronSz2 = 0` and remove excess electrons
+  by a boundary-first ordered-hole rule when `ElectronNum` is below the base stripe filling.
+- Some PEPS rectangles cannot realize a named stripe seed under the current `S^z_total = 0`
+  workflow; the executable will fail early with an explicit error in those cases.
 - If `t2` is omitted, it defaults to `t`.
 - JSON key for Kondo coupling is `Jk` (capital J, lowercase k).
 

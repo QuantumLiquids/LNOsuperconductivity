@@ -1,0 +1,36 @@
+{
+  "CaseParams": {
+    "OptimizerType": "SR",
+    "MaxIterations": 30,
+    "LearningRate": 0.1,
+    "EnergyTolerance": 0.0,
+    "GradientTolerance": 0.0,
+    "PlateauPatience": 30,
+
+    "CGMaxIter": 200,
+    "CGTol": 1e-8,
+    "CGResidueRestart": 20,
+    "CGDiagShift": 0.01,
+    "NormalizeUpdate": false,
+
+    "WavefunctionBase": "tps",
+    "ConfigurationLoadDir": "tpsfinal",
+    "ConfigurationDumpDir": "tpsfinal",
+    "TPSDumpPath": "./",
+
+    "MC_samples": 500,
+    "WarmUp": 100,
+    "MCLocalUpdateSweepsBetweenSample": 5,
+
+    "Db_min": 8,
+    "Db_max": 16,
+    "TruncErr": 1e-10,
+    "MPSCompressScheme": 0,
+    "ThreadNum": 4,
+
+    "ElectronNum": 72,
+    "ElectronSz2": 0,
+    "AllowDoublon": false,
+    "LocalSpinNeel": true
+  }
+}
