@@ -50,6 +50,7 @@ inline int MPI_Comm_size(MPI_Comm, int *sz) { if (sz) *sz = 1; return 0; }
 #endif
 
 #include "./common_params.h"
+#include "./optimizer_params_compat.h"
 #include "./qldouble.h"
 #include "./square_kondo_model.h"
 
@@ -80,22 +81,18 @@ inline int SzTot2FromCombined(size_t c) {
 
 struct ExactSumAlgoParams : public qlmps::CaseParamsParserBasic {
   explicit ExactSumAlgoParams(const char *algo_file) : qlmps::CaseParamsParserBasic(algo_file) {
-    optimizer_type = ParseStrOr("OptimizerType", "AdaGrad");
-    max_iterations = static_cast<size_t>(ParseIntOr("MaxIterations", 100));
-    learning_rate = ParseDoubleOr("LearningRate", 0.1);
-    energy_tolerance = ParseDoubleOr("EnergyTolerance", 0.0);
-    gradient_tolerance = ParseDoubleOr("GradientTolerance", 0.0);
-
-    // AdaGrad knobs
-    epsilon = ParseDoubleOr("Epsilon", 1e-8);
-    initial_accumulator = ParseDoubleOr("InitialAccumulator", 0.0);
-
-    // SR/CG knobs (if ever used)
-    cg_max_iter = static_cast<size_t>(ParseIntOr("CGMaxIter", 100));
-    cg_tol = ParseDoubleOr("CGTol", 1e-8);
-    cg_residue_restart = static_cast<size_t>(ParseIntOr("CGResidueRestart", 20));
-    cg_diag_shift = ParseDoubleOr("CGDiagShift", 0.01);
-    normalize_update = ParseBoolOr("NormalizeUpdate", false);
+    optimizer_params = peps_kondo_params::OptimizerCompatParams(
+        *this,
+        peps_kondo_params::OptimizerParseOptions{
+            .default_optimizer_type = "AdaGrad",
+            .require_optimizer_type = false,
+            .default_max_iterations = 100,
+            .require_max_iterations = false,
+            .default_learning_rate = 0.1,
+            .require_learning_rate = false,
+            .require_adam_params = false,
+            .require_adagrad_params = false,
+        });
 
     // BMPS truncation for exact summation contraction
     Db_min = static_cast<size_t>(ParseIntOr("Db_min", 4));
@@ -104,22 +101,7 @@ struct ExactSumAlgoParams : public qlmps::CaseParamsParserBasic {
     mps_compress_scheme = static_cast<qlpeps::CompressMPSScheme>(ParseIntOr("MPSCompressScheme", 0));
   }
 
-  std::string optimizer_type;
-  size_t max_iterations = 0;
-  double learning_rate = 0.0;
-  double energy_tolerance = 0.0;
-  double gradient_tolerance = 0.0;
-
-  // AdaGrad
-  double epsilon = 1e-8;
-  double initial_accumulator = 0.0;
-
-  // SR
-  size_t cg_max_iter = 100;
-  double cg_tol = 1e-8;
-  size_t cg_residue_restart = 20;
-  double cg_diag_shift = 0.01;
-  bool normalize_update = false;
+  peps_kondo_params::OptimizerCompatParams optimizer_params;
 
   // BMPS
   size_t Db_min = 4;
@@ -127,39 +109,6 @@ struct ExactSumAlgoParams : public qlmps::CaseParamsParserBasic {
   double trunc_err = 1e-12;
   qlpeps::CompressMPSScheme mps_compress_scheme{};
 };
-
-qlpeps::OptimizerParams BuildOptimizerParams(const ExactSumAlgoParams &p) {
-  qlpeps::OptimizerParams::BaseParams base(
-      p.max_iterations,
-      p.energy_tolerance,
-      p.gradient_tolerance,
-      /*plateau_patience=*/p.max_iterations,
-      p.learning_rate,
-      nullptr);
-
-  std::string t = p.optimizer_type;
-  if (t == "sr" || t == "SR") t = "StochasticReconfiguration";
-
-  if (t == "AdaGrad" || t == "adagrad") {
-    return qlpeps::OptimizerParams(base, qlpeps::AdaGradParams(p.epsilon, p.initial_accumulator));
-  }
-  if (t == "SGD" || t == "sgd") {
-    return qlpeps::OptimizerParams(base, qlpeps::SGDParams(/*momentum=*/0.0, /*nesterov=*/false, /*weight_decay=*/0.0));
-  }
-
-  // Default: SR
-  qlpeps::ConjugateGradientParams cg{
-    .max_iter = p.cg_max_iter,
-    .relative_tolerance = p.cg_tol,
-    .residual_recompute_interval = static_cast<int>(p.cg_residue_restart),
-  };
-  qlpeps::StochasticReconfigurationParams sr{
-    .cg_params = cg,
-    .diag_shift = p.cg_diag_shift,
-    .normalize_update = p.normalize_update,
-  };
-  return qlpeps::OptimizerParams(base, sr);
-}
 
 std::vector<qlpeps::Configuration> GenerateAll2x2ConfigsSector(size_t Ne_target) {
   const size_t Lx = 2, Ly = 2;
@@ -382,7 +331,7 @@ int main(int argc, char **argv) {
         std::make_optional<double>(algo.trunc_err), std::make_optional<size_t>(10));
 
     // Pure optimizer
-    qlpeps::OptimizerParams opt_params = BuildOptimizerParams(algo);
+    qlpeps::OptimizerParams opt_params = algo.optimizer_params.CreateOptimizerParams();
     qlpeps::Optimizer<TenElemT, QNT> optimizer(opt_params, comm, rank, mpi_size);
 
     // Enumerate configs in the desired sector (Ne fixed, Sz_total=0), then filter out configs
@@ -436,4 +385,3 @@ int main(int argc, char **argv) {
   MPI_Finalize();
   return 0;
 }
-

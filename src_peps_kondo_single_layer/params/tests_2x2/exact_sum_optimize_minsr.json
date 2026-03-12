@@ -1,16 +1,15 @@
 {
   "CaseParams": {
-    "OptimizerType": "SR",
+    "OptimizerType": "MinSR",
     "MaxIterations": 120,
     "LearningRate": 0.2,
     "EnergyTolerance": 0.0,
     "GradientTolerance": 0.0,
 
-    "CGMaxIter": 200,
-    "CGRelativeTolerance": 1e-10,
-    "CGResidualRecomputeInterval": 50,
-    "SRDiagShift": 1e-4,
-    "NormalizeUpdate": false,
+    "MinSRRPinv": 1e-12,
+    "MinSRAPinv": 0.0,
+    "MinSRSoftCutoff": true,
+    "MinSRSolverMode": "Auto",
 
     "Db_min": 8,
     "Db_max": 8,
@@ -18,5 +17,3 @@
     "MPSCompressScheme": 0
   }
 }
-
-

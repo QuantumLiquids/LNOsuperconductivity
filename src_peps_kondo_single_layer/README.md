@@ -229,6 +229,10 @@ For 2×2 lattices, exact contraction replaces Monte Carlo:
 ./peps_kondo_2x2_exact_sum_optimize_z2 ...
 ```
 
+The exact-summation driver now accepts the same SR/MinSR parameter schema as VMC.
+With the current upstream `qlpeps` build, SR/MinSR still abort at runtime in the
+exact-sum backend because the required `Ostar_*` statistics are not populated there.
+
 ## JSON Parameter Reference
 
 ### `physics_params.json`
@@ -280,7 +284,7 @@ For 2×2 lattices, exact contraction replaces Monte Carlo:
 
 ```jsonc
 {
-    "OptimizerType": "SR",       // "SR" (stochastic reconfiguration), "SGD", "Adam", "AdaGrad"
+    "OptimizerType": "SR",       // "SR"/"StochasticReconfiguration", "MinSR", "SGD", "Adam", "AdaGrad"
     "MaxIterations": 200,
     "LearningRate": 0.01,
 
@@ -305,10 +309,30 @@ For 2×2 lattices, exact contraction replaces Monte Carlo:
 
     // SR-specific (if OptimizerType = "SR")
     "CGMaxIter": 100,
-    "CGTol": 1e-8,
-    "CGDiagShift": 0.01
+    "CGRelativeTolerance": 1e-8,
+    "CGResidualRecomputeInterval": 20,
+    "SRDiagShift": 0.01,
+    "NormalizeUpdate": false,
+
+    // MinSR-specific (if OptimizerType = "MinSR")
+    "MinSRRPinv": 1e-12,
+    "MinSRAPinv": 0.0,
+    "MinSRSoftCutoff": true,
+    "MinSRSolverMode": "Auto"
 }
 ```
+
+Canonical SR keys follow `../HeisenbergVMCPEPS`: `CGRelativeTolerance`,
+`CGResidualRecomputeInterval`, and `SRDiagShift`. Deprecated aliases
+`CGTol`, `CGResidueRestart`, and `CGDiagShift` are still accepted with warnings;
+`CGTol` is auto-converted with `sqrt(...)` to match the Heisenberg-relative-tolerance convention.
+
+Canonical MinSR keys are `MinSRRPinv`, `MinSRAPinv`, `MinSRSoftCutoff`, and
+`MinSRSolverMode`. The finite-size t-J aliases `MinSRRelativePInv` and
+`MinSRAbsolutePInv` remain accepted with warnings. If both canonical and deprecated
+forms of the same setting appear in one file, the parser aborts with an ambiguity error.
+See `params/vmc_minsr_algorithm_params.json` and
+`params/tests_2x2/exact_sum_optimize_minsr.json` for checked-in MinSR examples.
 
 ### `mc_measure_algorithm_params.json`
 

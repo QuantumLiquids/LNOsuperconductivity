@@ -2,9 +2,8 @@
 /*
  * Parameter system for PEPS single-layer Kondo lattice.
  *
- * This intentionally mirrors finite-size_PEPS_tJ/src/enhanced_params_parser.h:
- * - one "enhanced" parser that owns physics + algorithm params
- * - helper builders that return qlpeps::{VMCPEPSOptimizerParams, MCMeasurementParams}
+ * This keeps the Kondo PEPS VMC parser aligned with the Heisenberg-style SR/MinSR
+ * schema while preserving the two-file physics/algorithm split used here.
  *
  * The goal is simple: keep parameters boring, explicit, and hard to misuse.
  */
@@ -18,10 +17,10 @@
 #include "qlpeps/qlpeps.h"
 #include "qlpeps/algorithm/vmc_update/vmc_peps_optimizer_params.h"
 #include "qlpeps/algorithm/vmc_update/monte_carlo_peps_params.h"
-#include "qlpeps/optimizer/optimizer_params.h"
 
 #include "./common_params.h"
 #include "./mc_measure_params.h" // BuildAndMaybeLoadConfigurationKondo + MC/BMPS numerical params
+#include "./optimizer_params_compat.h"
 
 namespace peps_kondo_params {
 
@@ -41,14 +40,18 @@ struct EnhancedVMCOptimizeParams : public qlmps::CaseParamsParserBasic {
         physical_params(physics_file),
         mc_params(algorithm_file),
         bmps_params(algorithm_file) {
-    optimizer_type = ParseStr("OptimizerType");
-    if (optimizer_type == "SR" || optimizer_type == "sr") optimizer_type = "StochasticReconfiguration";
-
-    max_iterations = static_cast<size_t>(ParseInt("MaxIterations"));
-    learning_rate = ParseDouble("LearningRate");
-    energy_tolerance = ParseDoubleOr("EnergyTolerance", 0.0);
-    gradient_tolerance = ParseDoubleOr("GradientTolerance", 0.0);
-    plateau_patience = static_cast<size_t>(ParseIntOr("PlateauPatience", static_cast<int>(max_iterations)));
+    optimizer_params = OptimizerCompatParams(
+        *this,
+        OptimizerParseOptions{
+            .default_optimizer_type = "",
+            .require_optimizer_type = true,
+            .default_max_iterations = 0,
+            .require_max_iterations = true,
+            .default_learning_rate = 0.0,
+            .require_learning_rate = true,
+            .require_adam_params = true,
+            .require_adagrad_params = true,
+        });
 
     // IO
     wavefunction_base = ParseStrOr("WavefunctionBase", "tps");
@@ -65,28 +68,6 @@ struct EnhancedVMCOptimizeParams : public qlmps::CaseParamsParserBasic {
     if (!allow_doublon) {
       EnforceNoDoublonInitializerSectorOrDie(
           physical_params.Lx, physical_params.Ly, electron_num, sz2_electron, "vmc_optimize params");
-    }
-
-    // Optimizer-specific knobs
-    if (optimizer_type == "SGD") {
-      momentum = ParseDoubleOr("Momentum", 0.0);
-      nesterov = ParseBoolOr("Nesterov", false);
-      weight_decay = ParseDoubleOr("WeightDecay", 0.0);
-    } else if (optimizer_type == "Adam") {
-      beta1 = ParseDouble("Beta1");
-      beta2 = ParseDouble("Beta2");
-      epsilon = ParseDouble("Epsilon");
-      weight_decay = ParseDouble("WeightDecay");
-    } else if (optimizer_type == "AdaGrad") {
-      epsilon = ParseDouble("Epsilon");
-      initial_accumulator = ParseDouble("InitialAccumulator");
-    } else {
-      // Default and "StochasticReconfiguration"
-      cg_max_iter = static_cast<size_t>(ParseIntOr("CGMaxIter", 100));
-      cg_tol = ParseDoubleOr("CGTol", 1e-8);
-      cg_residue_restart = static_cast<size_t>(ParseIntOr("CGResidueRestart", 20));
-      cg_diag_shift = ParseDoubleOr("CGDiagShift", 0.01);
-      normalize_update = ParseBoolOr("NormalizeUpdate", false);
     }
 
     // Optional gradient clipping (kept as optional, not forced)
@@ -112,32 +93,7 @@ struct EnhancedVMCOptimizeParams : public qlmps::CaseParamsParserBasic {
   bool local_spin_neel = true;
 
   // Optimizer configuration
-  std::string optimizer_type;
-  size_t max_iterations = 0;
-  double learning_rate = 0.0;
-  double energy_tolerance = 0.0;
-  double gradient_tolerance = 0.0;
-  size_t plateau_patience = 0;
-
-  // SGD
-  double momentum = 0.0;
-  bool nesterov = false;
-  double weight_decay = 0.0;
-
-  // Adam
-  double beta1 = 0.9;
-  double beta2 = 0.999;
-  double epsilon = 1e-8;
-
-  // AdaGrad
-  double initial_accumulator = 0.0;
-
-  // SR
-  size_t cg_max_iter = 100;
-  double cg_tol = 1e-8;
-  size_t cg_residue_restart = 20;
-  double cg_diag_shift = 0.01;
-  bool normalize_update = false;
+  OptimizerCompatParams optimizer_params;
 
   // Optional gradient clipping
   std::optional<double> clip_norm;
@@ -169,36 +125,14 @@ struct EnhancedVMCOptimizeParams : public qlmps::CaseParamsParserBasic {
                                  std::make_optional<double>(bmps_params.TruncErr),
                                  std::make_optional<size_t>(10)));
 
-    qlpeps::OptimizerParams::BaseParams base_params(
-        max_iterations, energy_tolerance, gradient_tolerance, plateau_patience,
-        learning_rate, nullptr);
-
-    qlpeps::OptimizerParams opt;
-    if (optimizer_type == "SGD") {
-      opt = qlpeps::OptimizerParams(base_params, qlpeps::SGDParams(momentum, nesterov, weight_decay));
-    } else if (optimizer_type == "Adam") {
-      opt = qlpeps::OptimizerParams(base_params, qlpeps::AdamParams(beta1, beta2, epsilon, weight_decay));
-    } else if (optimizer_type == "AdaGrad") {
-      opt = qlpeps::OptimizerParams(base_params, qlpeps::AdaGradParams(epsilon, initial_accumulator));
-    } else {
-      qlpeps::ConjugateGradientParams cg{
-        .max_iter = cg_max_iter,
-        .relative_tolerance = cg_tol,
-        .residual_recompute_interval = static_cast<int>(cg_residue_restart),
-      };
-      qlpeps::StochasticReconfigurationParams sr{
-        .cg_params = cg,
-        .diag_shift = cg_diag_shift,
-        .normalize_update = normalize_update,
-      };
-      opt = qlpeps::OptimizerParams(base_params, sr);
-    }
-
-    return qlpeps::VMCPEPSOptimizerParams(opt, mc_params_obj, peps_params_obj, tps_dump_path);
+    return qlpeps::VMCPEPSOptimizerParams(
+        optimizer_params.CreateOptimizerParams(),
+        mc_params_obj,
+        peps_params_obj,
+        tps_dump_path);
   }
 };
 
 } // namespace peps_kondo_params
 
 #endif // LNO_PEPS_KONDO_ENHANCED_PARAMS_PARSER_H
-
