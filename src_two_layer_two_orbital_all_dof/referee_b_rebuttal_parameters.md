@@ -8,8 +8,9 @@ The cleanest response to the referee is:
 
 1. use the all-DOF two-orbital bilayer Hubbard model already implemented here,
 2. keep explicit Hubbard double occupancy on both orbitals,
-3. use a high-pressure, no-anisotropy (`delta = 0`) parameter set anchored to DFT/Wannier literature,
-4. show that the `d_{z^2}` sector remains close to the local-moment / half-filled regime in this more microscopic model.
+3. choose the one-body terms from the high-pressure `Fmmm` DFT/Wannier literature,
+4. choose `U` and `J_H` from a literature-supported correlated window,
+5. show that the `d_{z^2}` sector remains close to the local-moment / half-filled regime in this more microscopic model.
 
 Adding a new hopping term right now would shift the rebuttal from "we validated the effective picture in a less reduced model" to "we changed the microscopic model again." That is a weaker rebuttal story unless the new term is clearly required.
 
@@ -55,7 +56,21 @@ Interpretation for the present code:
 
 - `t1` should be mapped to `|t22^x|`, namely the in-plane `d_{x^2-y^2}` hopping.
 - `t2` should be mapped to `|t11^z|`, namely the interlayer `d_{z^2}` hopping.
+- `mu1 - mu2` should be mapped to `Delta = \epsilon_{x^2-y^2} - \epsilon_{z^2}`.
 - `delta = 0` for the high-pressure response.
+
+For the high-pressure `50 GPa` parameter set used here:
+
+- `t1 = 0.559 eV`
+- `t2 = 0.719 eV`
+- `Delta = 0.551 eV`
+
+Since the present code uses separate orbital chemical potentials `mu1` and `mu2`, while an overall common shift is physically irrelevant, we set them symmetrically:
+
+- `mu1 = +Delta/2 = +0.2755 eV`
+- `mu2 = -Delta/2 = -0.2755 eV`
+
+This keeps the literature value of the orbital energy difference while removing the arbitrary overall zero of energy.
 
 ### 2. Why the missing hopping is nearest-neighbor interorbital, not interlayer
 
@@ -87,6 +102,32 @@ Practical reading for rebuttal use:
 - `J_H = 0.6 - 1.0 eV` is directly used in the Nature Communications pressure study.
 - For a main rebuttal run, `J_H = 0.8 eV` is a good center choice.
 
+## Parameter-Choice Argument
+
+The parameter choice is therefore split into two parts.
+
+### One-body terms: fixed from high-pressure DFT/Wannier
+
+These should be taken as directly as possible from the high-pressure `Fmmm` literature:
+
+- `t1 = 0.559 eV`
+- `t2 = 0.719 eV`
+- `mu1 - mu2 = Delta = 0.551 eV`
+- `delta = 0`
+
+This is the most defensible choice for the rebuttal because the referee's concern is precisely about whether the high-pressure bilayer `d_{z^2}` hopping is being over-reduced in the effective model.
+
+### Interaction terms: chosen from a literature-supported window
+
+Unlike the hopping parameters, `U` and `J_H` are not fixed uniquely by bare DFT. The cleanest rebuttal choice is therefore to use the literature-supported correlated window rather than to claim a one-shot DFT fit.
+
+That is why the present files use:
+
+- main run: `U = 4.0 eV`, `J_H = 0.8 eV`
+- robustness run: `U = 3.0 eV`, `J_H = 0.8 eV`
+
+This keeps the calculation anchored to published parameter ranges while avoiding over-claiming.
+
 ## Mapping Caveats for the Current Code
 
 Current implementation status:
@@ -95,15 +136,18 @@ Current implementation status:
 - `Dx2Y2InterlayerHopping` is an **extra interlayer** hopping inside the `d_{x^2-y^2}` sector.
 - Neither term is the same as the DFT nearest-neighbor interorbital hopping `t12^{x/y}`.
 
-Therefore the most honest DFT-anchored rebuttal run is:
+The final production rebuttal run should use:
 
-- set `InterOrbitalHybridization = 0.0`
-- set `Dx2Y2InterlayerHopping = 0.0`
+- `InterOrbitalHybridization = 0.0`
+- `Dx2Y2InterlayerHopping = 0.0`
 
-Another important caveat:
+However, for DMRG convergence it is numerically reasonable to use a small temporary on-site `InterOrbitalHybridization` during the warmup stage and then turn it off in later runs while reusing the saved MPS.
 
-- with those extra hopping terms set to zero, the current code does **not** exchange charge between the two orbital sectors.
-- because of this, `mu1` and `mu2` do not change the wavefunction in the main rebuttal runs once `NumElectronsDx2Y2` and `NumElectronsDz2` are fixed.
+Recommended interpretation:
+
+- `InterOrbitalHybridization` in the current code is a **numerical annealing knob**, not a direct DFT parameter.
+- `mu1` and `mu2` should still be set from the literature `Delta`, because once this temporary hybridization is present, the orbital energy difference becomes physically relevant in the sweep.
+- `Dx2Y2InterlayerHopping` should remain `0.0` unless one explicitly wants a non-DFT robustness test.
 
 So the present rebuttal should be phrased carefully:
 
@@ -120,6 +164,8 @@ Use the `50 GPa` Fmmm tight-binding values as a strict high-pressure anchor:
 - `t2 = 0.719 eV`
 - `J_H = 0.8 eV`
 - `U = 4.0 eV`
+- `mu1 = +0.2755 eV`
+- `mu2 = -0.2755 eV`
 - `delta = 0`
 - `NumElectronsDx2Y2 = Lx * Ly`
 - `NumElectronsDz2 = 2 * Lx * Ly`
@@ -136,8 +182,24 @@ Use the same hopping parameters but reduce the interaction to:
 
 - `U = 3.0 eV`
 - `J_H = 0.8 eV`
+- `mu1 = +0.2755 eV`
+- `mu2 = -0.2755 eV`
 
 This shows the conclusion is not tied to only one large-`U` choice.
+
+### Optional warmup protocol
+
+If a small orbital-mixing seed is needed to avoid poor local minima in early DMRG sweeps, use the same literature-based `mu1` and `mu2`, but temporarily set
+
+- `InterOrbitalHybridization = 0.05 * t1`
+
+for the warmup run, then restart from the saved `mps/` with
+
+- `InterOrbitalHybridization = 0.0`
+
+for the final production run.
+
+This should be described as a **numerical initialization strategy**, not as part of the physical parameter fit.
 
 ### Optional non-DFT stress test
 
@@ -166,6 +228,9 @@ Then compare:
 ```bash
 mpirun -np 4 ./dmrg4band params_referee_b_fmmm_50gpa_u3_t1eq1.json --D=400,800,1200
 ```
+
+If you want a warmup-first workflow, edit the chosen JSON temporarily to set
+`InterOrbitalHybridization = 0.05 * t1`, run a short warmup sweep, and then rerun from the saved `mps/` with `InterOrbitalHybridization = 0.0`.
 
 For the rebuttal figures/text, the most relevant measurements are the orbital-resolved outputs:
 
