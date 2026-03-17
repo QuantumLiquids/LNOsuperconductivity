@@ -1,0 +1,36 @@
+{
+  "CaseParams": {
+    "Geometry": "OBC",
+    "Lx": 6,
+    "Ly": 2,
+    "t1": 1.0,
+    "t2": 1.2862254025044722,
+    "Jh": 1.4311270125223614,
+    "U": 5.366726296958855,
+    "delta": 0.0,
+    "NumElectronsDx2Y2": 12,
+    "NumElectronsDz2": 24,
+    "InterOrbitalHybridization": 0.0,
+    "Dx2Y2InterlayerHopping": 0.0,
+    "mu1": 0.0,
+    "mu2": 0.0,
+    "Sweeps": 8,
+    "Dmin": 400,
+    "Dmax": 1200,
+    "CutOff": 1e-8,
+    "LanczErr": 1e-10,
+    "MaxLanczIter": 40,
+    "TotalThreads": 4,
+    "noise": [
+      1e-4,
+      1e-4,
+      1e-5,
+      1e-5,
+      1e-6,
+      1e-6,
+      0.0,
+      0.0
+    ],
+    "PinningField": false
+  }
+}
