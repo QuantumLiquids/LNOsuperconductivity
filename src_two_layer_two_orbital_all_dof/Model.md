@@ -14,9 +14,19 @@ $$
 - Each orbital sector contains `2 * Lx * Ly` spinful sites in the 1D DMRG mapping, so its maximum electron count is `4 * Lx * Ly`.
 - If they are omitted, the code uses the manuscript-motivated default filling:
   `NumElectronsDx2Y2 = Lx * Ly` and `NumElectronsDz2 = 2 * Lx * Ly`.
+- `Dmax`: required bond-dimension schedule. It can be either a single integer or an array such as `[400, 800, 1200]`.
+- `--D=...`: optional command-line override for the bond-dimension schedule. If provided, it overrides the `Dmax` value in the JSON file.
+- `Dmin`: stage-local lower bound. If `Dmin > Dmax` for a given stage, the code automatically uses `Dmin = Dmax` for that stage.
 - `InterOrbitalHybridization`: optional on-site hybridization hopping between `d_{x^2-y^2}` and `d_{z^2}` on the same physical Ni site.
 - `Dx2Y2InterlayerHopping`: optional extra interlayer hopping in the `d_{x^2-y^2}` orbital.
 - If the two optional hopping parameters are omitted, both default to `0.0`.
+- `noise`: optional DMRG noise schedule. If omitted, it defaults to the disabled schedule `[0.0]`.
+- For a multi-stage `Dmax` schedule, the code runs DMRG, measurements, metadata dump, and MPS backup for every stage separately.
+- Each stage writes a metadata file `dmrg_stage_metadata_<stage-tag>.json` and a backup directory `mps_<stage-tag>/`.
+- The bundled one-site measurements now write `sz_*`, `nf_*`, `nupndn_*`, and two cheap derived observables:
+  `single_occ_* = nf_* - 2 * nupndn_*` and
+  `charge_var_* = nf_* + 2 * nupndn_* - (nf_*)^2`.
+- For the `d_{z^2}` rebuttal runs, `single_occ_dz2_*` is the direct single-occupancy weight and `charge_var_dz2_*` is the local charge fluctuation.
 - The default direct-product initial state is deterministic:
   `d_{z^2}` starts with one electron on every site and total `S^z = 0`; for each x-slice, the top layer uses alternating spins by y and the bottom layer uses the opposite pattern. The `d_{x^2-y^2}` electrons are distributed as evenly as possible while keeping total `S^z = 0`, and every singly occupied `d_{x^2-y^2}` site is initialized parallel to the local `d_{z^2}` spin.
 

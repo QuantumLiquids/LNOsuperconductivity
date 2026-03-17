@@ -1,9 +1,13 @@
 #ifndef HX_MYUTIL_H //hao-xin's myutil
 #define HX_MYUTIL_H
 #include <cstdlib>
+#include <functional>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "qlmps/qlmps.h"
 
 bool IsElectron(size_t i, size_t Ly, size_t Np);
 bool IsDx2Y2Site(size_t site, size_t Ly);
@@ -29,6 +33,54 @@ std::vector<size_t> InterleaveOrbitalStateLabels(const std::vector<size_t> &orbi
                                                  const std::vector<size_t> &orbital2_labels,
                                                  size_t Ly);
 std::string OrbitalTag(bool dz2_orbital);
+std::string BuildStageBackupPath(const std::string &source_path, const std::string &stage_tag);
+void CopyDirectoryRecursively(const std::string &source_path, const std::string &destination_path);
+
+template <typename AvgT, typename CombineFn>
+qlmps::MeasuRes<AvgT> DeriveOneSiteObservableMeasuRes(const qlmps::MeasuRes<AvgT> &first_res,
+                                                      const qlmps::MeasuRes<AvgT> &second_res,
+                                                      CombineFn combine_fn) {
+  if (first_res.size() != second_res.size()) {
+    throw std::invalid_argument("Derived one-site observable requires equal result sizes.");
+  }
+
+  qlmps::MeasuRes<AvgT> derived_res;
+  derived_res.reserve(first_res.size());
+  for (size_t i = 0; i < first_res.size(); ++i) {
+    if (first_res[i].sites != second_res[i].sites) {
+      throw std::invalid_argument("Derived one-site observable requires aligned site indices.");
+    }
+    if (first_res[i].sites.size() != 1) {
+      throw std::invalid_argument("Derived one-site observable expects one-site measurements.");
+    }
+    derived_res.emplace_back(first_res[i].sites,
+                             combine_fn(first_res[i].avg, second_res[i].avg));
+  }
+  return derived_res;
+}
+
+template <typename AvgT>
+qlmps::MeasuRes<AvgT> DeriveSingleOccupancyMeasuRes(const qlmps::MeasuRes<AvgT> &nf_res,
+                                                    const qlmps::MeasuRes<AvgT> &doublon_res) {
+  return DeriveOneSiteObservableMeasuRes(
+      nf_res,
+      doublon_res,
+      [](const AvgT &nf, const AvgT &doublon) {
+        return nf - static_cast<AvgT>(2.0) * doublon;
+      });
+}
+
+template <typename AvgT>
+qlmps::MeasuRes<AvgT> DeriveChargeVarianceMeasuRes(const qlmps::MeasuRes<AvgT> &nf_res,
+                                                   const qlmps::MeasuRes<AvgT> &doublon_res) {
+  return DeriveOneSiteObservableMeasuRes(
+      nf_res,
+      doublon_res,
+      [](const AvgT &nf, const AvgT &doublon) {
+        return nf + static_cast<AvgT>(2.0) * doublon - nf * nf;
+      });
+}
+
 bool Parser(const int argc, char *argv[],
             size_t &start,
             size_t &end);

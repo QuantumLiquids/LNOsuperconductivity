@@ -1,7 +1,10 @@
 #include <algorithm>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <numeric>
+#include <string>
 #include <stdexcept>
 #include <vector>
 
@@ -110,6 +113,76 @@ int main() {
     std::cerr << "Bottom-layer reference starts should be rejected." << std::endl;
     return EXIT_FAILURE;
   }
+
+  const qlmps::MeasuRes<double> nf_res = {
+      {{4}, 1.0},
+      {{5}, 0.9}
+  };
+  const qlmps::MeasuRes<double> doublon_res = {
+      {{4}, 0.1},
+      {{5}, 0.05}
+  };
+  const auto single_occ_res = DeriveSingleOccupancyMeasuRes(nf_res, doublon_res);
+  const auto charge_var_res = DeriveChargeVarianceMeasuRes(nf_res, doublon_res);
+  if (single_occ_res.size() != 2 ||
+      single_occ_res[0].sites != std::vector<size_t>({4}) ||
+      single_occ_res[1].sites != std::vector<size_t>({5}) ||
+      std::abs(single_occ_res[0].avg - 0.8) > 1e-12 ||
+      std::abs(single_occ_res[1].avg - 0.8) > 1e-12) {
+    std::cerr << "Derived single-occupancy observable is incorrect." << std::endl;
+    return EXIT_FAILURE;
+  }
+  if (charge_var_res.size() != 2 ||
+      std::abs(charge_var_res[0].avg - 0.2) > 1e-12 ||
+      std::abs(charge_var_res[1].avg - 0.19) > 1e-12) {
+    std::cerr << "Derived charge-variance observable is incorrect." << std::endl;
+    return EXIT_FAILURE;
+  }
+  bool caught_misaligned_sites = false;
+  try {
+    (void)DeriveSingleOccupancyMeasuRes(
+        nf_res,
+        qlmps::MeasuRes<double>{{{6}, 0.1}, {{5}, 0.05}});
+  } catch (const std::invalid_argument &) {
+    caught_misaligned_sites = true;
+  }
+  if (!caught_misaligned_sites) {
+    std::cerr << "Derived observables should reject misaligned site indices." << std::endl;
+    return EXIT_FAILURE;
+  }
+  if (BuildStageBackupPath("mps", "GeometryOBC_stage2_Dmax40") !=
+      "mps_GeometryOBC_stage2_Dmax40") {
+    std::cerr << "Backup path should append the stage tag to the MPS path." << std::endl;
+    return EXIT_FAILURE;
+  }
+  namespace fs = std::filesystem;
+  const fs::path source_dir = fs::path("/tmp") / "lno_4band_backup_source";
+  const fs::path backup_dir = fs::path("/tmp") / "lno_4band_backup_target";
+  fs::remove_all(source_dir);
+  fs::remove_all(backup_dir);
+  fs::create_directories(source_dir / "nested");
+  {
+    std::ofstream(source_dir / "mps0.txt") << "stage-one";
+    std::ofstream(source_dir / "nested" / "mps1.txt") << "stage-one-nested";
+  }
+  CopyDirectoryRecursively(source_dir.string(), backup_dir.string());
+  if (!fs::exists(backup_dir / "mps0.txt") || !fs::exists(backup_dir / "nested" / "mps1.txt")) {
+    std::cerr << "Backup should copy the full MPS directory tree." << std::endl;
+    return EXIT_FAILURE;
+  }
+  {
+    std::ofstream(source_dir / "mps0.txt") << "stage-two";
+  }
+  CopyDirectoryRecursively(source_dir.string(), backup_dir.string());
+  std::ifstream backup_file(backup_dir / "mps0.txt");
+  std::string backup_contents;
+  backup_file >> backup_contents;
+  if (backup_contents != "stage-two") {
+    std::cerr << "Backup should overwrite stale MPS directories." << std::endl;
+    return EXIT_FAILURE;
+  }
+  fs::remove_all(source_dir);
+  fs::remove_all(backup_dir);
 
   const auto quarter_filled = BuildInitialOrbitalStateLabels(8, 4);
   if (!CheckCounts(quarter_filled, 4, 0)) {

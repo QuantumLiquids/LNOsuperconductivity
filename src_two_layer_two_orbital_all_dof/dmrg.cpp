@@ -4,7 +4,9 @@
  *
  */
 #include "qlmps/qlmps.h"
+#include <fstream>
 #include <stdexcept>
+#include <vector>
 
 #include "./hilbert_space.h"
 #include "./myutil.h"
@@ -25,6 +27,92 @@
 
 using FiniteMPST = qlmps::FiniteMPS<TenElemT, QNT>;
 
+namespace {
+
+std::vector<size_t> BuildMaxLanczIterSchedule(size_t stage_count, size_t max_lancz_iter) {
+  if (stage_count == 0) {
+    return {};
+  }
+  std::vector<size_t> schedule(stage_count, max_lancz_iter);
+  if (stage_count == 1) {
+    return schedule;
+  }
+
+  const size_t first_stage_iter = std::min<size_t>(3, max_lancz_iter);
+  schedule.front() = first_stage_iter;
+  schedule.back() = max_lancz_iter;
+  const size_t stage_step =
+      (max_lancz_iter > first_stage_iter) ? (max_lancz_iter - first_stage_iter) / (stage_count - 1) : 0;
+  for (size_t i = 1; i + 1 < stage_count; ++i) {
+    schedule[i] = schedule[i - 1] + stage_step;
+  }
+  return schedule;
+}
+
+template <typename T>
+std::string SerializeJsonArray(const std::vector<T> &values) {
+  std::ostringstream oss;
+  oss << "[";
+  for (size_t i = 0; i < values.size(); ++i) {
+    if (i != 0) {
+      oss << ", ";
+    }
+    oss << values[i];
+  }
+  oss << "]";
+  return oss.str();
+}
+
+void WriteStageMetadata(const CaseParams &params,
+                        const std::vector<size_t> &dmax_schedule,
+                        size_t stage_index,
+                        size_t stage_dmax,
+                        size_t stage_max_lancz_iter,
+                        const std::string &active_mps_path,
+                        const std::string &backup_mps_path) {
+  const std::string stage_tag = params.BuildStageTag(stage_index, stage_dmax);
+  const std::string metadata_path = "dmrg_stage_metadata_" + stage_tag + ".json";
+  std::ofstream ofs(metadata_path);
+  if (!ofs) {
+    throw std::runtime_error("Failed to open metadata file: " + metadata_path);
+  }
+
+  ofs << "{\n"
+      << "  \"StageTag\": \"" << stage_tag << "\",\n"
+      << "  \"StageNumber\": " << (stage_index + 1) << ",\n"
+      << "  \"StageCount\": " << dmax_schedule.size() << ",\n"
+      << "  \"Geometry\": \"" << params.Geometry << "\",\n"
+      << "  \"Lx\": " << params.Lx << ",\n"
+      << "  \"Ly\": " << params.Ly << ",\n"
+      << "  \"t1\": " << params.t1 << ",\n"
+      << "  \"t2\": " << params.t2 << ",\n"
+      << "  \"Jh\": " << params.Jh << ",\n"
+      << "  \"U\": " << params.U << ",\n"
+      << "  \"delta\": " << params.delta << ",\n"
+      << "  \"mu1\": " << params.mu1 << ",\n"
+      << "  \"mu2\": " << params.mu2 << ",\n"
+      << "  \"NumElectronsDx2Y2\": " << params.NumElectronsDx2Y2 << ",\n"
+      << "  \"NumElectronsDz2\": " << params.NumElectronsDz2 << ",\n"
+      << "  \"InterOrbitalHybridization\": " << params.InterOrbitalHybridization << ",\n"
+      << "  \"Dx2Y2InterlayerHopping\": " << params.Dx2Y2InterlayerHopping << ",\n"
+      << "  \"PinningField\": " << (params.PinningField ? "true" : "false") << ",\n"
+      << "  \"Sweeps\": " << params.Sweeps << ",\n"
+      << "  \"RequestedDmin\": " << params.Dmin << ",\n"
+      << "  \"EffectiveDmin\": " << params.EffectiveDmin(stage_dmax) << ",\n"
+      << "  \"Dmax\": " << stage_dmax << ",\n"
+      << "  \"DmaxSchedule\": " << SerializeJsonArray(dmax_schedule) << ",\n"
+      << "  \"CutOff\": " << params.CutOff << ",\n"
+      << "  \"LanczErr\": " << params.LanczErr << ",\n"
+      << "  \"RequestedMaxLanczIter\": " << params.MaxLanczIter << ",\n"
+      << "  \"StageMaxLanczIter\": " << stage_max_lancz_iter << ",\n"
+      << "  \"noise\": " << SerializeJsonArray(params.noise) << ",\n"
+      << "  \"ActiveMpsPath\": \"" << active_mps_path << "\",\n"
+      << "  \"BackupMpsPath\": \"" << backup_mps_path << "\"\n"
+      << "}\n";
+}
+
+}  // namespace
+
 int main(int argc, char *argv[]) {
   using namespace qlmps;
   using namespace qlten;
@@ -37,13 +125,13 @@ int main(int argc, char *argv[]) {
   if (argc == 1) {
     if (rank == 0) {
       std::cout
-          << "Usage: \n mpirun -np <num_proc> ./dmrg <params file> --D=<list of bond dimension, connected by comma>\n";
+          << "Usage: \n mpirun -np <num_proc> ./dmrg <params file> [--D=<list of bond dimensions, connected by comma>]\n";
     }
     return 0;
   } else if (argc == 2) {
     if (rank == 0)
       std::cout
-          << "The complete usage can be: Usage: \n mpirun -np <num_proc> ./dmrg <params file> --D=<list of bond dimension, connected by comma>"
+          << "The complete usage can be: \n mpirun -np <num_proc> ./dmrg <params file> [--D=<list of bond dimensions, connected by comma>]"
           << std::endl;
   }
 
@@ -75,45 +163,28 @@ int main(int argc, char *argv[]) {
               << ", J_H : " << J_H
               << std::endl;
   }
-  /****** DMRG parameter *******/
-  qlmps::FiniteVMPSSweepParams sweep_params(
-      params.Sweeps,
-      params.Dmin, params.Dmax, params.CutOff,
-      qlmps::LanczosParams(params.LanczErr, params.MaxLanczIter),
-      params.noise
-  );
 
   clock_t startTime, endTime;
   startTime = clock();
 
   qlmps::HubbardOperators<TenElemT, QNT> ops;
   const SiteVec<TenElemT, QNT> sites = SiteVec<TenElemT, QNT>(N, pb_out);
+  const std::string active_mps_path = qlmps::kMpsPath;
 
   std::vector<size_t> input_D_set;
   bool has_bond_dimension_parameter = ParserBondDimension(
       argc, argv,
       input_D_set);
-  size_t DMRG_time = input_D_set.size();
-  std::vector<size_t> MaxLanczIterSet(DMRG_time);
-  if (has_bond_dimension_parameter) {
-    MaxLanczIterSet.back() = params.MaxLanczIter;
-    if (DMRG_time > 1) {
-      size_t MaxLanczIterSetSpace;
-      MaxLanczIterSet[0] = 3;
-      MaxLanczIterSetSpace = (params.MaxLanczIter - 3) / (DMRG_time - 1);
-      if (rank == 0)
-        std::cout << "Setting MaxLanczIter as : [" << MaxLanczIterSet[0] << ", ";
-      for (size_t i = 1; i < DMRG_time - 1; i++) {
-        MaxLanczIterSet[i] = MaxLanczIterSet[i - 1] + MaxLanczIterSetSpace;
-        if (rank == 0)
-          std::cout << MaxLanczIterSet[i] << ", ";
-      }
-      if (rank == 0)
-        std::cout << MaxLanczIterSet.back() << "]" << std::endl;
-    } else {
-      if (rank == 0)
-        std::cout << "Setting MaxLanczIter as : [" << MaxLanczIterSet[0] << "]" << std::endl;
+  const std::vector<size_t> dmax_schedule = has_bond_dimension_parameter ? input_D_set : params.Dmax;
+  const size_t dmrg_stage_count = dmax_schedule.size();
+  const std::vector<size_t> max_lancz_iter_schedule =
+      BuildMaxLanczIterSchedule(dmrg_stage_count, params.MaxLanczIter);
+  if (rank == 0) {
+    if (has_bond_dimension_parameter) {
+      std::cout << "Override Dmax schedule from --D argument." << std::endl;
     }
+    std::cout << "Dmax schedule = " << SerializeJsonArray(dmax_schedule) << std::endl;
+    std::cout << "Stage MaxLanczIter = " << SerializeJsonArray(max_lancz_iter_schedule) << std::endl;
   }
 
   /****** Initialize MPS ******/
@@ -129,7 +200,7 @@ int main(int argc, char *argv[]) {
                   << "N_dx2y2 = " << params.NumElectronsDx2Y2
                   << ", N_dz2 = " << params.NumElectronsDz2 << std::endl;
         qlmps::DirectStateInitMps(mps, stat_labs);
-        mps.Dump(sweep_params.mps_path, true);
+        mps.Dump(active_mps_path, true);
       } catch (const std::exception &ex) {
         std::cout << "Failed to build initial state: " << ex.what() << std::endl;
         exit(1);
@@ -245,17 +316,8 @@ int main(int argc, char *argv[]) {
   if (rank == 0)
     std::cout << "MRO generated." << std::endl;
 
-  auto run_measurements = [&](size_t bond_dim) {
-    std::ostringstream oss;
-    oss << "dmrg_two_layer_two_orbital"
-        << "_U" << U
-        << "_Jh" << J_H
-        << "_t1" << t1
-        << "_t2" << t2
-        << "_Lx" << params.Lx
-        << "_Ly" << params.Ly
-        << "_D" << bond_dim;
-    const std::string file_postfix = oss.str();
+  auto run_measurements = [&](const std::string &stage_tag, const std::string &mps_path) {
+    const std::string file_postfix = "dmrg_two_layer_two_orbital_" + stage_tag;
     const std::vector<size_t> dx2y2_sites = CollectOrbitalSites(N, Ly, false);
     const std::vector<size_t> dz2_sites = CollectOrbitalSites(N, Ly, true);
 
@@ -270,7 +332,21 @@ int main(int argc, char *argv[]) {
             std::string("sz_") + orbital_tag + "_" + file_postfix,
             std::string("nf_") + orbital_tag + "_" + file_postfix,
             std::string("nupndn_") + orbital_tag + "_" + file_postfix};
-        MeasureOneSiteOp(mps, sweep_params.mps_path, one_site_ops, measurement_sites, one_site_labels);
+        try {
+          const auto one_site_measu_res_set =
+              MeasureOneSiteOp(mps, mps_path, one_site_ops, measurement_sites, one_site_labels);
+          if (one_site_measu_res_set.size() != one_site_ops.size()) {
+            throw std::runtime_error("Unexpected number of one-site measurement outputs.");
+          }
+          DumpMeasuRes(DeriveSingleOccupancyMeasuRes(one_site_measu_res_set[1], one_site_measu_res_set[2]),
+                       std::string("single_occ_") + orbital_tag + "_" + file_postfix);
+          DumpMeasuRes(DeriveChargeVarianceMeasuRes(one_site_measu_res_set[1], one_site_measu_res_set[2]),
+                       std::string("charge_var_") + orbital_tag + "_" + file_postfix);
+        } catch (const std::exception &ex) {
+          std::cerr << "Failed to derive one-site observables for " << orbital_tag
+                    << ": " << ex.what() << std::endl;
+          MPI_Abort(comm, 1);
+        }
       }
       one_site_timer.PrintElapsed();
       std::cout << "measured one point function.<====" << std::endl;
@@ -307,7 +383,7 @@ int main(int argc, char *argv[]) {
         if (idx % mpi_size == rank) {
           const auto &task = two_site_tasks[idx];
           auto measu_res = MeasureTwoSiteOpGroup(mps,
-                                                 sweep_params.mps_path,
+                                                 mps_path,
                                                  task.op1,
                                                  task.op2,
                                                  ref_site,
@@ -321,25 +397,50 @@ int main(int argc, char *argv[]) {
   };
 
   // dmrg
-  double e0;
-  if (!has_bond_dimension_parameter) {
-    e0 = qlmps::FiniteDMRG(mps, mro, sweep_params, comm);
-    run_measurements(sweep_params.Dmax);
-  } else {
-    for (size_t i = 0; i < DMRG_time; i++) {
-      size_t D = input_D_set[i];
-      if (rank == 0) {
-        std::cout << "D_max = " << D << std::endl;
+  for (size_t stage_index = 0; stage_index < dmrg_stage_count; ++stage_index) {
+    const size_t stage_dmax = dmax_schedule[stage_index];
+    const size_t stage_dmin = params.EffectiveDmin(stage_dmax);
+    if (rank == 0) {
+      std::cout << "Stage " << (stage_index + 1) << "/" << dmrg_stage_count
+                << ": Dmin = " << stage_dmin
+                << ", Dmax = " << stage_dmax
+                << ", MaxLanczIter = " << max_lancz_iter_schedule[stage_index]
+                << std::endl;
+      if (stage_dmin != params.Dmin) {
+        std::cout << "Clamp Dmin from " << params.Dmin << " to " << stage_dmin
+                  << " for this stage." << std::endl;
       }
-      qlmps::FiniteVMPSSweepParams sweep_params(
-          params.Sweeps,
-          D, D, params.CutOff,
-          qlmps::LanczosParams(params.LanczErr, MaxLanczIterSet[i]),
-          params.noise
-      );
-      e0 = qlmps::FiniteDMRG(mps, mro, sweep_params, comm);
-      run_measurements(D);
     }
+
+    qlmps::FiniteVMPSSweepParams stage_sweep_params(
+        params.Sweeps,
+        stage_dmin, stage_dmax, params.CutOff,
+        qlmps::LanczosParams(params.LanczErr, max_lancz_iter_schedule[stage_index]),
+        params.noise
+    );
+    stage_sweep_params.mps_path = active_mps_path;
+
+    const std::string stage_tag = params.BuildStageTag(stage_index, stage_dmax);
+    (void)qlmps::FiniteDMRG(mps, mro, stage_sweep_params, comm);
+
+    const std::string backup_mps_path = BuildStageBackupPath(stage_sweep_params.mps_path, stage_tag);
+    if (rank == 0) {
+      try {
+        CopyDirectoryRecursively(stage_sweep_params.mps_path, backup_mps_path);
+        WriteStageMetadata(params,
+                           dmax_schedule,
+                           stage_index,
+                           stage_dmax,
+                           max_lancz_iter_schedule[stage_index],
+                           stage_sweep_params.mps_path,
+                           backup_mps_path);
+      } catch (const std::exception &ex) {
+        std::cerr << "Failed to backup stage MPS or write metadata: " << ex.what() << std::endl;
+        MPI_Abort(comm, 1);
+      }
+    }
+    MPI_Barrier(comm);
+    run_measurements(stage_tag, stage_sweep_params.mps_path);
   }
   endTime = clock();
   std::cout << "CPU Time : " << (double) (endTime - startTime) / CLOCKS_PER_SEC << "s" << std::endl;

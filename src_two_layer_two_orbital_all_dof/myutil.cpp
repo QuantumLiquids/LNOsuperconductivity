@@ -1,5 +1,6 @@
 #include "qlmps/qlmps.h"
 #include <algorithm>
+#include <filesystem>
 #include <numeric>
 #include <stdexcept>
 
@@ -378,6 +379,38 @@ std::vector<size_t> InterleaveOrbitalStateLabels(const std::vector<size_t> &orbi
 
 std::string OrbitalTag(bool dz2_orbital) {
   return dz2_orbital ? "dz2" : "dx2y2";
+}
+
+std::string BuildStageBackupPath(const std::string &source_path, const std::string &stage_tag) {
+  return source_path + "_" + stage_tag;
+}
+
+void CopyDirectoryRecursively(const std::string &source_path, const std::string &destination_path) {
+  namespace fs = std::filesystem;
+  const fs::path source(source_path);
+  const fs::path destination(destination_path);
+  if (!fs::exists(source)) {
+    throw std::invalid_argument("Source directory does not exist: " + source_path);
+  }
+  if (!fs::is_directory(source)) {
+    throw std::invalid_argument("Source path is not a directory: " + source_path);
+  }
+
+  std::error_code ec;
+  fs::remove_all(destination, ec);
+  ec.clear();
+  if (!destination.parent_path().empty()) {
+    fs::create_directories(destination.parent_path(), ec);
+    ec.clear();
+  }
+  fs::copy(source,
+           destination,
+           fs::copy_options::recursive | fs::copy_options::overwrite_existing,
+           ec);
+  if (ec) {
+    throw std::runtime_error("Failed to backup directory from '" + source_path +
+                             "' to '" + destination_path + "': " + ec.message());
+  }
 }
 
 // When used to measure, note if should not set start too small to exceed canonical center.

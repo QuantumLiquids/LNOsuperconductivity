@@ -173,6 +173,29 @@ For the rebuttal figures/text, the most relevant measurements are the orbital-re
 - `nf_dz2_*`
 - `nupndn_dx2y2_*`
 - `nupndn_dz2_*`
+- `single_occ_dx2y2_*`
+- `single_occ_dz2_*`
+- `charge_var_dx2y2_*`
+- `charge_var_dz2_*`
 - `szsz_dx2y2_*`
 - `szsz_dz2_*`
 
+For the localized-`d_{z^2}` rebuttal, the primary quantities should now be taken directly from the new one-site outputs instead of being reconstructed later:
+
+- `P_single,z2 = <n_{z2}> - 2 <n_{z2,\uparrow} n_{z2,\downarrow}>`
+  This is written directly as `single_occ_dz2_*`.
+- `\delta n_{z2}^2 = <n_{z2}> + 2 <n_{z2,\uparrow} n_{z2,\downarrow}> - <n_{z2}>^2`
+  This is written directly as `charge_var_dz2_*`.
+
+Interpretation for the rebuttal:
+
+- `single_occ_dz2_*` close to `1` means the `d_{z^2}` sector is dominated by local spin-1/2 configurations.
+- small `charge_var_dz2_*` means the `d_{z^2}` charge fluctuation is suppressed, which is the cleanest cheap indicator of Mottness / projected-localized behavior in the present all-DOF code.
+- `nf_dz2_*` and `nupndn_dz2_*` should still be kept because they make the above interpretation transparent and allow independent post-processing checks.
+
+So the recommended rebuttal story is:
+
+1. show `nf_dz2_*` stays close to one electron per site,
+2. show `nupndn_dz2_*` remains small,
+3. quote `single_occ_dz2_*` and `charge_var_dz2_*` as the compact summary observables,
+4. use `szsz_dz2_*` as the spin-sector support for the local-moment interpretation.
