@@ -7,8 +7,6 @@
     "t2": 1,
     "Jh": 0.5,
     "U": 12,
-    "NumEle1": 18,
-    "NumEle2": 18,
     "delta": 0.3,
     "PinningField": true,
     "mu1": 2,
@@ -23,9 +21,6 @@
       0.001,
       0.001
     ],
-    "Perturbation": false,
-    "PerturbationAmplitude": 0.5,
-    "TotalThreads": 2,
-    "PerturbationPeriod": 4
+    "TotalThreads": 2
   }
 }

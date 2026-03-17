@@ -4,6 +4,8 @@
  *
  */
 #include "qlmps/qlmps.h"
+#include <stdexcept>
+
 #include "./hilbert_space.h"
 #include "./myutil.h"
 #include "./params_case.h"
@@ -119,57 +121,19 @@ int main(int argc, char *argv[]) {
   if (rank == 0) {
     if (!IsPathExist(kMpsPath) || !(N == GetNumofMps())) {
       std::cout << "Initial mps as direct product state." << std::endl;
-      //0: double occupancy; 1: spin up; 2: spin down; 3: empty
-      std::vector<size_t> stat_labs1(N / 2, 3), stat_labs2(N / 2, 3); // d_x^2-y^2, d_z^2
-
-      // if (params.NumEle1 <= N / 2 && params.NumEle2 <= N / 2 && params.NumEle1 % 2 == 0 && params.NumEle2 % 2 == 0) {
-      //   std::fill(stat_labs1.begin(), stat_labs1.begin() + params.NumEle1 / 2, 1); // orbital 1, spin up
-      //   std::fill(stat_labs1.begin() + params.NumEle1 / 2,
-      //             stat_labs1.begin() + params.NumEle1,
-      //             2); //orbital 2, spin down
-
-      //   std::fill(stat_labs2.begin(), stat_labs2.begin() + params.NumEle2 / 2, 1); // orbital 2, spin up
-      //   std::fill(stat_labs2.begin() + params.NumEle2 / 2,
-      //             stat_labs2.begin() + params.NumEle2,
-      //             2); //orbital 2, spin down
-
-      // } else {
-      //   std::cout << "Do not support num electrons!" << std::endl;
-      //   exit(1);
-      // }
-
-      // d_x^2-y^2 quarter filling, d_z^2 half filling
-      std::fill(stat_labs1.begin(), stat_labs1.begin() + N / 8, 1); // orbital 1, spin up
-      std::fill(stat_labs1.begin() + N / 8,
-                stat_labs1.begin() + N / 4,
-                2); //orbital 2, spin down
-
-      std::fill(stat_labs2.begin(), stat_labs2.begin() + N / 4, 1); // orbital 2, spin up
-      std::fill(stat_labs2.begin() + N / 4,
-                stat_labs2.end(),
-                2); //orbital 2, spin down
-
-      std::shuffle(stat_labs1.begin(), stat_labs1.end(), std::random_device());
-      std::shuffle(stat_labs2.begin(), stat_labs2.end(), std::random_device());
-      std::vector<size_t> stat_labs(N);
-      size_t chunk_size = 2 * Ly;
-      size_t index = 0;
-      for (size_t i = 0; i < stat_labs1.size(); i += chunk_size) {
-        // Copy chunk from stat_labs1
-        std::copy(stat_labs1.begin() + i,
-                  stat_labs1.begin() + std::min(i + chunk_size, stat_labs1.size()),
-                  stat_labs.begin() + index);
-        index += chunk_size;
-
-        // Copy chunk from stat_labs2
-        std::copy(stat_labs2.begin() + i,
-                  stat_labs2.begin() + std::min(i + chunk_size, stat_labs2.size()),
-                  stat_labs.begin() + index);
-        index += chunk_size;
+      try {
+        const auto stat_labs2 = BuildInitialDz2StateLabels(N / 2, params.NumElectronsDz2, Ly);
+        const auto stat_labs1 = BuildInitialDx2Y2StateLabels(N / 2, params.NumElectronsDx2Y2, stat_labs2);
+        const auto stat_labs = InterleaveOrbitalStateLabels(stat_labs1, stat_labs2, Ly);
+        std::cout << "Initial filling: "
+                  << "N_dx2y2 = " << params.NumElectronsDx2Y2
+                  << ", N_dz2 = " << params.NumElectronsDz2 << std::endl;
+        qlmps::DirectStateInitMps(mps, stat_labs);
+        mps.Dump(sweep_params.mps_path, true);
+      } catch (const std::exception &ex) {
+        std::cout << "Failed to build initial state: " << ex.what() << std::endl;
+        exit(1);
       }
-
-      qlmps::DirectStateInitMps(mps, stat_labs);
-      mps.Dump(sweep_params.mps_path, true);
     }
   }
 
@@ -243,24 +207,20 @@ int main(int argc, char *argv[]) {
       }
     }
   }
-  // perturbation hopping between d_z^2 and d_x^2-y^2 orbital
-  for (size_t x = 0; x < 2 * Lx - 1; x++) {
-    for (size_t y = 0; y < 2 * Ly; y++) {
-      size_t site1 = x * (2 * Ly) + y;
-      size_t site2 = (x + 1) * (2 * Ly) + y;
-      TenElemT t_noise = params.PA;
+  // optional on-site hybridization between d_z^2 and d_x^2-y^2 orbitals
+  for (const auto &[site1, site2] : CollectOnsiteInterOrbitalBonds(Lx, Ly)) {
+    const TenElemT t_noise = params.InterOrbitalHybridization;
+    if (t_noise != 0.0) {
       mpo_gen.AddTerm(-t_noise, ops.bupcF, site1, ops.bupa, site2, ops.f);
       mpo_gen.AddTerm(t_noise, ops.bupaF, site1, ops.bupc, site2, ops.f);
       mpo_gen.AddTerm(-t_noise, ops.bdnc, site1, ops.Fbdna, site2, ops.f);
       mpo_gen.AddTerm(t_noise, ops.bdna, site1, ops.Fbdnc, site2, ops.f);
     }
   }
-  // pertubative interlayer hopping in d_x^2-y^2 orbital
-  for (size_t x = 0; x < 2 * Lx; x += 2) {
-    for (size_t y = 0; y < Ly; y++) {
-      size_t site1 = x * (2 * Ly) + y;
-      size_t site2 = site1 + Ly;
-      TenElemT t_noise = params.PA;
+  // optional extra interlayer hopping in d_x^2-y^2 orbital
+  for (const auto &[site1, site2] : CollectInterlayerDx2Y2Bonds(Lx, Ly)) {
+    const TenElemT t_noise = params.Dx2Y2InterlayerHopping;
+    if (t_noise != 0.0) {
       mpo_gen.AddTerm(-t_noise, ops.bupcF, site1, ops.bupa, site2, ops.f);
       mpo_gen.AddTerm(t_noise, ops.bupaF, site1, ops.bupc, site2, ops.f);
       mpo_gen.AddTerm(-t_noise, ops.bdnc, site1, ops.Fbdna, site2, ops.f);
@@ -296,27 +256,22 @@ int main(int argc, char *argv[]) {
         << "_Ly" << params.Ly
         << "_D" << bond_dim;
     const std::string file_postfix = oss.str();
-
-    const std::vector<size_t> measurement_sites = [&]() {
-      std::vector<size_t> sites;
-      for (size_t i = 0; i < N; ++i) {
-        if ((i / (2 * Ly)) % 2 == 0) {
-          sites.push_back(i);
-        }
-      }
-      return sites;
-    }();
+    const std::vector<size_t> dx2y2_sites = CollectOrbitalSites(N, Ly, false);
+    const std::vector<size_t> dz2_sites = CollectOrbitalSites(N, Ly, true);
 
     const std::vector<QLTensor<TenElemT, QNT>> one_site_ops = {ops.sz, ops.nf, ops.nupndn};
-    std::vector<std::string> one_site_labels = {
-        std::string("sz_") + file_postfix,
-        std::string("nf_") + file_postfix,
-        std::string("nupndn_") + file_postfix};
 
     if (rank == hp_numeric::kMPIMasterRank) {
       Timer one_site_timer("measure one site operators");
-      //MeasureOneSiteOp(mps, sweep_params.mps_path, one_site_ops, measurement_sites, one_site_labels);
-      MeasureOneSiteOp(mps, sweep_params.mps_path, {ops.sz, ops.nf, ops.nupndn}, {"sz", "nf", "nupndn"});
+      for (bool dz2_orbital : {false, true}) {
+        const auto &measurement_sites = dz2_orbital ? dz2_sites : dx2y2_sites;
+        const std::string orbital_tag = OrbitalTag(dz2_orbital);
+        const std::vector<std::string> one_site_labels = {
+            std::string("sz_") + orbital_tag + "_" + file_postfix,
+            std::string("nf_") + orbital_tag + "_" + file_postfix,
+            std::string("nupndn_") + orbital_tag + "_" + file_postfix};
+        MeasureOneSiteOp(mps, sweep_params.mps_path, one_site_ops, measurement_sites, one_site_labels);
+      }
       one_site_timer.PrintElapsed();
       std::cout << "measured one point function.<====" << std::endl;
     }
@@ -335,22 +290,31 @@ int main(int argc, char *argv[]) {
         {"nupndn_nupndn", ops.nupndn, ops.nupndn}
     };
 
-    size_t ref_site = 0;
-    std::vector<size_t> target_sites;
-    for (size_t i = ref_site + 1; i < N; ++i) {
-      target_sites.push_back(i);
-    }
-
-    for (size_t idx = 0; idx < two_site_tasks.size(); ++idx) {
-      if (idx % mpi_size == rank) {
-        const auto &task = two_site_tasks[idx];
-        auto measu_res = MeasureTwoSiteOpGroup(mps,
-                                               sweep_params.mps_path,
-                                               task.op1,
-                                               task.op2,
-                                               ref_site,
-                                               target_sites);
-        DumpMeasuRes(measu_res, task.label + "_" + file_postfix);
+    for (bool dz2_orbital : {false, true}) {
+      const auto &orbital_sites = dz2_orbital ? dz2_sites : dx2y2_sites;
+      if (orbital_sites.size() < 2) {
+        continue;
+      }
+      const std::string orbital_tag = OrbitalTag(dz2_orbital);
+      const size_t ref_site = orbital_sites[orbital_sites.size() / 2];
+      std::vector<size_t> target_sites;
+      for (size_t site : orbital_sites) {
+        if (site > ref_site) {
+          target_sites.push_back(site);
+        }
+      }
+      for (size_t idx = 0; idx < two_site_tasks.size(); ++idx) {
+        if (idx % mpi_size == rank) {
+          const auto &task = two_site_tasks[idx];
+          auto measu_res = MeasureTwoSiteOpGroup(mps,
+                                                 sweep_params.mps_path,
+                                                 task.op1,
+                                                 task.op2,
+                                                 ref_site,
+                                                 target_sites);
+          DumpMeasuRes(measu_res,
+                       task.label + "_" + orbital_tag + "_ref" + std::to_string(ref_site) + "_" + file_postfix);
+        }
       }
     }
     MPI_Barrier(comm);

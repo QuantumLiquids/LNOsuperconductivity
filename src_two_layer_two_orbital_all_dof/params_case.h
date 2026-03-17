@@ -14,8 +14,20 @@ struct CaseParams : public CaseParamsParserBasic {
     U = ParseDouble("U");
     delta = ParseDouble("delta");
     noise = ParseDoubleVec("noise");
-    NumEle1 = ParseInt("NumEle1");
-    NumEle2 = ParseInt("NumEle2");
+    if (Has("NumEle1") || Has("NumEle2")) {
+      std::cerr << "Use 'NumElectronsDx2Y2' and 'NumElectronsDz2'. "
+                << "Legacy keys 'NumEle1'/'NumEle2' are no longer supported." << std::endl;
+      exit(1);
+    }
+    NumElectronsDx2Y2 = ParseIntOr("NumElectronsDx2Y2", static_cast<int>(Lx * Ly));
+    NumElectronsDz2 = ParseIntOr("NumElectronsDz2", static_cast<int>(2 * Lx * Ly));
+    if (Has("Perturbation") || Has("PerturbationAmplitude") || Has("PerturbationPeriod")) {
+      std::cerr << "Use 'InterOrbitalHybridization' and 'Dx2Y2InterlayerHopping'. "
+                << "Legacy keys 'Perturbation*' are no longer supported." << std::endl;
+      exit(1);
+    }
+    InterOrbitalHybridization = ParseDoubleOr("InterOrbitalHybridization", 0.0);
+    Dx2Y2InterlayerHopping = ParseDoubleOr("Dx2Y2InterlayerHopping", 0.0);
     mu1 = ParseDouble("mu1");
     mu2 = ParseDouble("mu2");
     Sweeps = ParseInt("Sweeps");
@@ -25,15 +37,7 @@ struct CaseParams : public CaseParamsParserBasic {
     LanczErr = ParseDouble("LanczErr");
     MaxLanczIter = ParseInt("MaxLanczIter");
     TotalThreads = ParseInt("TotalThreads");
-    Perturbation = ParseBool("Perturbation");
     PinningField = ParseBool("PinningField");
-    if (Perturbation) {
-      PA = ParseDouble("PerturbationAmplitude");
-      PerturbationPeriod = ParseInt("PerturbationPeriod");
-    } else {
-      PA = 0.0;
-      PerturbationPeriod = 1;
-    }
   }
 
   std::string Geometry; // Cylinder, Torus, OBC, Rotated, Ladder
@@ -49,15 +53,14 @@ struct CaseParams : public CaseParamsParserBasic {
   size_t Sweeps;
   size_t Dmin;
   size_t Dmax;
-  size_t NumEle1;
-  size_t NumEle2;
+  size_t NumElectronsDx2Y2;
+  size_t NumElectronsDz2;
   double CutOff;
   double LanczErr;
   size_t MaxLanczIter;
   size_t TotalThreads;
   std::vector<double> noise;
-  bool Perturbation;
   bool PinningField;
-  double PA;
-  size_t PerturbationPeriod;
+  double InterOrbitalHybridization;
+  double Dx2Y2InterlayerHopping;
 };

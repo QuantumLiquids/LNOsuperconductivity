@@ -7,6 +7,7 @@
 #include "qlmps/qlmps.h"
 #include "qlten/qlten.h"
 #include <ctime>
+#include <stdexcept>
 #include "hilbert_space.h"
 #include "params_case.h"
 #include "myutil.h"
@@ -22,11 +23,13 @@ using qlten::Timer;
 // When used to measure, note if should not set start too small to exceed canonical center.
 bool ParserSC(const int argc, char *argv[],
             size_t &start,
-            size_t &end) {
+            size_t &end,
+            bool &dz2_orbital) {
   int nOptionIndex = 1;
 
   std::string arguement1 = "--start=";
   std::string arguement2 = "--end=";
+  std::string arguement3 = "--orbital=";
   bool start_argument_has(false), end_argument_has(false);
   while (nOptionIndex < argc) {
     if (strncmp(argv[nOptionIndex], arguement1.c_str(), arguement1.size()) == 0) {
@@ -37,6 +40,16 @@ bool ParserSC(const int argc, char *argv[],
       std::string para_string = &argv[nOptionIndex][arguement2.size()];
       end = atoi(para_string.c_str());
       end_argument_has = true;
+    } else if (strncmp(argv[nOptionIndex], arguement3.c_str(), arguement3.size()) == 0) {
+      std::string orbital = &argv[nOptionIndex][arguement3.size()];
+      if (orbital == "dx2y2") {
+        dz2_orbital = false;
+      } else if (orbital == "dz2") {
+        dz2_orbital = true;
+      } else {
+        std::cout << "Unsupported orbital: " << orbital << std::endl;
+        exit(1);
+      }
     }
     nOptionIndex++;
   }
@@ -67,7 +80,8 @@ int main(int argc, char *argv[]) {
 
   size_t start;
   size_t endx;
-  bool start_argument_has = ParserSC(argc, argv, start, endx);
+  bool dz2_orbital = false;
+  bool start_argument_has = ParserSC(argc, argv, start, endx, dz2_orbital);
 
   CaseParams params(argv[1]);
 
@@ -79,8 +93,20 @@ int main(int argc, char *argv[]) {
   }
 
   if (!start_argument_has) {
-    start = 0;
+    start = dz2_orbital ? 2 * Ly : 0;
     endx = start + Lx / 2 + 2;
+  }
+  const size_t original_start = start;
+  try {
+    start = CanonicalizeInterlayerPairReferenceStart(start, N, Ly, dz2_orbital);
+  } catch (const std::invalid_argument &ex) {
+    std::cout << "Invalid reference start: " << ex.what() << std::endl;
+    exit(1);
+  }
+  if (rank == 0 && start != original_start) {
+    std::cout << "Adjusted reference start from " << original_start
+              << " to " << start
+              << " for orbital " << OrbitalTag(dz2_orbital) << std::endl;
   }
 
   qlmps::HubbardOperators<TenElemT, QNT>  ops;
@@ -96,7 +122,8 @@ int main(int argc, char *argv[]) {
   std::vector<std::array<size_t, 2>> target_bond;
 
   target_bond.reserve(Ly * Lx);
-  for (size_t x = 0; x < 2 * Lx; x += 2) {
+  const size_t orbital_x_offset = dz2_orbital ? 1 : 0;
+  for (size_t x = orbital_x_offset; x < 2 * Lx; x += 2) {
     for (size_t y = 0; y < Ly; y++) {
       size_t target_site0 = x * (2 * Ly) + y;
       size_t target_site1 = target_site0 + Ly; // interlayer pairing
@@ -116,7 +143,8 @@ int main(int argc, char *argv[]) {
   std::array<Tensor, 4> sc_phys_ops_c = {ops.bupcF, ops.Fbdnc, ops.bdna, ops.bupa};
   std::array<Tensor, 4> sc_phys_ops_d = {ops.bdnc, ops.bupc, ops.bdna, ops.bupa};
 
-  std::string file_name_postfix = "_fix_refer" + std::to_string(ref_site[0]);
+  std::string file_name_postfix =
+      "_" + OrbitalTag(dz2_orbital) + "_fix_refer" + std::to_string(ref_site[0]);
   Tensor f = ops.f;
   if (rank == 0) {
     auto measure_res = MeasureFourSiteOpGroup(mps, kMpsPath, sc_phys_ops_a, ref_site, target_bond, f);
