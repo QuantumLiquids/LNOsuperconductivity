@@ -1,0 +1,54 @@
+Truncation Errors for Middle Sites (Sites 200 and 201) with D>=3000:
+==============================================================================================================
+Filename                       Sweep  Site   Bond       Direction       TruncErr     Bond Dim  
+--------------------------------------------------------------------------------------------------------------
+Jh4U18Jperp4D10000.log         1      200    200-201    right-moving    1.49e-07     10000     
+Jh4U18Jperp4D10000.log         1      200    199-200    left-moving     1.68e-08     10000     
+Jh4U18Jperp4D10000.log         1      201    201-202    right-moving    2.92e-06     10000     
+Jh4U18Jperp4D10000.log         1      201    200-201    left-moving     1.49e-07     10000     
+Jh4U18Jperp4D10000.log         2      200    200-201    right-moving    1.50e-07     10000     
+Jh4U18Jperp4D10000.log         2      200    199-200    left-moving     1.68e-08     10000     
+Jh4U18Jperp4D10000.log         2      201    201-202    right-moving    2.92e-06     10000     
+Jh4U18Jperp4D10000.log         2      201    200-201    left-moving     1.50e-07     10000     
+Jh4U18Jperp4D12000.log         1      200    200-201    right-moving    2.47e-07     12000     
+Jh4U18Jperp4D12000.log         1      200    199-200    left-moving     1.45e-08     12000     
+Jh4U18Jperp4D12000.log         1      201    201-202    right-moving    3.89e-06     12000     
+Jh4U18Jperp4D12000.log         1      201    200-201    left-moving     1.26e-07     12000     
+Jh4U18Jperp4D12000.log         2      200    200-201    right-moving    1.22e-07     12000     
+Jh4U18Jperp4D12000.log         2      200    199-200    left-moving     1.35e-08     12000     
+Jh4U18Jperp4D12000.log         2      201    201-202    right-moving    2.39e-06     12000     
+Jh4U18Jperp4D12000.log         2      201    200-201    left-moving     1.18e-07     12000     
+Jh4U18Jperp4D12000.log         3      200    200-201    right-moving    1.18e-07     12000     
+Jh4U18Jperp4D12000.log         3      200    199-200    left-moving     1.34e-08     12000     
+Jh4U18Jperp4D12000.log         3      201    201-202    right-moving    2.33e-06     12000     
+Jh4U18Jperp4D12000.log         3      201    200-201    left-moving     1.17e-07     12000     
+Jh4U18Jperp4D12000.log         4      200    200-201    right-moving    1.17e-07     12000     
+Jh4U18Jperp4D12000.log         4      200    199-200    left-moving     1.34e-08     12000     
+Jh4U18Jperp4D12000.log         4      201    201-202    right-moving    2.32e-06     12000     
+Jh4U18Jperp4D12000.log         4      201    200-201    left-moving     1.17e-07     12000     
+Jh4U18Jperp4D15000.log         1      200    200-201    right-moving    8.40e-08     15000     
+Jh4U18Jperp4D15000.log         1      200    199-200    left-moving     9.50e-09     15000     
+Jh4U18Jperp4D15000.log         1      201    201-202    right-moving    1.66e-06     15000     
+Jh4U18Jperp4D15000.log         1      201    200-201    left-moving     8.40e-08     15000     
+Jh4U18Jperp4D15000.log         2      200    200-201    right-moving    8.41e-08     15000     
+Jh4U18Jperp4D15000.log         2      200    199-200    left-moving     9.49e-09     15000     
+Jh4U18Jperp4D15000.log         2      201    201-202    right-moving    1.66e-06     15000     
+Jh4U18Jperp4D15000.log         2      201    200-201    left-moving     8.42e-08     15000     
+Jh4U18Jperp4D18000.log         1      200    200-201    right-moving    3.16e-08     18000     
+Jh4U18Jperp4D18000.log         1      200    199-200    left-moving     6.75e-09     18000     
+Jh4U18Jperp4D18000.log         1      201    201-202    right-moving    8.25e-07     18000     
+Jh4U18Jperp4D18000.log         1      201    200-201    left-moving     5.82e-08     18000     
+Jh4U18Jperp4D18000.log         2      200    200-201    right-moving    6.12e-08     18000     
+Jh4U18Jperp4D18000.log         2      200    199-200    left-moving     7.30e-09     18000     
+Jh4U18Jperp4D18000.log         2      201    201-202    right-moving    1.19e-06     18000     
+Jh4U18Jperp4D18000.log         2      201    200-201    left-moving     6.30e-08     18000     
+Jh4U18Jperp4D18000.log         3      200    200-201    right-moving    6.33e-08     18000     
+Jh4U18Jperp4D18000.log         3      200    199-200    left-moving     7.24e-09     18000     
+Jh4U18Jperp4D18000.log         3      201    201-202    right-moving    1.24e-06     18000     
+Jh4U18Jperp4D18000.log         3      201    200-201    left-moving     6.38e-08     18000     
+Jh4U18Jperp4D18000.log         4      200    200-201    right-moving    6.39e-08     18000     
+Jh4U18Jperp4D18000.log         4      200    199-200    left-moving     7.29e-09     18000     
+Jh4U18Jperp4D18000.log         4      201    201-202    right-moving    1.25e-06     18000     
+Jh4U18Jperp4D18000.log         4      201    200-201    left-moving     6.41e-08     18000     
+Jh4U18Jperp4D18000.log         5      200    200-201    right-moving    6.41e-08     18000     
+Jh4U18Jperp4D18000.log         5      201    201-202    right-moving    1.25e-06     18000     

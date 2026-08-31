@@ -41,8 +41,16 @@ release/
 .idea
 
 # Project
-data/
 run/
 
 *.DS_Store
 *.mat
+/.cursor
+CLAUDE.md
+/skills
+/draft
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
