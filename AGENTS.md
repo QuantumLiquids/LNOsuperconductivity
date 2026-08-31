@@ -7,10 +7,14 @@ This file provides guidance to coding agents when working with code in this repo
 This is a research codebase for studying superconductivity in bilayer nickelate La3Ni2O7 using large-scale tensor-network methods (DMRG and PEPS). The central physics: a two-orbital ferromagnetic Kondo-Hubbard model explains the diagonal (pi/2, pi/2) spin stripe order at ambient pressure and interlayer singlet pairing at high pressure. The paper is submitted to PRL (LM19284, first-round review).
 
 Active manuscript files:
-- `draft/main_final.tex` (main text)
-- `draft/SupplementaryMaterial.tex`
+- `draft/resubmission/main_resub_Haoxin_YMW.tex` (latest main text)
+- `draft/resubmission/SupplementaryMaterial.tex` (latest supplementary text)
 - `draft/nickelate.bib`
 - `draft/reply_file/reply.tex` (reviewer reply draft)
+
+Bibliography note:
+- The source bibliography file is `draft/nickelate.bib`.
+- Files such as `*Notes.bib` in the `draft/` repo are LaTeX-generated auxiliary files, not source bibliography files.
 
 ## Build Instructions
 
@@ -130,3 +134,10 @@ Design: plugin-style models (template argument to `VMCPEPSOptimizer`/`MCPEPSMeas
 Data flow: Simple Update writes `peps/` + `tpsfinal/`. VMC reads/writes `tpsfinal/`. MC measurement reads `tpsfinal/`.
 
 Checkerboard zigzag hopping: `t` (intra-chain), `t2` (inter-chain) on square lattice. Parity = (row+col)%2 determines which bonds use t vs t2. All three stages (SU, VMC, measure) use exact per-bond Hamiltonians. See `src_peps_kondo_single_layer/README.md` for details.
+
+
+## On Draft
+The LaTeX draft is in `.gitignore`, and it is an independent git repo cloned from Overleaf.
+The latest manuscript version is `resubmission/main_resub_Haoxin_YMW.tex`.
+The latest supplementary version is `resubmission/SupplementaryMaterial.tex`.
+Use `nickelate.bib` as the bibliography source; ignore generated files such as `*Notes.bib`.
