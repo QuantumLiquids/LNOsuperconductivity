@@ -300,6 +300,9 @@ supplied values and compares the original table, a midpoint in AF exchanges,
 and the exploratory candidate at D=2,3,4 using a common short protocol.
 The reference gap is explicitly relative to the measured `(0,pi)` branch.
 FM and quarter-axis guards are included at candidate D=3.
+The completed campaign readout and its limits are recorded in
+`Note/cent_u1_d234_20261105.md`; these N-only cold-start data use a different
+projection history from the earlier local two-U1 controls.
 
 `MeasureInitial=false` and `MeasureStageEnds=false` allow a coarse screen to
 measure only after the final evolution step. `CheckpointEvery` retains states
