@@ -1,0 +1,59 @@
+{
+  "date": "2026-11-05",
+  "binary_sha256": "a8c87fec30539ea91b51d1cb8803b933b7c38c2b77c16a4ad1591b97cdb7928f",
+  "application_sha256": {
+    "simple_update.cpp": "7410bf535cf8a68d85d619f4f3a135654938944ceba91ecf04df465e6e97cda0",
+    "compare_seeds.py": "9a35c0623353489a5e2991bbdaf29541fa9078729f30e36438c6fdb3673389cb",
+    "plot_readout.py": "ec02747dc800b6752de5022a24d9dec7a6cf64a7a3c4161db5d651ca8d1e8b48",
+    "validate_model.cpp": "df882f58fa8c51331e20db73b991d549342e1c5838a6ac8e9b045cc3644e9296",
+    "model.h": "409b14765311e9831b00a6390cc15b9009059b882f69ab64120f729b3075b43e",
+    "scan_exchange.py": "23114d1e3e4c857808892a23e610d3d1b0bcfacf152dce0268c478621da6515a",
+    "plot_exchange_scan.py": "26cbe21a648dc2a33b4b9af7b1152a7c6900d07ea1404d7f8cf629055710137d"
+  },
+  "parameter_sha256": {
+    "explore_d2.json": "d7d42267938a843b4a28a9e42173940d5b9529393950e393eeb1c3a4598cb55a",
+    "smoke_d2.json": "5f4908e7270940860b79fc41ca1940bad7aeadbc746c1390a4f28bbfc75a1595",
+    "exchange_candidate_d2.json": "0e953623a79aa0500b22507cc3ddf487612ac91ae870007986312bcb4fec9808",
+    "candidate_d2.json": "a5cef920fd3fa62b36b6430de6e442a1a385c10ba78a5cb8b6a7d1150293f909",
+    "exchange_scan_d2.json": "30b49bc180d6b190793e8cff3ed5c9579600efbb814b1e44538de3ab48d293dc",
+    "physics_diagonal_candidate.json": "1819ee117facdcb4309d5bf05d3f33c989d4ecf72fc6b2a01c3a8fc78f6a1361",
+    "screen_d2.json": "709c870eadfb52c47951f695e44aef938e3f4bc743a7e593d000209e48a0e7ed",
+    "physics_table.json": "d082d65b74df464e399b097b35c4d0aa4a5db625084bc3a08f6847538ac078c9",
+    "refine_d2.json": "a0cf174a39115b9ad643f275d0ac01cbb4c025cf25729e1fa5dcc690083a482e"
+  },
+  "repos": {
+    "LNOsuperconductivity": {
+      "head": "d5741e0bee1099f075582456f52b7dbc37343089",
+      "modified_tracked_files": [
+        "AGENTS.md",
+        "CMakeLists.txt"
+      ]
+    },
+    "PEPS": {
+      "head": "9cd3837e1eb78fc805ceebdeb0cc24b0b822500a",
+      "modified_tracked_files": [
+        "docs/dev/design/math/tj-full-singlet-pair-correlation.md",
+        "include/qlpeps/algorithm/vmc_update/model_solvers/measurement/tj_full_singlet_pair_correlation_mixin_obc.h",
+        "include/qlpeps/algorithm/vmc_update/model_solvers/measurement/tj_singlet_pair_structure_factor.h",
+        "tests/test_model_solvers/test_tj_full_singlet_pair_correlation.cpp",
+        "tests/test_model_solvers/test_tj_singlet_pair_structure_factor.cpp"
+      ]
+    },
+    "TensorToolkit": {
+      "head": "2744eeb10fb33109e570c7d4997fce62e7ae9b6e",
+      "modified_tracked_files": []
+    },
+    "UltraDMRG": {
+      "head": "7ed427afb840f19fd064e4fab77561b0e11c7138",
+      "modified_tracked_files": [
+        "include/qlmps/workspace.h",
+        "tests/test_workspace.cc"
+      ]
+    }
+  },
+  "fixed_chi": 8,
+  "chi_sweep_performed": false,
+  "completed_cold_grid_starts": 46,
+  "candidate_refined_states": 6,
+  "fresh_merged_schedule_reproduction_energy_per_ni": 1.1041963301971733
+}

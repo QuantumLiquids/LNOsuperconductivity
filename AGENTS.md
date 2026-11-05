@@ -4,7 +4,7 @@ This file provides guidance to coding agents when working with code in this repo
 
 ## Project Overview
 
-This is a research codebase for studying superconductivity in bilayer nickelate La3Ni2O7 using large-scale tensor-network methods (DMRG and PEPS). The central physics: a two-orbital ferromagnetic Kondo-Hubbard model explains the diagonal (pi/2, pi/2) spin stripe order at ambient pressure and interlayer singlet pairing at high pressure. The paper is submitted to PRL (LM19284, first-round review).
+This is a research codebase for studying superconductivity in bilayer nickelate La3Ni2O7 using large-scale tensor-network methods (DMRG and PEPS). The central physics: a two-orbital ferromagnetic Kondo-Hubbard model explains the diagonal (pi/2, pi/2) spin stripe order at ambient pressure and interlayer singlet pairing at high pressure. The paper has been published in PRL.
 
 Active manuscript files:
 - `draft/resubmission/main_resub_Haoxin_YMW.tex` (latest main text)
@@ -75,6 +75,7 @@ Each `src_*/` directory is a self-contained model variant. They share `src_tj_do
 - `src_tj_double_layer_single_orbital_2d/`: double-layer single-orbital t-J model (3D per site).
 - `src_tj_single_layer_single_orbital_2d_anisotropic/`: single-layer anisotropic t-J (3D per site).
 - `src_peps_kondo_single_layer/`: new (untested) single-layer Kondo PEPS (8D per site).
+- `src_ipeps_bilayer_two_orbital/`: projected two-orbital bilayer fermionic iPEPS; one 81D rung per tensor, infinite simple update and CTMRG measurements. See its README for the distinct Hund convention and local screening limits.
 
 ### External Libraries (header-only, outside this repo)
 
@@ -134,6 +135,22 @@ Design: plugin-style models (template argument to `VMCPEPSOptimizer`/`MCPEPSMeas
 Data flow: Simple Update writes `peps/` + `tpsfinal/`. VMC reads/writes `tpsfinal/`. MC measurement reads `tpsfinal/`.
 
 Checkerboard zigzag hopping: `t` (intra-chain), `t2` (inter-chain) on square lattice. Parity = (row+col)%2 determines which bonds use t vs t2. All three stages (SU, VMC, measure) use exact per-bond Hamiltonians. See `src_peps_kondo_single_layer/README.md` for details.
+
+## Projected Bilayer iPEPS (`src_ipeps_bilayer_two_orbital/`)
+
+Build `ipeps_bilayer_simple_update` and `ipeps_bilayer_validate_model` in `build/`.
+Requires recent local PEPS headers with infinite fermionic SU and CTMRG.
+This is the follow-up projected model, with mobile z and x orbitals, not the 8D Kondo approximation.
+The local Hund term is `-2 JH (S_z.S_x + n_z*n_x/4)`; exchange is literal `J S.S`, without an added `-J n*n/4`.
+Use the same 4x4 rung cell for diagonal `(pi/2,pi/2)` and axial competitors.
+Default targets conserve N and Sz (`fU1U1QN`); `_u1` targets conserve only N (`fU1QN`), starting at 3 electrons/rung. Exact Sz metadata is null for N-only tensors.
+N-only gate construction may exploit the Hamiltonian's intrinsic Sz blocks internally; physical/virtual PEPS indices and truncation still have no spin U1 constraint.
+Compare CTMRG energies and final layer-resolved Fourier amplitudes; SU normalization factors are not energies.
+Measure both Sx and Sz in the real N-only ansatz. Phase grouping sums their Fourier powers and flags different layer wavevectors.
+Vary `ChargePattern`, `ChargeOffset`, and `SpinOffset` as well as magnetic initializers. Quarter-axis `++--` seeds need balanced spin/charge phases when comparing fixed Sz. Rung D is shared between layers.
+The supplied table has zero interlayer hopping/exchange; do not infer a preferred layer spin registry from it.
+The cent workflow is in `src_ipeps_bilayer_two_orbital/cluster/`: one process, one physical core, `--hint=nomultithread`, all BLAS/OpenMP thread counts 1. Do not run multiple MPI ranks on one case.
+Use isolated dependency snapshots/builds on cent and fresh gate caches after recompilation. Keep raw states under ignored `run/` locally or the remote campaign's `runs/`.
 
 
 ## On Draft

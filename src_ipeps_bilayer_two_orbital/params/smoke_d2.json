@@ -1,0 +1,26 @@
+{
+  "CaseParams": {
+    "Rows": 4,
+    "Cols": 4,
+    "InitState": "diagonal_plus",
+    "LayerAlignment": -1,
+    "Dmin": 1,
+    "Dmax": 2,
+    "TruncErr": 1e-12,
+    "InverseCutoff": 1e-12,
+    "ThreadNum": 2,
+    "Schedule": [
+      {
+        "Tau": 0.02,
+        "Steps": 2
+      }
+    ],
+    "MeasureEvery": 2,
+    "Chi": 8,
+    "MaxCTMSweeps": 100,
+    "MinCTMSweeps": 2,
+    "CTMTolerance": 1e-08,
+    "ChargePattern": "stripe_x",
+    "ChargeOffset": 0
+  }
+}

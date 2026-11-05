@@ -1,0 +1,162 @@
+{
+  "description": "DFT hopping fixed; planar AF exchange scan. JH,V,onsitelevels unchanged. Coarse fixedChi8, noChi sweep. Jxz ratio(mean) preserves Jxz1+Jxz2 before uniformAFscale. Includes both diagonalphases and axisstates; not exhaustive charge scan.",
+  "algorithm": {
+    "Rows": 4,
+    "Cols": 4,
+    "InitState": "diagonal_plus",
+    "LayerAlignment": -1,
+    "Dmin": 1,
+    "Dmax": 2,
+    "TruncErr": 1e-12,
+    "InverseCutoff": 1e-12,
+    "ThreadNum": 1,
+    "Schedule": [
+      {
+        "Tau": 0.1,
+        "Steps": 25
+      },
+      {
+        "Tau": 0.03,
+        "Steps": 15
+      }
+    ],
+    "MeasureEvery": 1000,
+    "Chi": 8,
+    "MaxCTMSweeps": 100,
+    "MinCTMSweeps": 2,
+    "CTMTolerance": 1e-06,
+    "ChargePattern": "stripe_x",
+    "ChargeOffset": 0
+  },
+  "points": [
+    {
+      "name": "ratio10_scale025",
+      "overrides": {
+        "Jx1": 0.01625,
+        "Jx2": 0.015825,
+        "Jxz1": 0.014840909090909092,
+        "Jxz2": 0.001484090909090909,
+        "JzPerp": 0.0
+      }
+    },
+    {
+      "name": "ratio10_mean",
+      "overrides": {
+        "Jx1": 0.065,
+        "Jx2": 0.0633,
+        "Jxz1": 0.05936363636363637,
+        "Jxz2": 0.005936363636363636,
+        "JzPerp": 0.0
+      }
+    },
+    {
+      "name": "scale025",
+      "overrides": {
+        "Jx1": 0.01625,
+        "Jx2": 0.015825,
+        "Jxz1": 0.009625,
+        "Jxz2": 0.0067,
+        "JzPerp": 0.0
+      }
+    },
+    {
+      "name": "scale05",
+      "overrides": {
+        "Jx1": 0.0325,
+        "Jx2": 0.03165,
+        "Jxz1": 0.01925,
+        "Jxz2": 0.0134,
+        "JzPerp": 0.0
+      }
+    },
+    {
+      "name": "ratio4_mean",
+      "overrides": {
+        "Jx1": 0.065,
+        "Jx2": 0.0633,
+        "Jxz1": 0.052239999999999995,
+        "Jxz2": 0.013059999999999999,
+        "JzPerp": 0.0
+      }
+    },
+    {
+      "name": "ratio10_fixed_j1",
+      "overrides": {
+        "Jx1": 0.065,
+        "Jx2": 0.0633,
+        "Jxz1": 0.0385,
+        "Jxz2": 0.00385,
+        "JzPerp": 0.0
+      }
+    },
+    {
+      "name": "strong_anisotropy",
+      "overrides": {
+        "Jx1": 0.01625,
+        "Jx2": 0.015825,
+        "Jxz1": 0.154,
+        "Jxz2": 0.0067
+      }
+    },
+    {
+      "name": "baseline",
+      "overrides": {
+        "Jx1": 0.065,
+        "Jx2": 0.0633,
+        "Jxz1": 0.0385,
+        "Jxz2": 0.0268,
+        "JzPerp": 0.0
+      }
+    }
+  ],
+  "starts": [
+    {
+      "InitState": "diagonal_plus",
+      "SpinOffset": 0,
+      "ChargePattern": "stripe_x",
+      "ChargeOffset": 0
+    },
+    {
+      "InitState": "diagonal_plus",
+      "SpinOffset": 1,
+      "ChargePattern": "stripe_y",
+      "ChargeOffset": 0
+    },
+    {
+      "InitState": "diagonal_minus",
+      "SpinOffset": 0,
+      "ChargePattern": "stripe_x",
+      "ChargeOffset": 0
+    },
+    {
+      "InitState": "diagonal_minus",
+      "SpinOffset": 1,
+      "ChargePattern": "stripe_y",
+      "ChargeOffset": 0
+    },
+    {
+      "InitState": "stripe_x",
+      "SpinOffset": 0,
+      "ChargePattern": "stripe_y",
+      "ChargeOffset": 0
+    },
+    {
+      "InitState": "stripe_y",
+      "SpinOffset": 0,
+      "ChargePattern": "stripe_x",
+      "ChargeOffset": 0
+    },
+    {
+      "InitState": "neel",
+      "SpinOffset": 0,
+      "ChargePattern": "stripe_x",
+      "ChargeOffset": 0
+    },
+    {
+      "InitState": "fm",
+      "SpinOffset": 0,
+      "ChargePattern": "stripe_x",
+      "ChargeOffset": 0
+    }
+  ]
+}

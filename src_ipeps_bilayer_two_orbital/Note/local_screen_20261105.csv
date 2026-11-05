@@ -1,0 +1,7 @@
+initial_spin,initial_charge,charge_offset,energy_per_ni,chi32_minus_chi16,n_per_ni,delta_energy_last20,wall_seconds,checkpoint
+diagonal_plus,stripe_x,0,1.1819977997151208,0.0,1.4999999999999998,-0.0032058833930046493,68.613326958,run/bilayer_competitors_d2_screen_20261105/diagonal_plus/checkpoint_step00000060
+diagonal_minus,stripe_x,0,1.1802833215308168,0.0,1.4999999999952425,-0.0031239670138933917,58.346513542,run/bilayer_competitors_d2_screen_20261105/diagonal_minus/checkpoint_step00000060
+stripe_x,stripe_x,0,1.2058651764786745,0.0,1.5,-0.0023315469553157886,45.639343833,run/bilayer_competitors_d2_screen_20261105/stripe_x/checkpoint_step00000060
+stripe_y,stripe_x,0,1.159560457492485,0.0,1.5,-0.004015356836016393,57.994845042,run/bilayer_additional_d2_screen_20261105/stripe_y/checkpoint_step00000060
+neel,stripe_x,0,1.1825270275249915,0.0,1.4999999999999998,-0.0017924641460687063,54.691900667,run/bilayer_additional_d2_screen_20261105/neel/checkpoint_step00000060
+stripe_x,stripe_y,0,1.156675948406443,2.220446049250313e-16,1.5,-0.004656322235439658,84.024265,run/bilayer_stripe_x_charge_y_d2_screen_20261105/checkpoint_step00000060

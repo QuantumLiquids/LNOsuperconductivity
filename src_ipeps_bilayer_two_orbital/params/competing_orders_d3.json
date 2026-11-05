@@ -1,0 +1,99 @@
+{
+  "description": "Candidate-parameter D3 cold-start competing-order screen. FixedN48,Sz0,Chi8,commonT2.95. Includes q0 per-layerFM, q(pi/2,0) and rotated q(0,pi/2), balanced spin-charge phases and previous competitors. NoChi sweep.",
+  "algorithm": {
+    "Rows": 4,
+    "Cols": 4,
+    "InitState": "diagonal_plus",
+    "LayerAlignment": -1,
+    "Dmin": 1,
+    "Dmax": 3,
+    "TruncErr": 1e-12,
+    "InverseCutoff": 1e-12,
+    "ThreadNum": 1,
+    "Schedule": [
+      {
+        "Tau": 0.1,
+        "Steps": 25
+      },
+      {
+        "Tau": 0.03,
+        "Steps": 15
+      }
+    ],
+    "MeasureEvery": 1000,
+    "Chi": 8,
+    "MaxCTMSweeps": 100,
+    "MinCTMSweeps": 2,
+    "CTMTolerance": 1e-06,
+    "ChargePattern": "stripe_x",
+    "ChargeOffset": 0
+  },
+  "points": [
+    {
+      "name": "candidate_d3",
+      "overrides": {}
+    }
+  ],
+  "starts": [
+    {
+      "InitState": "diagonal_minus",
+      "SpinOffset": 0,
+      "ChargePattern": "stripe_x",
+      "ChargeOffset": 0
+    },
+    {
+      "InitState": "stripe_pi2_x",
+      "SpinOffset": 0,
+      "ChargePattern": "stripe_y",
+      "ChargeOffset": 0
+    },
+    {
+      "InitState": "fm",
+      "SpinOffset": 0,
+      "ChargePattern": "stripe_x",
+      "ChargeOffset": 0
+    },
+    {
+      "InitState": "stripe_pi2_x",
+      "SpinOffset": 1,
+      "ChargePattern": "stripe_x",
+      "ChargeOffset": 0
+    },
+    {
+      "InitState": "stripe_x",
+      "SpinOffset": 0,
+      "ChargePattern": "stripe_y",
+      "ChargeOffset": 0
+    },
+    {
+      "InitState": "stripe_y",
+      "SpinOffset": 0,
+      "ChargePattern": "stripe_x",
+      "ChargeOffset": 0
+    },
+    {
+      "InitState": "stripe_pi2_y",
+      "SpinOffset": 0,
+      "ChargePattern": "stripe_x",
+      "ChargeOffset": 0
+    },
+    {
+      "InitState": "stripe_pi2_y",
+      "SpinOffset": 1,
+      "ChargePattern": "stripe_y",
+      "ChargeOffset": 0
+    },
+    {
+      "InitState": "diagonal_plus",
+      "SpinOffset": 0,
+      "ChargePattern": "stripe_x",
+      "ChargeOffset": 0
+    },
+    {
+      "InitState": "neel",
+      "SpinOffset": 0,
+      "ChargePattern": "stripe_x",
+      "ChargeOffset": 0
+    }
+  ]
+}

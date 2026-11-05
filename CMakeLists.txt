@@ -155,9 +155,10 @@ endif ()
 
 if (APPLE AND _use_homebrew_llvm_clang)
     list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew/opt/libomp" "/opt/homebrew/opt/llvm")
-    # Prefer stable Homebrew opt-prefix for libomp to avoid stale Cellar paths after upgrades.
-    if (EXISTS "/opt/homebrew/opt/llvm/lib/libomp.dylib")
-        set(OpenMP_omp_LIBRARY "/opt/homebrew/opt/llvm/lib/libomp.dylib" CACHE FILEPATH "OpenMP runtime library" FORCE)
+    # Homebrew OpenBLAS uses the standalone libomp formula. Linking LLVM's
+    # bundled runtime as well loads two copies and aborts at initialization.
+    if (EXISTS "/opt/homebrew/opt/libomp/lib/libomp.dylib")
+        set(OpenMP_omp_LIBRARY "/opt/homebrew/opt/libomp/lib/libomp.dylib" CACHE FILEPATH "OpenMP runtime library" FORCE)
     endif ()
 endif ()
 unset(_use_homebrew_llvm_clang)
@@ -300,6 +301,24 @@ target_compile_definitions(peps_kondo_square_vmc_optimize_z2 PRIVATE TENSOR_SYMM
 set_target_properties(peps_kondo_square_vmc_optimize_z2 PROPERTIES
         CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES)
+
+# Infinite, projected two-orbital bilayer (one d=81 rung per PEPS tensor).
+# Requires a recent PEPS checkout with fermionic infinite SU and CTMRG.
+add_executable(ipeps_bilayer_simple_update
+        src_ipeps_bilayer_two_orbital/simple_update.cpp)
+add_executable(ipeps_bilayer_validate_model
+        src_ipeps_bilayer_two_orbital/validate_model.cpp)
+add_executable(ipeps_bilayer_simple_update_u1
+        src_ipeps_bilayer_two_orbital/simple_update.cpp)
+add_executable(ipeps_bilayer_validate_model_u1
+        src_ipeps_bilayer_two_orbital/validate_model.cpp)
+target_compile_definitions(ipeps_bilayer_simple_update_u1 PRIVATE LNO_IPEPS_SPIN_U1=0)
+target_compile_definitions(ipeps_bilayer_validate_model_u1 PRIVATE LNO_IPEPS_SPIN_U1=0)
+foreach(target ipeps_bilayer_simple_update ipeps_bilayer_validate_model
+        ipeps_bilayer_simple_update_u1 ipeps_bilayer_validate_model_u1)
+    set_target_properties(${target} PROPERTIES
+            CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES)
+endforeach()
 
 add_executable(peps_kondo_2x2_exact_sum_optimize_z2
         src_peps_kondo_single_layer/peps_kondo_2x2_exact_sum_optimize.cpp)

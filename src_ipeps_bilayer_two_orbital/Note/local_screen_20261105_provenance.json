@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-05",
+  "repos": {
+    "LNOsuperconductivity": {
+      "head": "d5741e0bee1099f075582456f52b7dbc37343089",
+      "modified_tracked_files": [
+        "AGENTS.md",
+        "CMakeLists.txt"
+      ]
+    },
+    "PEPS": {
+      "head": "9cd3837e1eb78fc805ceebdeb0cc24b0b822500a",
+      "modified_tracked_files": [
+        "docs/dev/design/math/tj-full-singlet-pair-correlation.md",
+        "include/qlpeps/algorithm/vmc_update/model_solvers/measurement/tj_full_singlet_pair_correlation_mixin_obc.h",
+        "include/qlpeps/algorithm/vmc_update/model_solvers/measurement/tj_singlet_pair_structure_factor.h",
+        "tests/test_model_solvers/test_tj_full_singlet_pair_correlation.cpp",
+        "tests/test_model_solvers/test_tj_singlet_pair_structure_factor.cpp"
+      ]
+    },
+    "TensorToolkit": {
+      "head": "2744eeb10fb33109e570c7d4997fce62e7ae9b6e",
+      "modified_tracked_files": []
+    },
+    "UltraDMRG": {
+      "head": "7ed427afb840f19fd064e4fab77561b0e11c7138",
+      "modified_tracked_files": [
+        "include/qlmps/workspace.h",
+        "tests/test_workspace.cc"
+      ]
+    }
+  },
+  "source_sha256": {
+    "simple_update.cpp": "eab7aa1a09692614fcf47df8a913ab51a33128a348369a3e66868ac8405de5bb",
+    "compare_seeds.py": "9a35c0623353489a5e2991bbdaf29541fa9078729f30e36438c6fdb3673389cb",
+    "plot_readout.py": "ec02747dc800b6752de5022a24d9dec7a6cf64a7a3c4161db5d651ca8d1e8b48",
+    "validate_model.cpp": "178eadd627edef7eff2b614ed812f1ca17d7b3e3a03b1a67182e30667fd268a1",
+    "model.h": "ae06e655d8ca64393c91c8266c5e90a41e96eab7adb0e0e6d673c4e769550262"
+  },
+  "resource_measurement": {
+    "returncode": 0,
+    "peak_rss_bytes": 1202962432
+  }
+}
