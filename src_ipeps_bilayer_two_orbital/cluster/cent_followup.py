@@ -104,6 +104,11 @@ def validate_manifest(manifest):
         seen.add(case["id"])
         if case.get("kind") not in {"evolve", "measure"}:
             raise ValueError("Case kind must be evolve or measure")
+        executable = case.get("executable", "ipeps_bilayer_simple_update_u1")
+        if executable not in {"ipeps_bilayer_simple_update_u1", "ipeps_bilayer_components_u1"}:
+            raise ValueError("Unsupported follow-up executable")
+        if executable == "ipeps_bilayer_components_u1" and case["kind"] != "measure":
+            raise ValueError("Energy decomposition only measures an unchanged checkpoint")
         if not isinstance(case.get("physics"), dict) or not isinstance(case.get("algorithm"), dict):
             raise ValueError("Case physics and algorithm must be objects")
         for key, value in case["physics"].items():
@@ -187,7 +192,7 @@ def run_case(deployment, manifest_path, index):
         raise IndexError("Case index outside the manifest")
     case = manifest["cases"][index]
     algorithm = effective_algorithm(case)
-    binary = deployment / "build/ipeps_bilayer_simple_update_u1"
+    binary = deployment / "build" / case.get("executable", "ipeps_bilayer_simple_update_u1")
     binary_hash, manifest_hash = checksum(binary), checksum(manifest_path)
     affinity = one_cpu_affinity()
     environment = dict(os.environ, **{key: "1" for key in THREAD_KEYS}, OMP_DYNAMIC="FALSE", MKL_DYNAMIC="FALSE")

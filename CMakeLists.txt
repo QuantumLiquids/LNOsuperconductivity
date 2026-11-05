@@ -312,10 +312,15 @@ add_executable(ipeps_bilayer_simple_update_u1
         src_ipeps_bilayer_two_orbital/simple_update.cpp)
 add_executable(ipeps_bilayer_validate_model_u1
         src_ipeps_bilayer_two_orbital/validate_model.cpp)
+add_executable(ipeps_bilayer_components_u1
+        src_ipeps_bilayer_two_orbital/simple_update.cpp)
 target_compile_definitions(ipeps_bilayer_simple_update_u1 PRIVATE LNO_IPEPS_SPIN_U1=0)
 target_compile_definitions(ipeps_bilayer_validate_model_u1 PRIVATE LNO_IPEPS_SPIN_U1=0)
+target_compile_definitions(ipeps_bilayer_components_u1 PRIVATE
+        LNO_IPEPS_SPIN_U1=0 LNO_IPEPS_ENERGY_COMPONENTS=1)
 foreach(target ipeps_bilayer_simple_update ipeps_bilayer_validate_model
-        ipeps_bilayer_simple_update_u1 ipeps_bilayer_validate_model_u1)
+        ipeps_bilayer_simple_update_u1 ipeps_bilayer_validate_model_u1
+        ipeps_bilayer_components_u1)
     set_target_properties(${target} PROPERTIES
             CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES)
 endforeach()

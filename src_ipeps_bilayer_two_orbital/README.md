@@ -304,6 +304,19 @@ The completed campaign readout and its limits are recorded in
 `Note/cent_u1_d234_20261105.md`; these N-only cold-start data use a different
 projection history from the earlier local two-U1 controls.
 
+`cluster/prepare_cent_followup.py` prepares frozen-state Chi tests, matched
+checkpoint continuations, and a constrained exchange scan from the original
+campaign readout. `cluster/cent_followup.py` runs/collects these explicit
+manifests; `plot_followup.py` plots their measured branch gaps. The design
+and exact allowed exchanges are in `Note/constrained_exchange_design_20261105.md`.
+
+`ipeps_bilayer_components_u1` is a separate measurement-only target. It uses
+the same converged CTMRG environment and bond density matrices to split the
+energy into ten coupling-weighted Hamiltonian pieces, including both Hund
+terms. Their sum is checked against the original total estimator. Its CLI is
+the same `--measure physics algorithm checkpoint result.json` form. Build it
+explicitly; ongoing calculations can retain the original executable.
+
 `MeasureInitial=false` and `MeasureStageEnds=false` allow a coarse screen to
 measure only after the final evolution step. `CheckpointEvery` retains states
 without running CTMRG at every checkpoint. A failed final contraction keeps

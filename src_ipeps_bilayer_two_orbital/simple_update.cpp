@@ -25,6 +25,13 @@
 #include "model.h"
 #include "gate_builder.h"
 
+#ifndef LNO_IPEPS_ENERGY_COMPONENTS
+#define LNO_IPEPS_ENERGY_COMPONENTS 0
+#endif
+#if LNO_IPEPS_ENERGY_COMPONENTS
+#include "energy_components.h"
+#endif
+
 namespace {
 namespace fs = std::filesystem;
 using namespace bilayer_ipeps;
@@ -327,12 +334,25 @@ Json measure_state(const State &state, const PhysicsParams &physics,
   }
   struct MatrixEntry { size_t a, b, out_a, out_b; double value; };
   std::array<std::vector<MatrixEntry>, 2> sparse_hamiltonians;
+#if LNO_IPEPS_ENERGY_COMPONENTS
+  const auto component_physics = energy_component_physics(physics);
+  std::array<std::array<std::vector<MatrixEntry>, kEnergyComponentNames.size()>, 2> sparse_components;
+  std::array<double, kEnergyComponentNames.size()> component_energies{};
+#endif
   for (int type = 1; type <= 2; ++type) {
     auto &entries = sparse_hamiltonians[type - 1];
     for (size_t a = 0; a < 81; ++a) for (size_t b = 0; b < 81; ++b) {
       for (const auto &transition : bond_transitions(a, b, physics, type)) {
         entries.push_back({a, b, transition.output_first, transition.output_second, transition.value});
       }
+#if LNO_IPEPS_ENERGY_COMPONENTS
+      for (size_t c = 0; c < component_physics.size(); ++c) {
+        for (const auto &transition : bond_transitions(a, b, component_physics[c], type)) {
+          sparse_components[type - 1][c].push_back(
+              {a, b, transition.output_first, transition.output_second, transition.value});
+        }
+      }
+#endif
     }
   }
   double energy = 0;
@@ -349,6 +369,16 @@ Json measure_state(const State &state, const PhysicsParams &physics,
     }
     const double value = checked_ratio(numerator, normalization, "bond energy");
     energy += value;
+#if LNO_IPEPS_ENERGY_COMPONENTS
+    for (size_t c = 0; c < component_energies.size(); ++c) {
+      double component_numerator = 0;
+      for (const auto &entry : sparse_components[type - 1][c]) {
+        component_numerator += rho.GetElem({entry.a, entry.b, entry.out_a, entry.out_b}) * entry.value;
+      }
+      component_energies[c] += checked_ratio(
+          component_numerator, normalization, kEnergyComponentNames[c]);
+    }
+#endif
     bonds.push_back({{"row", bond.first.row()}, {"col", bond.first.col()},
         {"direction", bond.orientation == qlpeps::HORIZONTAL ? "east" : "south"},
         {"bond_type", type}, {"grand_energy", value}});
@@ -370,7 +400,7 @@ Json measure_state(const State &state, const PhysicsParams &physics,
   const double density = means.at("n_total").get<double>();
   const double physical_energy = energy / count + physics.mu * density;
   const auto dimensions = state.GetPEPS().GetMinMaxBondDimension();
-  return {{"grand_energy_per_rung", energy / count},
+  Json result{{"grand_energy_per_rung", energy / count},
       {"physical_energy_per_rung", physical_energy},
       {"physical_energy_per_ni", physical_energy / 2},
       {"means", means}, {"exact_symmetry_sector", symmetry_sector(state)},
@@ -381,6 +411,25 @@ Json measure_state(const State &state, const PhysicsParams &physics,
       {"bond_dimension_min", dimensions.first}, {"bond_dimension_max", dimensions.second},
       {"ctm_converged", true}, {"ctm_sweeps", ctm.diagnostics.iterations},
       {"chi", algorithm.ctm.max_bond_dim}, {"measurement_seconds", seconds_since(start)}};
+#if LNO_IPEPS_ENERGY_COMPONENTS
+  Json components = Json::object();
+  double component_sum = 0;
+  for (size_t c = 0; c < component_energies.size(); ++c) {
+    components[kEnergyComponentNames[c]] = component_energies[c] / (2 * count);
+    component_sum += component_energies[c];
+  }
+  result["energy_components_per_ni"] = std::move(components);
+  result["energy_components_definition"] =
+      "Coupling-weighted pieces of the same bond-density-matrix grand-energy estimator; "
+      "Hund includes its density term, onsite endpoint weight is 1/4. Physical sum adds Mu*n/Ni.";
+  result["energy_component_closure"] = {
+      {"grand_sum_per_ni", component_sum / (2 * count)},
+      {"grand_residual_per_ni", (component_sum - energy) / (2 * count)},
+      {"chemical_potential_correction_per_ni", physics.mu * density / 2},
+      {"physical_sum_per_ni", (component_sum / count + physics.mu * density) / 2},
+      {"physical_residual_per_ni", (component_sum / count + physics.mu * density - physical_energy) / 2}};
+#endif
+  return result;
 }
 
 std::string step_name(size_t step) {
@@ -411,6 +460,9 @@ int main(int argc, char **argv) {
   bool created_run_directory = false;
   try {
     const bool measurement_only = argc > 1 && std::string(argv[1]) == "--measure";
+#if LNO_IPEPS_ENERGY_COMPONENTS
+    if (!measurement_only) throw std::invalid_argument("Energy-component executable requires --measure.");
+#endif
     if ((!measurement_only && argc != 4 && argc != 5) || (measurement_only && argc != 6)) {
       std::cerr << "Usage: " << argv[0] << " physics.json algorithm.json new_run_directory [restart_checkpoint]\n"
                 << "       " << argv[0] << " --measure physics.json algorithm.json checkpoint new_result.json\n";
