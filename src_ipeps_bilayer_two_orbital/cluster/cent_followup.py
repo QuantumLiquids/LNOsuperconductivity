@@ -199,6 +199,9 @@ def run_case(deployment, manifest_path, index):
     source_key = "checkpoint" if case["kind"] == "measure" else "restart_checkpoint"
     source = (checkpoint_identity(checkpoint_path(deployment, case[source_key]), algorithm)
               if case.get(source_key) else None)
+    if case.get("expected_checkpoint_sha256") and (
+            source is None or source["sha256"] != case["expected_checkpoint_sha256"]):
+        raise ValueError("Checkpoint differs from the frozen promotion manifest")
     root = deployment / "runs" / manifest["campaign"] / case["id"]
     result_path = root / "result.json"
     if root.exists():
