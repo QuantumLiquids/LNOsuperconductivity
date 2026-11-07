@@ -323,6 +323,10 @@ checkpoint continuations, and a constrained exchange scan from the original
 campaign readout. `cluster/cent_followup.py` runs/collects these explicit
 manifests; `plot_followup.py` plots their measured branch gaps. The design
 and exact allowed exchanges are in `Note/constrained_exchange_design_20261105.md`.
+Its completed historical same-sign readout is archived in
+`Note/cent_followup_same_sign_20261105.md`. For the corrected opposite-sign
+model, `cluster/prepare_opposite_txz.py` prepares fresh original-table starts
+and selects matched D4 cold starts from their measured D3 branch minima.
 
 `ipeps_bilayer_components_u1` is a separate measurement-only target. It uses
 the same converged CTMRG environment and bond density matrices to split the
@@ -330,6 +334,8 @@ energy into ten coupling-weighted Hamiltonian pieces, including both Hund
 terms. Their sum is checked against the original total estimator. Its CLI is
 the same `--measure physics algorithm checkpoint result.json` form. Build it
 explicitly; ongoing calculations can retain the original executable.
+`plot_energy_components.py` plots signed differences from those measurements
+and labels the hopping sign convention in the figure and provenance.
 
 `MeasureInitial=false` and `MeasureStageEnds=false` allow a coarse screen to
 measure only after the final evolution step. `CheckpointEvery` retains states
