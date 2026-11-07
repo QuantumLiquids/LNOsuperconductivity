@@ -6,10 +6,12 @@
 
 #include <bit>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <complex>
 #include <cstdint>
 #include <iostream>
+#include <iomanip>
 #include <map>
 #include <set>
 #include <sstream>
@@ -111,12 +113,14 @@ void reference_onsite(MatrixColumn &column, uint32_t bits, unsigned rung,
   spin_dot(column, bits, offset, offset + 2, p.jz_perp * fraction);
 }
 
-MatrixColumn reference_bond(uint32_t bits, const PhysicsParams &p, int type) {
+MatrixColumn reference_bond(uint32_t bits, const PhysicsParams &p, int type,
+                            qlpeps::BondOrientation orientation) {
   MatrixColumn column;
   reference_onsite(column, bits, 0, p, 0.25);
   reference_onsite(column, bits, 1, p, 0.25);
   const double tx = type == 1 ? p.tx1 : p.tx2;
-  const double txz = type == 1 ? p.txz1 : p.txz2;
+  const double txz = (type == 1 ? p.txz1 : p.txz2) *
+      (orientation == qlpeps::VERTICAL ? p.txz_y_sign : 1);
   const double jx = type == 1 ? p.jx1 : p.jx2;
   const double jxz = type == 1 ? p.jxz1 : p.jxz2;
   for (unsigned layer = 0; layer < 2; ++layer) {
@@ -144,6 +148,7 @@ PhysicsParams nontrivial_physics() {
   p.tx2 = 0.398;
   p.txz1 = 0.211;
   p.txz2 = -0.190;  // Also test hopping signs beyond the example table.
+  p.txz_y_sign = -1;
   p.jx1 = 0.065;
   p.jx2 = 0.0633;
   p.jxz1 = 0.0385;
@@ -328,18 +333,209 @@ void check_hund_and_exchange_spectra() {
   require_near(cross_hop, p.txz1, "Inter-rung cross hopping sign from intervening electron");
 }
 
+MatrixColumn model_column(size_t first, size_t second, const PhysicsParams &physics,
+                          int type, qlpeps::BondOrientation orientation) {
+  MatrixColumn column;
+  for (const auto &term : bond_transitions(first, second, physics, type, orientation)) {
+    column[basis()[term.output_first].bits |
+        (uint32_t(basis()[term.output_second].bits) << 8)] += term.value;
+  }
+  return column;
+}
+
+void check_directional_hopping() {
+  require(PhysicsParams::from_json(Json::object()).txz_y_sign == 1,
+          "Omitted TxzYSign must retain the legacy model.");
+  require(PhysicsParams::from_json({{"TxzYSign", -1}}).txz_y_sign == -1,
+          "Explicit TxzYSign=-1 must select opposite x/y hopping.");
+  for (const Json &value : {Json(0), Json(2), Json(true), Json("-1"), Json(0.5)}) {
+    bool rejected = false;
+    try { (void) PhysicsParams::from_json({{"TxzYSign", value}}); }
+    catch (const std::invalid_argument &) { rejected = true; }
+    require(rejected, "Invalid TxzYSign must be rejected.");
+  }
+  PhysicsParams physics{};
+  physics.txz1 = 0.29;
+  physics.txz2 = -0.17;
+  physics.txz_y_sign = -1;
+  const auto vacuum = basis_coordinate(0);
+  for (auto orientation : {qlpeps::HORIZONTAL, qlpeps::VERTICAL}) for (int type : {1, 2}) {
+    const double hopping = (type == 1 ? physics.txz1 : physics.txz2) *
+        (orientation == qlpeps::HORIZONTAL ? 1 : -1);
+    for (unsigned layer = 0; layer < 2; ++layer) for (unsigned spin = 0; spin < 2; ++spin) {
+      for (unsigned orbital = 0; orbital < 2; ++orbital) {
+        const unsigned from = 4 * layer + 2 * orbital + spin;
+        const unsigned to = 4 * layer + 2 * (1 - orbital) + spin;
+        const auto input = basis_coordinate(1U << from), output = basis_coordinate(1U << to);
+        const auto forward = model_column(input, vacuum, physics, type, orientation);
+        const auto reverse = model_column(vacuum, output, physics, type, orientation);
+        require_near(forward.at(uint32_t(1U << to) << 8), -hopping,
+                     "Both layers/spins and x-z channels have the requested directional coefficient");
+        require_near(reverse.at(1U << from), -hopping, "Reverse directional cross hopping");
+      }
+    }
+  }
+  // Flipping direction must change only x-z hopping, including in occupied
+  // sectors where its Jordan-Wigner signs cannot be inferred from N=1 alone.
+  physics = nontrivial_physics();
+  auto without_xz = physics;
+  without_xz.txz1 = without_xz.txz2 = 0;
+  auto legacy = physics;
+  legacy.txz_y_sign = 1;
+  for (int type : {1, 2}) for (size_t first = 0; first < 81; ++first) {
+    for (size_t second = 0; second < 81; ++second) {
+      const auto horizontal = model_column(first, second, physics, type, qlpeps::HORIZONTAL);
+      const auto vertical = model_column(first, second, physics, type, qlpeps::VERTICAL);
+      const auto rest = model_column(first, second, without_xz, type, qlpeps::HORIZONTAL);
+      const auto legacy_vertical = model_column(first, second, legacy, type, qlpeps::VERTICAL);
+      std::set<uint32_t> outputs;
+      for (const auto &column : {horizontal, vertical, rest, legacy_vertical}) {
+        for (const auto &[output, value] : column) outputs.insert(output);
+      }
+      auto element = [](const MatrixColumn &column, uint32_t output) {
+        return column.contains(output) ? column.at(output) : 0;
+      };
+      for (auto output : outputs) {
+        require_near(element(horizontal, output) + element(vertical, output),
+                     2 * element(rest, output), "Directional sign leaves tx, J and onsite terms unchanged");
+        require_near(element(legacy_vertical, output), element(horizontal, output),
+                     "Legacy sign has identical H/V Hamiltonians of a fixed bond type");
+      }
+    }
+  }
+}
+
+template<size_t Dimension>
+using DenseMatrix = std::array<std::array<double, Dimension>, Dimension>;
+
+template<size_t Dimension>
+DenseMatrix<Dimension> multiply(const DenseMatrix<Dimension> &first,
+                                const DenseMatrix<Dimension> &second) {
+  DenseMatrix<Dimension> output{};
+  for (size_t row = 0; row < Dimension; ++row) for (size_t col = 0; col < Dimension; ++col) {
+    for (size_t inner = 0; inner < Dimension; ++inner) output[row][col] += first[row][inner] * second[inner][col];
+  }
+  return output;
+}
+
+DenseMatrix<8> one_electron_plaquette(const PhysicsParams &physics) {
+  DenseMatrix<8> matrix{};
+  const auto vacuum = basis_coordinate(0);
+  for (const auto &[first, second, orientation] : {
+      std::tuple{0U, 1U, qlpeps::HORIZONTAL}, std::tuple{2U, 3U, qlpeps::HORIZONTAL},
+      std::tuple{0U, 2U, qlpeps::VERTICAL}, std::tuple{1U, 3U, qlpeps::VERTICAL}}) {
+    for (unsigned site : {first, second}) for (unsigned orbital = 0; orbital < 2; ++orbital) {
+      const auto occupied = basis_coordinate(1U << (2 * orbital));
+      for (const auto &term : bond_transitions(site == first ? occupied : vacuum,
+          site == second ? occupied : vacuum, physics, 1, orientation)) {
+        const auto a = basis()[term.output_first].bits, b = basis()[term.output_second].bits;
+        require((a == 0) != (b == 0), "One-particle plaquette subspace must be invariant.");
+        const unsigned bits = a ? a : b;
+        require(bits == 1 || bits == 4, "Plaquette hopping must preserve top-layer spin-up.");
+        matrix[2 * (a ? first : second) + (bits == 4)][2 * site + orbital] += term.value;
+      }
+    }
+  }
+  return matrix;
+}
+
+void check_plaquette_interference() {
+  PhysicsParams physics{};
+  constexpr double t = 0.37, b = 0.23;
+  physics.tx1 = physics.tx2 = t;
+  physics.txz1 = physics.txz2 = b;
+  std::array<double, 2> fourth_moment{};
+  for (int sign : {1, -1}) {
+    physics.txz_y_sign = sign;
+    const auto matrix = one_electron_plaquette(physics);
+    const auto square = multiply(matrix, matrix), fourth = multiply(square, square);
+    double second_moment = 0, fourth_trace = 0;
+    for (size_t i = 0; i < 8; ++i) { second_moment += square[i][i]; fourth_trace += fourth[i][i]; }
+    require_near(second_moment, 8 * t * t + 16 * b * b, "Plaquette second spectral moment");
+    // The open-square spectrum for opposite signs is {±2t, ±2b, ±2b,0,0}.
+    // Equal signs add the closed-walk interference contribution128 t²b².
+    const double expected_fourth = 32 * std::pow(t, 4) + 64 * std::pow(b, 4) +
+        (sign == 1 ? 128 * t * t * b * b : 0);
+    require_near(fourth_trace, expected_fourth, "Closed-plaquette orbital interference");
+    fourth_moment[sign == 1 ? 0 : 1] = fourth_trace;
+    auto common_flip = physics;
+    common_flip.txz1 *= -1;
+    common_flip.txz2 *= -1;
+    const auto flipped = one_electron_plaquette(common_flip);
+    for (size_t row = 0; row < 8; ++row) for (size_t col = 0; col < 8; ++col) {
+      const double orbital_phase = ((row % 2) == (col % 2)) ? 1 : -1;
+      require_near(flipped[row][col], orbital_phase * matrix[row][col],
+                   "A common x-z sign is a global orbital phase gauge");
+    }
+  }
+  require_near(fourth_moment[0] - fourth_moment[1], 128 * t * t * b * b,
+               "Relative directional sign changes the spectrum, unlike a common sign");
+  std::cout << std::setprecision(15) << "Plaquette Tr(H^4): same=" << fourth_moment[0]
+            << ", opposite=" << fourth_moment[1]
+            << ", difference=" << fourth_moment[0] - fourth_moment[1] << '\n';
+}
+
+void check_directional_evolution_gates() {
+  PhysicsParams physics{};
+  physics.tx1 = 0.37; physics.tx2 = -0.19;
+  physics.txz1 = 0.23; physics.txz2 = 0.11;
+  physics.txz_y_sign = -1;
+  constexpr double tau = 0.09;
+  const auto gates = EvolutionGateBuilder(physics).build(tau);
+  require(gates.size() == 4, "Directional hopping requires four independent gate slots.");
+  const auto vacuum = basis_coordinate(0);
+  double max_gate_error = 0;
+  for (size_t slot = 0; slot < 4; ++slot) {
+    // Use the declared H1,H2,V1,V2 order independently of gate_slot helpers.
+    const double t = slot % 2 == 0 ? physics.tx1 : physics.tx2;
+    const double b = (slot % 2 == 0 ? physics.txz1 : physics.txz2) * (slot < 2 ? 1 : -1);
+    DenseMatrix<4> hamiltonian{}, expected{}, term{};
+    hamiltonian[0][3] = hamiltonian[3][0] = -b;
+    hamiltonian[1][2] = hamiltonian[2][1] = -b;
+    hamiltonian[1][3] = hamiltonian[3][1] = -t;
+    for (size_t i = 0; i < 4; ++i) expected[i][i] = term[i][i] = 1;
+    for (size_t order = 1; order <= 32; ++order) {
+      term = multiply(hamiltonian, term);
+      for (size_t row = 0; row < 4; ++row) for (size_t col = 0; col < 4; ++col) {
+        term[row][col] *= -tau / order;
+        expected[row][col] += term[row][col];
+      }
+    }
+    const auto &gate = gates[slot];
+    const double vacuum_weight = gate.GetElem({vacuum, vacuum, vacuum, vacuum});
+    require(std::isfinite(vacuum_weight) && vacuum_weight > 0, "Gate vacuum normalization");
+    for (unsigned input = 0; input < 16; ++input) for (unsigned output = 0; output < 16; ++output) {
+      auto coordinates = [&](unsigned state) {
+        const unsigned orbital = state % 4, layer = state / 8, spin = (state / 4) % 2;
+        const auto local = basis_coordinate(1U << (4 * layer + 2 * (orbital % 2) + spin));
+        return std::pair{orbital < 2 ? local : vacuum, orbital < 2 ? vacuum : local};
+      };
+      const auto [in_first, in_second] = coordinates(input);
+      const auto [out_first, out_second] = coordinates(output);
+      const double reference = input / 4 == output / 4 ? expected[output % 4][input % 4] : 0;
+      // Each N=1 input column has graded sign−1. Dividing by the vacuum
+      // removes the builder's common ground-energy shift in exp(−τH).
+      const double actual = -gate.GetElem({in_first, in_second, out_first, out_second}) / vacuum_weight;
+      max_gate_error = std::max(max_gate_error, std::abs(actual - reference));
+      require_near(actual, reference, "Analytic directional gate and auxiliary-spin-to-N-only lift");
+    }
+  }
+  std::cout << "Maximum analytic directional gate error=" << max_gate_error << '\n';
+}
+
 void check_all_matrix_elements() {
   const auto physics = nontrivial_physics();
   const auto physical = physical_index();
-  for (int type : {1, 2}) {
-    const auto tensor = build_bond_hamiltonian(physical, physical, physics, type);
+  double max_fock_error = 0, max_tensor_error = 0;
+  for (auto orientation : {qlpeps::HORIZONTAL, qlpeps::VERTICAL}) for (int type : {1, 2}) {
+    const auto tensor = build_bond_hamiltonian(physical, physical, physics, type, orientation);
     double expected_squared_norm = 0;
     for (size_t first = 0; first < 81; ++first) {
       for (size_t second = 0; second < 81; ++second) {
         const uint32_t mask = basis()[first].bits | (uint32_t(basis()[second].bits) << 8);
-        const auto expected = reference_bond(mask, physics, type);
+        const auto expected = reference_bond(mask, physics, type, orientation);
         MatrixColumn actual;
-        for (const auto &entry : bond_transitions(first, second, physics, type)) {
+        for (const auto &entry : bond_transitions(first, second, physics, type, orientation)) {
           const uint32_t output = basis()[entry.output_first].bits |
               (uint32_t(basis()[entry.output_second].bits) << 8);
           actual[output] += entry.value;
@@ -353,16 +549,19 @@ void check_all_matrix_elements() {
         for (uint32_t output : outputs) {
           const double reference = expected.contains(output) ? expected.at(output) : 0;
           const double got = actual.contains(output) ? actual.at(output) : 0;
+          max_fock_error = std::max(max_fock_error, std::abs(got - reference));
           require_near(got, reference, "Independent 16-mode Fock matrix element");
           const size_t out_first = basis_coordinate(output & 255U);
           const size_t out_second = basis_coordinate(output >> 8);
+          max_tensor_error = std::max(max_tensor_error,
+              std::abs(input_chi * tensor.GetElem({first, second, out_first, out_second}) - reference));
           require_near(input_chi * tensor.GetElem({first, second, out_first, out_second}),
                reference, "Graded input-column tensor encoding");
           if (std::abs(got) <= 1e-15) continue;
           require(std::popcount(mask) == std::popcount(output), "Particle conservation");
           require(basis()[first].sz2 + basis()[second].sz2 ==
                   basis()[out_first].sz2 + basis()[out_second].sz2, "Sz conservation");
-          const auto reverse = reference_bond(output, physics, type);
+          const auto reverse = reference_bond(output, physics, type, orientation);
           require_near(reverse.contains(mask) ? reverse.at(mask) : 0, got, "Hermiticity");
           expected_squared_norm += reference * reference;
         }
@@ -373,6 +572,8 @@ void check_all_matrix_elements() {
     require_near((tensor.GetQuasi2Norm() * tensor.GetQuasi2Norm()) / expected_squared_norm, 1,
          "Tensor norm excludes spurious coefficients");
   }
+  std::cout << "Maximum H/V Fock error=" << max_fock_error
+            << ", graded Hamiltonian error=" << max_tensor_error << '\n';
   for (size_t input = 0; input < 81; ++input) {
     MatrixColumn expected;
     reference_onsite(expected, basis()[input].bits, 0, physics, 1);
@@ -434,7 +635,7 @@ void check_zigzag_spin_phase() {
         const size_t a = labels[bond.first.row()][bond.first.col()];
         const size_t b = labels[next.row()][next.col()];
         for (const auto &term : bond_transitions(a, b, physics,
-            bond_type(bond.first.row(), bond.first.col(), bond.orientation))) {
+            bond_type(bond.first.row(), bond.first.col(), bond.orientation), bond.orientation)) {
           if (term.output_first == a && term.output_second == b) energy += term.value;
         }
       }
@@ -500,13 +701,17 @@ int main() {
     check_basis_and_projected_algebra();
     check_transverse_spin();
     check_hund_and_exchange_spectra();
+    check_directional_hopping();
+    check_plaquette_interference();
     check_all_matrix_elements();
     for (size_t spin_offset = 0; spin_offset < 4; ++spin_offset) check_seeds(spin_offset);
     check_zigzag_spin_phase();
     check_quarter_axis_seeds();
     check_evolution_gates();
+    check_directional_evolution_gates();
     std::cout << "PASS: 81-state projected basis, Hund spectra, literal exchange, all two-rung "
-                 "Fock coefficients, Hermiticity, graded gates, transverse coherences and seed wavevectors ("
+                 "H/V Fock coefficients, plaquette interference, Hermiticity, directional graded gates, "
+                 "transverse coherences and seed wavevectors ("
               << kSymmetryName << ").\n";
     return 0;
   } catch (const std::exception &error) {

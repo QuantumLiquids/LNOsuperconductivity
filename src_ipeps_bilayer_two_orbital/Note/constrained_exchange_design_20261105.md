@@ -1,5 +1,9 @@
 # Constrained exchange-search design, 2026-11-05
 
+> Historical same-sign model (`TxzYSign=+1`, including omitted legacy keys).
+> On 2026-11-07 the collaborator confirmed opposite x/y signs. The energies
+> and candidates here must not be interpreted as results for that corrected model.
+
 This note records the parameter and initialization design. It contains no
 optimized-energy results or phase-boundary claim.
 

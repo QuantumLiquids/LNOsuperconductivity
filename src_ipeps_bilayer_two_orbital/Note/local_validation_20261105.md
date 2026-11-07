@@ -1,11 +1,15 @@
 # Local projected-bilayer iPEPS validation, 2026-11-05
 
+> Historical same-sign model (`TxzYSign=+1`, including omitted legacy keys).
+> On 2026-11-07 the collaborator confirmed opposite x/y signs. The energies
+> and candidates here must not be interpreted as results for that corrected model.
+
 The implementation and an initial D=2 screen run on the local macOS CPU.
 These results establish a working calculation, not a converged ground state.
 
 ## Setup
 
-- Supplied projected Hamiltonian and table: `params/physics_table.json`.
+- Supplied projected Hamiltonian and table: `params/physics_table_same_sign_legacy.json`.
 - 4x4 rung cell, 32 Ni, physical rung dimension 81, fU1U1 (N, 2Sz).
 - Exact cell sector N=48, total Sz=0; n=1.5/Ni.
 - Dmin=1, Dmax=2, truncation 1e-12, two numerical threads.
@@ -91,7 +95,7 @@ To repeat the full magnetic/charge screen, choose a new output directory:
 
 ```sh
 python3 src_ipeps_bilayer_two_orbital/compare_seeds.py \
-  src_ipeps_bilayer_two_orbital/params/physics_table.json \
+  src_ipeps_bilayer_two_orbital/params/physics_table_same_sign_legacy.json \
   src_ipeps_bilayer_two_orbital/params/screen_d2.json \
   run/bilayer_new_screen --charge-patterns stripe_x stripe_y
 ```

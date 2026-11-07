@@ -173,12 +173,14 @@ struct Algorithm {
 // The exact physics JSON and executable build identify a cache; a changed
 // Hamiltonian or rebuilt executable must use a new directory. Runs sharing one
 // directory are sequential. Each gate is committed atomically after writing.
-std::array<Tensor, 2> prepare_gates(
+std::array<Tensor, kGateSlots> prepare_gates(
     const PhysicsParams &physics, const Json &physics_json, double tau,
     const fs::path &directory, std::optional<EvolutionGateBuilder> &builder) {
-  std::array<fs::path, 2> paths;
+  std::array<fs::path, kGateSlots> paths;
   if (!directory.empty()) {
-    const Json identity{{"format", 1}, {"physics", physics_json},
+    const Json identity{{"format", 2}, {"physics", physics_json},
+        {"gate_slots", {"H1", "H2", "V1", "V2"}},
+        {"txz_orientation_signs", {{"horizontal", 1}, {"vertical", physics.txz_y_sign}}},
         {"build", std::string(__DATE__) + " " + __TIME__},
         {"basis", std::string("projected_rung81_IN_v1_") + kSymmetryName}};
     const auto metadata = directory / "metadata.json";
@@ -192,12 +194,15 @@ std::array<Tensor, 2> prepare_gates(
     }
     std::ostringstream name;
     name << "tau_" << std::setprecision(std::numeric_limits<double>::max_digits10) << tau;
-    for (size_t i = 0; i < 2; ++i) paths[i] = directory / (name.str() + "_type" + std::to_string(i + 1) + ".qlten");
-    if (fs::exists(paths[0]) && fs::exists(paths[1])) {
-      std::array<Tensor, 2> result;
+    for (size_t i = 0; i < kGateSlots; ++i) {
+      const std::string direction = gate_orientation(i) == qlpeps::HORIZONTAL ? "H" : "V";
+      paths[i] = directory / (name.str() + "_" + direction + std::to_string(gate_type(i)) + ".qlten");
+    }
+    if (std::all_of(paths.begin(), paths.end(), [](const auto &path) { return fs::exists(path); })) {
+      std::array<Tensor, kGateSlots> result;
       const std::vector<IndexT> indexes{qlten::InverseIndex(physical_index()),
           qlten::InverseIndex(physical_index()), physical_index(), physical_index()};
-      for (size_t i = 0; i < 2; ++i) {
+      for (size_t i = 0; i < kGateSlots; ++i) {
         std::ifstream input(paths[i], std::ios::binary);
         input.exceptions(std::ios::failbit | std::ios::badbit);
         input >> result[i];
@@ -212,7 +217,7 @@ std::array<Tensor, 2> prepare_gates(
   }
   if (!builder) builder.emplace(physics);
   auto result = builder->build(tau);
-  if (!directory.empty()) for (size_t i = 0; i < 2; ++i) {
+  if (!directory.empty()) for (size_t i = 0; i < kGateSlots; ++i) {
     const fs::path temporary = paths[i].string() + ".tmp";
     std::ofstream output(temporary, std::ios::binary);
     output.exceptions(std::ios::failbit | std::ios::badbit);
@@ -223,8 +228,8 @@ std::array<Tensor, 2> prepare_gates(
   return result;
 }
 
-// There are two checkerboard bond Hamiltonians. Keep only one of each, instead
-// of copying and diagonalizing 2*Rows*Cols d^2-by-d^2 matrices every sweep.
+// Checkerboard type and spatial orientation independently select a Hamiltonian.
+// In particular, a vertical cross-orbital hopping may have the opposite sign.
 int bond_type(const qlpeps::UnitCellBond &bond) {
   return bilayer_ipeps::bond_type(bond.first.row(), bond.first.col(), bond.orientation);
 }
@@ -333,22 +338,24 @@ Json measure_state(const State &state, const PhysicsParams &physics,
     sites.push_back(std::move(site));
   }
   struct MatrixEntry { size_t a, b, out_a, out_b; double value; };
-  std::array<std::vector<MatrixEntry>, 2> sparse_hamiltonians;
+  std::array<std::vector<MatrixEntry>, kGateSlots> sparse_hamiltonians;
 #if LNO_IPEPS_ENERGY_COMPONENTS
   const auto component_physics = energy_component_physics(physics);
-  std::array<std::array<std::vector<MatrixEntry>, kEnergyComponentNames.size()>, 2> sparse_components;
+  std::array<std::array<std::vector<MatrixEntry>, kEnergyComponentNames.size()>, kGateSlots> sparse_components;
   std::array<double, kEnergyComponentNames.size()> component_energies{};
 #endif
-  for (int type = 1; type <= 2; ++type) {
-    auto &entries = sparse_hamiltonians[type - 1];
+  for (size_t slot = 0; slot < kGateSlots; ++slot) {
+    const int type = gate_type(slot);
+    const auto orientation = gate_orientation(slot);
+    auto &entries = sparse_hamiltonians[slot];
     for (size_t a = 0; a < 81; ++a) for (size_t b = 0; b < 81; ++b) {
-      for (const auto &transition : bond_transitions(a, b, physics, type)) {
+      for (const auto &transition : bond_transitions(a, b, physics, type, orientation)) {
         entries.push_back({a, b, transition.output_first, transition.output_second, transition.value});
       }
 #if LNO_IPEPS_ENERGY_COMPONENTS
       for (size_t c = 0; c < component_physics.size(); ++c) {
-        for (const auto &transition : bond_transitions(a, b, component_physics[c], type)) {
-          sparse_components[type - 1][c].push_back(
+        for (const auto &transition : bond_transitions(a, b, component_physics[c], type, orientation)) {
+          sparse_components[slot][c].push_back(
               {a, b, transition.output_first, transition.output_second, transition.value});
         }
       }
@@ -361,10 +368,11 @@ Json measure_state(const State &state, const PhysicsParams &physics,
     const auto rho = environment.BondDensityMatrix(network, bond);
     double numerator = 0, normalization = 0;
     const int type = bond_type(bond);
+    const size_t slot = gate_slot(type, bond.orientation);
     for (size_t a = 0; a < 81; ++a) for (size_t b = 0; b < 81; ++b) {
       normalization += rho.GetElem({a, b, a, b});
     }
-    for (const auto &entry : sparse_hamiltonians[type - 1]) {
+    for (const auto &entry : sparse_hamiltonians[slot]) {
       numerator += rho.GetElem({entry.a, entry.b, entry.out_a, entry.out_b}) * entry.value;
     }
     const double value = checked_ratio(numerator, normalization, "bond energy");
@@ -372,7 +380,7 @@ Json measure_state(const State &state, const PhysicsParams &physics,
 #if LNO_IPEPS_ENERGY_COMPONENTS
     for (size_t c = 0; c < component_energies.size(); ++c) {
       double component_numerator = 0;
-      for (const auto &entry : sparse_components[type - 1][c]) {
+      for (const auto &entry : sparse_components[slot][c]) {
         component_numerator += rho.GetElem({entry.a, entry.b, entry.out_a, entry.out_b}) * entry.value;
       }
       component_energies[c] += checked_ratio(
@@ -381,7 +389,8 @@ Json measure_state(const State &state, const PhysicsParams &physics,
 #endif
     bonds.push_back({{"row", bond.first.row()}, {"col", bond.first.col()},
         {"direction", bond.orientation == qlpeps::HORIZONTAL ? "east" : "south"},
-        {"bond_type", type}, {"grand_energy", value}});
+        {"bond_type", type}, {"txz_orientation_sign", bond.orientation == qlpeps::HORIZONTAL ? 1 : physics.txz_y_sign},
+        {"grand_energy", value}});
   }
   const auto count = static_cast<double>(state.rows() * state.cols());
   Json means = Json::object(), fourier = Json::object();
@@ -411,6 +420,7 @@ Json measure_state(const State &state, const PhysicsParams &physics,
       {"bond_dimension_min", dimensions.first}, {"bond_dimension_max", dimensions.second},
       {"ctm_converged", true}, {"ctm_sweeps", ctm.diagnostics.iterations},
       {"chi", algorithm.ctm.max_bond_dim}, {"measurement_seconds", seconds_since(start)}};
+  result["txz_orientation_signs"] = {{"horizontal", 1}, {"vertical", physics.txz_y_sign}};
 #if LNO_IPEPS_ENERGY_COMPONENTS
   Json components = Json::object();
   double component_sum = 0;
@@ -536,7 +546,7 @@ int main(int argc, char **argv) {
     for (size_t stage = 0; stage < algorithm.schedule.size(); ++stage) {
       const auto &schedule = algorithm.schedule[stage];
       const auto gate_start = Clock::now();
-      std::cout << "preparing two cached gates: stage=" << stage << " tau=" << schedule.tau << '\n';
+      std::cout << "preparing four orientation/type gates: stage=" << stage << " tau=" << schedule.tau << '\n';
       const auto gates = prepare_gates(physics, physics_json, schedule.tau,
                                        algorithm.gate_cache_directory, builder);
       std::cout << "gate preparation seconds=" << seconds_since(gate_start) << '\n';
@@ -545,7 +555,7 @@ int main(int argc, char **argv) {
         auto candidate = state.GetPEPS();
         double max_discarded_weight = 0;
         for (const auto &bond : state.GetGeometry().Bonds()) {
-          const auto &gate = gates[bond_type(bond) - 1];
+          const auto &gate = gates[gate_slot(bond_type(bond), bond.orientation)];
           const auto projection = qlpeps::NearestNeighborSiteProject(
               candidate, gate, bond.first, bond.orientation, algorithm.trunc);
           if (!(projection.norm > 0) || !std::isfinite(projection.norm) ||

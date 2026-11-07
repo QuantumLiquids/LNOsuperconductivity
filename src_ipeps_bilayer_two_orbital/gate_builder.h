@@ -24,26 +24,34 @@ class EvolutionGateBuilder {
     validate_physics(physics_);
   }
 
-  std::array<Tensor, 2> build(double tau) {
+  std::array<Tensor, kGateSlots> build(double tau) {
     if (!std::isfinite(tau) || tau < 0) {
       throw std::invalid_argument("Imaginary-time step must be finite and nonnegative.");
     }
     if (tau == 0) {
       // Identity has an exact graded encoding; no eigensolve is necessary.
       auto identity = identity_gate();
-      return {identity, std::move(identity)};
+      return {identity, identity, identity, std::move(identity)};
     }
     if (!hamiltonians_) {
-      hamiltonians_.emplace(std::array<SpinTensor, 2>{
-          build_spin_hamiltonian(1), build_spin_hamiltonian(2)});
+      hamiltonians_.emplace();
+      for (size_t slot = 0; slot < kGateSlots; ++slot) {
+        // Legacy vertical Hamiltonians are identical to the horizontal ones.
+        if (slot >= 2 && physics_.txz_y_sign == 1) continue;
+        (*hamiltonians_)[slot] = build_spin_hamiltonian(gate_type(slot), gate_orientation(slot));
+      }
     }
-    std::array<Tensor, 2> result;
-    for (size_t type = 0; type < result.size(); ++type) {
-      auto evolution = qlpeps::BuildImaginaryTimeGate((*hamiltonians_)[type], tau);
+    std::array<Tensor, kGateSlots> result;
+    for (size_t slot = 0; slot < result.size(); ++slot) {
+      if (slot >= 2 && physics_.txz_y_sign == 1) {
+        result[slot] = result[slot - 2];
+        continue;
+      }
+      auto evolution = qlpeps::BuildImaginaryTimeGate((*hamiltonians_)[slot], tau);
 #if !defined(LNO_IPEPS_SPIN_U1) || LNO_IPEPS_SPIN_U1
-      result[type] = std::move(evolution.gate);
+      result[slot] = std::move(evolution.gate);
 #else
-      result[type] = forget_spin_label(evolution.gate);
+      result[slot] = forget_spin_label(evolution.gate);
 #endif
     }
     return result;
@@ -74,7 +82,7 @@ class EvolutionGateBuilder {
     return physical;
   }
 
-  SpinTensor build_spin_hamiltonian(int bond_type) const {
+  SpinTensor build_spin_hamiltonian(int bond_type, qlpeps::BondOrientation orientation) const {
     const auto &physical = spin_physical_index();
     SpinTensor result({qlten::InverseIndex(physical), qlten::InverseIndex(physical),
                        physical, physical});
@@ -82,7 +90,7 @@ class EvolutionGateBuilder {
       for (size_t v = 0; v < basis().size(); ++v) {
         const double chi = qlpeps::local_update_detail::PhysicalOperatorInputSign(
             physical, u, physical, v);
-        for (const auto &term : bond_transitions(u, v, physics_, bond_type)) {
+        for (const auto &term : bond_transitions(u, v, physics_, bond_type, orientation)) {
           result.SetElem({u, v, term.output_first, term.output_second}, chi * term.value);
         }
       }
@@ -143,7 +151,7 @@ class EvolutionGateBuilder {
 #endif
 
   PhysicsParams physics_;
-  std::optional<std::array<SpinTensor, 2>> hamiltonians_;
+  std::optional<std::array<SpinTensor, kGateSlots>> hamiltonians_;
 };
 
 }  // namespace bilayer_ipeps

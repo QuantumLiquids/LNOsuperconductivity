@@ -1,5 +1,9 @@
 # Short D controls at the exchange candidate, 2026-11-05
 
+> Historical same-sign model (`TxzYSign=+1`, including omitted legacy keys).
+> On 2026-11-07 the collaborator confirmed opposite x/y signs. The energies
+> and candidates here must not be interpreted as results for that corrected model.
+
 This is a paired D=2 versus D=3 test at the candidate parameters
 Jx1=0.01625, Jx2=0.015825, Jxz1=0.2, Jxz2=0.0067. Other couplings match
 the supplied table, including JH=1 and zero interlayer hopping/exchange.

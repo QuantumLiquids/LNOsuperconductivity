@@ -17,6 +17,7 @@ inline constexpr std::array<const char *, 10> kEnergyComponentNames{
 inline std::array<PhysicsParams, kEnergyComponentNames.size()> energy_component_physics(
     const PhysicsParams &p) {
   std::array<PhysicsParams, kEnergyComponentNames.size()> pieces{};
+  for (auto &piece : pieces) piece.txz_y_sign = p.txz_y_sign;
   pieces[0].tx1 = p.tx1;
   pieces[0].tx2 = p.tx2;
   pieces[1].txz1 = p.txz1;

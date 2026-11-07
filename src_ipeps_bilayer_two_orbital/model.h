@@ -39,6 +39,26 @@ using IndexT = qlten::Index<QNT>;
 using Tensor = qlten::QLTensor<double, QNT>;
 using Json = qlpeps::config::Json;
 constexpr size_t kPhysicalDimension = 81;
+constexpr size_t kGateSlots = 4;
+
+// Cache layout: horizontal type 1, horizontal type 2, vertical type 1, vertical type 2.
+inline size_t gate_slot(int type, qlpeps::BondOrientation orientation) {
+  if (type != 1 && type != 2) throw std::invalid_argument("Bond type must be 1 or 2.");
+  if (orientation != qlpeps::HORIZONTAL && orientation != qlpeps::VERTICAL) {
+    throw std::invalid_argument("Invalid NN bond orientation.");
+  }
+  return (orientation == qlpeps::HORIZONTAL ? 0 : 2) + size_t(type - 1);
+}
+
+inline int gate_type(size_t slot) {
+  if (slot >= kGateSlots) throw std::out_of_range("Gate slot must be in [0,4).");
+  return int(slot % 2) + 1;
+}
+
+inline qlpeps::BondOrientation gate_orientation(size_t slot) {
+  if (slot >= kGateSlots) throw std::out_of_range("Gate slot must be in [0,4).");
+  return slot < 2 ? qlpeps::HORIZONTAL : qlpeps::VERTICAL;
+}
 
 inline int particle_charge(const QNT &qn) {
 #if LNO_IPEPS_SPIN_U1
@@ -60,6 +80,7 @@ struct PhysicsParams {
   double tz_perp = 0, jz_perp = 0;
   double tx1 = 0, tx2 = 0;
   double txz1 = 0, txz2 = 0;
+  int txz_y_sign = 1;  // Legacy same-sign input; the corrected x/y convention uses -1.
   double jx1 = 0, jx2 = 0;
   double jxz1 = 0, jxz2 = 0;
   double mu = 0;
@@ -68,7 +89,7 @@ struct PhysicsParams {
     if (!values.is_object()) throw std::invalid_argument("Physics must be a JSON object.");
     const std::set<std::string> keys{
         "EpsilonZ", "EpsilonX", "V", "JH", "TzPerp", "JzPerp",
-        "Tx1", "Tx2", "Txz1", "Txz2", "Jx1", "Jx2", "Jxz1", "Jxz2", "Mu"};
+        "Tx1", "Tx2", "Txz1", "Txz2", "TxzYSign", "Jx1", "Jx2", "Jxz1", "Jxz2", "Mu"};
     for (auto it = values.begin(); it != values.end(); ++it) {
       if (!keys.count(it.key())) {
         throw std::invalid_argument("Unknown Physics parameter: " + it.key());
@@ -92,6 +113,11 @@ struct PhysicsParams {
     p.tx2 = ReadDouble(values, "Tx2", p.tx2);
     p.txz1 = ReadDouble(values, "Txz1", p.txz1);
     p.txz2 = ReadDouble(values, "Txz2", p.txz2);
+    const double txz_y_sign = ReadDouble(values, "TxzYSign", p.txz_y_sign);
+    if (txz_y_sign != -1 && txz_y_sign != 1) {
+      throw std::invalid_argument("TxzYSign must be numeric -1 or +1.");
+    }
+    p.txz_y_sign = int(txz_y_sign);
     p.jx1 = ReadDouble(values, "Jx1", p.jx1);
     p.jx2 = ReadDouble(values, "Jx2", p.jx2);
     p.jxz1 = ReadDouble(values, "Jxz1", p.jxz1);
@@ -102,6 +128,9 @@ struct PhysicsParams {
 };
 
 inline void validate_physics(const PhysicsParams &p) {
+  if (p.txz_y_sign != -1 && p.txz_y_sign != 1) {
+    throw std::invalid_argument("TxzYSign must be -1 or +1.");
+  }
   for (double value : {p.epsilon_z, p.epsilon_x, p.v, p.jh, p.tz_perp,
                       p.jz_perp, p.tx1, p.tx2, p.txz1, p.txz2, p.jx1,
                       p.jx2, p.jxz1, p.jxz2, p.mu}) {
@@ -277,12 +306,13 @@ inline std::vector<Transition> local_transitions(size_t input, const PhysicsPara
 // Ordinary ordered-Fock matrix elements, before the tensor gate encoding chi.
 // Both endpoint onsite terms occur with weight 1/4, once per each of four NN bonds.
 inline std::vector<BondTransition> bond_transitions(
-    size_t input_first, size_t input_second, const PhysicsParams &p, int bond_type) {
+    size_t input_first, size_t input_second, const PhysicsParams &p, int bond_type,
+    qlpeps::BondOrientation orientation = qlpeps::HORIZONTAL) {
   validate_physics(p);
   if (input_first >= basis().size() || input_second >= basis().size()) {
     throw std::out_of_range("Bond input coordinate out of range.");
   }
-  if (bond_type != 1 && bond_type != 2) throw std::invalid_argument("Bond type must be 1 or 2.");
+  (void) gate_slot(bond_type, orientation);  // Validate both bond labels.
   const uint32_t bits = basis()[input_first].bits | (uint32_t(basis()[input_second].bits) << 8);
   std::map<std::pair<size_t, size_t>, double> values;
   auto emit = [&](uint32_t output, double coefficient) {
@@ -295,7 +325,8 @@ inline std::vector<BondTransition> bond_transitions(
     values[{input_first, term.output}] += term.value / 4;
   }
   const double tx = bond_type == 1 ? p.tx1 : p.tx2;
-  const double txz = bond_type == 1 ? p.txz1 : p.txz2;
+  const double txz = (bond_type == 1 ? p.txz1 : p.txz2) *
+      (orientation == qlpeps::VERTICAL ? p.txz_y_sign : 1);
   const double jx = bond_type == 1 ? p.jx1 : p.jx2;
   const double jxz = bond_type == 1 ? p.jxz1 : p.jxz2;
   for (size_t layer = 0; layer < 2; ++layer) {
@@ -325,7 +356,8 @@ inline LocalMatrix onsite_matrix(const PhysicsParams &p) {
 }
 
 inline Tensor build_bond_hamiltonian(const IndexT &first, const IndexT &second,
-                                   const PhysicsParams &p, int bond_type) {
+                                   const PhysicsParams &p, int bond_type,
+                                   qlpeps::BondOrientation orientation = qlpeps::HORIZONTAL) {
   if (first != physical_index() || second != physical_index()) {
     throw std::invalid_argument("Bilayer Hamiltonian requires the model's exact IN physical index.");
   }
@@ -333,7 +365,7 @@ inline Tensor build_bond_hamiltonian(const IndexT &first, const IndexT &second,
   for (size_t u = 0; u < basis().size(); ++u) {
     for (size_t v = 0; v < basis().size(); ++v) {
       const double chi = qlpeps::local_update_detail::PhysicalOperatorInputSign(first, u, second, v);
-      for (const auto &term : bond_transitions(u, v, p, bond_type)) {
+      for (const auto &term : bond_transitions(u, v, p, bond_type, orientation)) {
         result.SetElem({u, v, term.output_first, term.output_second}, chi * term.value);
       }
     }
@@ -348,17 +380,21 @@ inline int bond_type(size_t row, size_t col, qlpeps::BondOrientation orientation
   return ((orientation == qlpeps::HORIZONTAL) == ((row + col) % 2 == 0)) ? 1 : 2;
 }
 
-// This convenience builds one tensor per orbit. For production, cache the two
-// Hamiltonians/gates instead; all bonds of the same type have identical couplings.
+// This convenience builds one tensor per orbit. For production, cache the four
+// type/orientation Hamiltonians or gates instead.
 inline std::vector<qlpeps::NearestNeighborBondHamiltonian<double, QNT>> build_terms(
     size_t rows, size_t cols, const PhysicsParams &p) {
   if (rows % 2 || cols % 2) throw std::invalid_argument("Checkerboard cell dimensions must be even.");
-  const auto one = build_bond_hamiltonian(physical_index(), physical_index(), p, 1);
-  const auto two = build_bond_hamiltonian(physical_index(), physical_index(), p, 2);
+  std::array<Tensor, kGateSlots> hamiltonians;
+  for (size_t slot = 0; slot < kGateSlots; ++slot) {
+    hamiltonians[slot] = build_bond_hamiltonian(
+        physical_index(), physical_index(), p, gate_type(slot), gate_orientation(slot));
+  }
   std::vector<qlpeps::NearestNeighborBondHamiltonian<double, QNT>> result;
   for (const auto &bond : qlpeps::UnitCellGeometry(rows, cols).Bonds()) {
-    result.push_back({bond.first, bond.orientation,
-                      bond_type(bond.first.row(), bond.first.col(), bond.orientation) == 1 ? one : two});
+    const auto slot = gate_slot(
+        bond_type(bond.first.row(), bond.first.col(), bond.orientation), bond.orientation);
+    result.push_back({bond.first, bond.orientation, hamiltonians[slot]});
   }
   return result;
 }

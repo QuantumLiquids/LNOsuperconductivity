@@ -142,6 +142,8 @@ Build `ipeps_bilayer_simple_update` and `ipeps_bilayer_validate_model` in `build
 Requires recent local PEPS headers with infinite fermionic SU and CTMRG.
 This is the follow-up projected model, with mobile z and x orbitals, not the 8D Kondo approximation.
 The local Hund term is `-2 JH (S_z.S_x + n_z*n_x/4)`; exchange is literal `J S.S`, without an added `-J n*n/4`.
+On 2026-11-07 the collaborator confirmed opposite x/y cross-orbital hopping signs. Canonical `physics_table.json` explicitly uses `TxzYSign=-1`; omitted keys retain +1 only for historical compatibility. The 2026-11-05 energies/candidate use the earlier same-sign model. Use `physics_table_same_sign_legacy.json` to reproduce that convention.
+The four Hamiltonian/gate slots are H1,H2,V1,V2. Both SU evolution and energy/component measurements must use orientation as well as checkerboard bond type. Cache format 2 records these slots/signs and rejects old two-gate caches.
 Use the same 4x4 rung cell for diagonal `(pi/2,pi/2)` and axial competitors.
 Default targets conserve N and Sz (`fU1U1QN`); `_u1` targets conserve only N (`fU1QN`), starting at 3 electrons/rung. Exact Sz metadata is null for N-only tensors.
 N-only gate construction may exploit the Hamiltonian's intrinsic Sz blocks internally; physical/virtual PEPS indices and truncation still have no spin U1 constraint.

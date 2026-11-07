@@ -282,6 +282,9 @@ def run_case(deployment, manifest_path, index):
             raise ValueError("Measurement has an incompatible N-only particle sector")
         if measurement["chi"] != algorithm["Chi"] or measurement.get("ctm_converged") is not True:
             raise ValueError("Measurement differs from requested Chi or is unconverged")
+        if "TxzYSign" in case["physics"] and measurement.get("txz_orientation_signs") != {
+                "horizontal": 1, "vertical": case["physics"]["TxzYSign"]}:
+            raise ValueError("Measurement does not confirm the requested directional hopping sign")
         number(measurement["physical_energy_per_ni"], "measured energy", minimum=-math.inf)
         number(measurement["means"]["n_total"], "measured density")
         if not 1 <= measurement["bond_dimension_min"] <= measurement["bond_dimension_max"] <= algorithm["Dmax"]:

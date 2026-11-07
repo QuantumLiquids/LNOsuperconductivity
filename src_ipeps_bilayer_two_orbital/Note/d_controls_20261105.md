@@ -1,5 +1,9 @@
 # Baseline D controls, 2026-11-05
 
+> Historical same-sign model (`TxzYSign=+1`, including omitted legacy keys).
+> On 2026-11-07 the collaborator confirmed opposite x/y signs. The energies
+> and candidates here must not be interpreted as results for that corrected model.
+
 These are short, paired simple-update controls for the original supplied
 parameter table. They address whether increasing the shared bilayer rung D
 already favors the literal `(pi/2,pi/2)` branch. They do not establish a

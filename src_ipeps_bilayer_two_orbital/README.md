@@ -46,11 +46,23 @@ original energy units. The common energy zero is `EpsilonZ=0`,
 `EpsilonX=0.558`. The parenthesized U=5 is not an additional Hubbard term in
 this projected Hilbert space. No parameters are inferred from U.
 
+On 2026-11-07 the collaborator confirmed opposite cross-orbital hopping signs
+along x and y. The canonical table now explicitly sets `TxzYSign=-1`:
+the Hamiltonian uses `-Txz` on horizontal bonds and `+Txz` on vertical bonds,
+for both x-to-z/z-to-x channels and both layers. All amplitudes and exchanges
+retain their tabulated values. An overall reversal of both cross-orbital
+signs is an orbital gauge choice; their relative directional sign matters.
+Missing `TxzYSign` retains +1 for historical input compatibility.
+`physics_table_same_sign_legacy.json` and the old
+`physics_diagonal_candidate.json` explicitly retain +1. **The 2026-11-05
+energy searches and candidate below belong to that earlier same-sign model.**
+
 For an east bond starting at `(row,col)`, type 1 is used if
 `(row+col)%2 == 0`; for a south bond type 1 is used if the parity is 1.
 All other bonds use type 2. Thus types 1/2 are zigzag chain/bridge bonds,
-not simply horizontal/vertical bonds. Both cross-orbital hopping channels
-use the same sign, as in the supplied Hamiltonian.
+not simply horizontal/vertical bonds. Directional signs multiply these
+amplitudes independently of the checkerboard type. The two cross-orbital
+channels on any one bond share that bond's directional sign.
 
 The supplied table sets both interlayer couplings to zero. The two layers
 therefore decouple exactly; their relative spin orientation cannot be
@@ -145,8 +157,10 @@ The output directory must be new. `smoke_d2.json` performs only two sweeps;
 `screen_d2.json` reproduces the 60-sweep local screen, while
 `explore_d2.json` supplies a longer decreasing-tau schedule. Start with the
 smoke run to measure local wall time before launching several seeds.
-The implementation caches only the two distinct Hamiltonians/gates per tau
-instead of diagonalizing a separate copy for every translated bond.
+The implementation caches four type/orientation gates per tau (`H1,H2,V1,V2`)
+instead of diagonalizing a separate copy for every translated bond. Cache
+format 2 records this ordering and the directional sign; earlier two-gate
+caches are rejected. Use fresh runs/caches after the sign correction.
 
 All JSON files use a `CaseParams` wrapper. Model couplings belong in the
 physics file; cell, initialization, evolution and CTMRG controls belong in
