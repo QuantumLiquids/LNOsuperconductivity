@@ -4,6 +4,7 @@
 import argparse
 import copy
 import json
+import math
 from pathlib import Path
 
 
@@ -58,7 +59,7 @@ def d3_cases():
     return cases
 
 
-def d4_cases(document, best_axial_only=False):
+def d4_cases(document, best_axial_only=False, include_best_guard=False):
     records = document["records"]
     if len(records) != 32 or len({r["case"]["id"] for r in records}) != 32:
         raise ValueError("D4 selection requires all 32 original D3 starts")
@@ -88,13 +89,19 @@ def d4_cases(document, best_axial_only=False):
                 case["algorithm"]["CTMTolerance"] != ctm_tolerance:
             raise ValueError("Expected matched cold D3 T2.95 states measured at one common Chi")
         q = record["dominant_q"]
-        if q in MAIN_Q and (q not in best or measurement["physical_energy_per_ni"] < best[q]["measurement"]["physical_energy_per_ni"]):
+        if (q in MAIN_Q or (include_best_guard and q in {"0_0", "pi_pi", "pi2_0", "0_pi2"})) and \
+                (q not in best or measurement["physical_energy_per_ni"] < best[q]["measurement"]["physical_energy_per_ni"]):
             best[q] = record
     axial = [q for q in ("0_pi", "pi_0") if q in best]
     if best_axial_only and axial:
         selected_q = MAIN_Q[:2] + (min(axial, key=lambda q: best[q]["measurement"]["physical_energy_per_ni"]),)
     else:
         selected_q = MAIN_Q
+    if include_best_guard:
+        guards = [q for q in best if q not in MAIN_Q]
+        if not best_axial_only or not guards:
+            raise ValueError("Select one axial reference and a measured guard for the four-start D4 comparison")
+        selected_q += (min(guards, key=lambda q: best[q]["measurement"]["physical_energy_per_ni"]),)
     if any(q not in best for q in selected_q):
         raise ValueError("One or more requested branches did not retain their wavevector")
     cases = []
@@ -109,7 +116,7 @@ def d4_cases(document, best_axial_only=False):
     return cases
 
 
-def frozen_cases(document, chi):
+def frozen_cases(document, chi, tolerance=1e-6):
     """Measure the existing final states at one common Chi, with no new SU."""
     records = document["records"]
     signs = {r["case"]["physics"].get("TxzYSign", 1) for r in records}
@@ -143,7 +150,7 @@ def frozen_cases(document, chi):
                     checkpoint=checkpoint, source_last_tau=.03,
                     expected_checkpoint_sha256=identity["sha256"], source_case_id=old["id"])
         case.pop("restart_checkpoint", None)
-        case["algorithm"].update(Chi=chi, Schedule=[], CTMTolerance=1e-6, MaxCTMSweeps=200)
+        case["algorithm"].update(Chi=chi, Schedule=[], CTMTolerance=tolerance, MaxCTMSweeps=200)
         cases.append(case)
     return cases, sign
 
@@ -181,22 +188,27 @@ def main():
     selection.add_argument("--exchange-from", type=Path)
     selection.add_argument("--freeze-from", type=Path)
     parser.add_argument("--chi", type=int, default=24, help="New contraction Chi for --freeze-from")
+    parser.add_argument("--ctm-tolerance", type=float, default=1e-6,
+                        help="Common contraction tolerance for --freeze-from")
     parser.add_argument("--best-axial-only", action="store_true",
                         help="Compare both diagonals with the best measured axial branch; allow a retained but unmeasured axial checkpoint")
+    parser.add_argument("--include-best-guard", action="store_true",
+                        help="Add the lowest measured FM/Neel/quarter-axis competitor to the selected D4 starts")
     args = parser.parse_args()
     if args.freeze_from:
-        if args.chi < 1:
-            parser.error("Chi must be positive")
-        cases, sign = frozen_cases(json.loads(args.freeze_from.read_text()), args.chi)
+        if args.chi < 1 or not math.isfinite(args.ctm_tolerance) or args.ctm_tolerance <= 0:
+            parser.error("Chi and CTM tolerance must be finite and positive")
+        cases, sign = frozen_cases(json.loads(args.freeze_from.read_text()), args.chi, args.ctm_tolerance)
         prefix = "opposite_txz" if sign == -1 else "legacy_same_sign"
         campaign = f"{prefix}_table_d3_chi{args.chi}_frozen_20261107"
-        description = f"Frozen D3 T2.95 checkpoints remeasured at common Chi{args.chi}, TxzYSign={sign}; no additional SU."
+        description = f"Frozen D3 T2.95 checkpoints remeasured at Chi{args.chi}, tolerance{args.ctm_tolerance:g}, TxzYSign={sign}; no additional SU."
     elif args.exchange_from:
         cases = exchange_cases(json.loads(args.exchange_from.read_text()), args.best_axial_only)
         campaign = "opposite_txz_exchange_d3_20261107"
         description = f"Opposite x/y hopping; 3 constrained AF points with {len(cases)//3} matched cold D3 branch starts each, T2.95 Chi{cases[0]['algorithm']['Chi']}."
     else:
-        cases = d4_cases(json.loads(args.d4_from.read_text()), args.best_axial_only) if args.d4_from else d3_cases()
+        cases = d4_cases(json.loads(args.d4_from.read_text()), args.best_axial_only,
+                         args.include_best_guard) if args.d4_from else d3_cases()
         dimension = 4 if args.d4_from else 3
         campaign = f"opposite_txz_table_d{dimension}_20261107"
         description = f"Confirmed opposite x/y interorbital hopping; fresh N-only cold starts, original table exchanges, T2.95 Chi{cases[0]['algorithm']['Chi']}. Previous same-sign states/caches are not reused."

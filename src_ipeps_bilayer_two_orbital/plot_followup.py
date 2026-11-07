@@ -45,6 +45,9 @@ def load_rows(paths, dataset, inputs):
             schedule = algorithm.get("Schedule", []) if kind != "measure" else []
             total = inherited + sum(stage["Steps"] * stage["Tau"] for stage in schedule)
             point = "legacy_candidate" if dataset == "prior" and case["point"] == "candidate" else case["point"]
+            sign = case["physics"].get("TxzYSign", 1)
+            if isinstance(sign, bool) or sign not in (-1, 1):
+                raise ValueError("Invalid x/y hopping sign: " + case["id"])
             row = {"dataset": dataset, "campaign": manifest["campaign"], "case_id": case["id"],
                    "point": point, "original_point": case["point"], "kind": kind,
                    "D": algorithm["Dmax"], "chi": algorithm["Chi"], "time": round(total, 12),
@@ -52,13 +55,17 @@ def load_rows(paths, dataset, inputs):
                    "last_tau": schedule[-1]["Tau"] if schedule else case.get("source_last_tau"),
                    "ctm_tolerance": algorithm.get("CTMTolerance"), "status": record["status"],
                    "seed": algorithm["InitState"], "spin_offset": algorithm.get("SpinOffset", 0),
-                   "charge_pattern": algorithm.get("ChargePattern"), "physics": case["physics"],
+                   "charge_pattern": algorithm.get("ChargePattern"), "physics": case["physics"], "TxzYSign": sign,
                    "coordinates": case.get("scan_coordinates", {}),
                    "control": algorithm["InitState"] in {"fm", "ferro"} and algorithm.get("LayerAlignment", -1) == 1}
             if row["status"] in COMPLETE:
                 measurement = record["measurement"]; energy = measurement["physical_energy_per_ni"]
                 if not math.isfinite(energy) or not measurement.get("ctm_converged") or measurement["chi"] != row["chi"]:
                     raise ValueError("Invalid completed energy/CTM controls: " + case["id"])
+                measured_signs = measurement.get("txz_orientation_signs")
+                if (("TxzYSign" in case["physics"] or measured_signs is not None)
+                        and measured_signs != {"horizontal": 1, "vertical": sign}):
+                    raise ValueError("Measurement does not confirm x/y hopping signs: " + case["id"])
                 if "planned_total_time" in record and abs(record["planned_total_time"] - total) > 1e-10:
                     raise ValueError("Recorded total time differs from manifest: " + case["id"])
                 sector = measurement["exact_symmetry_sector"]
@@ -197,6 +204,10 @@ def plot_time(rows, gaps, output):
 
 
 def plot_scan(rows, gaps, output):
+    signs = {row["TxzYSign"] for row in rows}
+    if len(signs) != 1:
+        raise ValueError("An exchange scan must use one x/y hopping sign convention")
+    hopping = "opposite" if signs == {-1} else "same"
     points = list(dict.fromkeys(row["point"] for row in rows))
     chis = sorted({row["chi"] for row in rows})
     figure, axes = plt.subplots(len(chis), 1, squeeze=False, figsize=(max(10.4, 1.3 * len(points)), 3.8 * len(chis) + 1.1))
@@ -231,7 +242,7 @@ def plot_scan(rows, gaps, output):
         if any(not entry["point_complete"] for entry in values):
             axis.scatter([], [], s=45, facecolors="none", edgecolors="#666666", label="Partial starts")
         axis.legend(frameon=False, loc="best", fontsize=9)
-    figure.suptitle("Constrained exchange scan: D=3, T=2.95", fontsize=12)
+    figure.suptitle(f"Constrained exchange scan: D=3, T=2.95, {hopping} x/y hopping signs", fontsize=12)
     finish(figure, output, "followup_constrained_scan")
 
 
@@ -275,7 +286,7 @@ def main():
             writer = csv.DictWriter(stream, fieldnames=columns); writer.writeheader(); writer.writerows(entries)
     all_rows = data["chi"] + time_rows + data["scan"]
     with (args.output / "followup_states.csv").open("w", newline="") as stream:
-        columns = ["dataset", "campaign", "case_id", "point", "D", "time", "chi", "last_tau", "ctm_tolerance",
+        columns = ["dataset", "campaign", "case_id", "point", "TxzYSign", "D", "time", "chi", "last_tau", "ctm_tolerance",
                    "status", "seed", "spin_offset", "charge_pattern", "final_q", "energy", "n_per_ni"]
         writer = csv.DictWriter(stream, fieldnames=columns, extrasaction="ignore"); writer.writeheader(); writer.writerows(all_rows)
     audit = {"inputs": inputs, "frozen_checkpoint_checks": frozen, "rows": all_rows, "gaps": gaps,

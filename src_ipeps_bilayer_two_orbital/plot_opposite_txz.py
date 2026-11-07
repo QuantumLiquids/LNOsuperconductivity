@@ -145,13 +145,24 @@ def plot(groups, output, chi):
     axis.legend(frameon=False, loc="best")
     axis.set(xticks=range(len(labels)), xticklabels=labels, xlim=(-.5, len(labels)-.5), title="Diagonal branches")
     expanded = groups["Opposite −1\nD3 expanded"]
+    selected_d4 = groups.get("Opposite −1\nD4 selected")
+    has_d4_guard = selected_d4 and any(value is not None for value in selected_d4["guard_gaps"].values())
     for x, q in enumerate(GUARDS):
         value = expanded["guard_gaps"][q]
         if value is not None:
             face = "#555555" if expanded["completed"] == expanded["planned"] else "none"
-            guards.scatter(x, value, s=50, edgecolor="#555555", facecolor=face)
+            guards.scatter(x - .08 if has_d4_guard else x, value, s=50, edgecolor="#555555", facecolor=face)
+        if has_d4_guard and selected_d4["guard_gaps"][q] is not None:
+            color = "#228833"
+            face = color if selected_d4["completed"] == selected_d4["planned"] else "none"
+            guards.scatter(x + .08, selected_d4["guard_gaps"][q], marker="D", s=50,
+                           edgecolor=color, facecolor=face)
+    if has_d4_guard:
+        guards.scatter([], [], s=50, color="#555555", label="D=3")
+        guards.scatter([], [], marker="D", s=50, color="#228833", label="D=4 selected")
+        guards.legend(frameon=False, loc="best")
     guards.set(xticks=range(len(GUARDS)), xticklabels=list(GUARDS.values()), xlim=(-.5, len(GUARDS)-.5),
-               title=f"Opposite −1, D3 guard phases ({expanded['completed']}/{expanded['planned']} starts)")
+               title="Opposite −1, other measured branches")
     if all(value is None for value in expanded["guard_gaps"].values()):
         guards.set(ylim=(-.05, .05), yticks=[0])
         guards.text(.5, .68, "No measured guard gaps", transform=guards.transAxes, ha="center")
@@ -190,7 +201,7 @@ def main():
         document = json.loads(args.d4.read_text())
         count = len(document.get("manifest", document)["cases"])
         if count not in (3, 4):
-            raise ValueError("Selected D4 needs both diagonals and one or two axial starts")
+            raise ValueError("Selected D4 needs three or four branch starts")
         d4, d4_physics, d4_controls, d4_source = read_run(args.d4, "opposite_d4", 4, -1, count)
         if d4_source["chi"] != chi:
             raise ValueError("Selected D4 must use the same χ as D3")
