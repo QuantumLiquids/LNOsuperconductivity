@@ -327,6 +327,9 @@ Its completed historical same-sign readout is archived in
 `Note/cent_followup_same_sign_20261105.md`. For the corrected opposite-sign
 model, `cluster/prepare_opposite_txz.py` prepares fresh original-table starts
 and selects matched D4 cold starts from their measured D3 branch minima.
+It also prepares common-Chi fixed-state measurements and a constrained
+exchange scan. See [the opposite-sign run record](Note/opposite_txz_20261107.md)
+for the inputs, energy comparisons and checkpoint provenance.
 
 `ipeps_bilayer_components_u1` is a separate measurement-only target. It uses
 the same converged CTMRG environment and bond density matrices to split the
