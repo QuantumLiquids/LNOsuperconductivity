@@ -96,6 +96,14 @@ with the local z spin in either branch of a dimer, so a dimer across
 opposite moments can superpose different total Sz values. The initial
 bond correlations depend on the covering direction. The subsequent
 evolution allows all site densities to relax.
+The `uniform_type_x` and `uniform_type_y` coverings use the checkerboard
+bond parity to choose dimers in each layer. Use `SweepOrder=bond_type`
+to update the four disjoint bond matchings H1, H2, V1 and V2 in order.
+This respects the lattice symmetries of each gate group. Combined with
+global spin flips these symmetries relate all Ni positions in the
+phase-zero diagonal and period-two axial seeds. Truncation at finite D
+can still break them. The default `SweepOrder=site` retains the original
+bond sequence.
 The cell averages three electrons/rung, or 1.5/Ni. Both targets conserve
 total charge, and the default two-U1 target also constrains Sz. Orbital
 occupation can evolve.

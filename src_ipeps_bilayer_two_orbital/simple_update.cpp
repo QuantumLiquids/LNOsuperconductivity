@@ -81,15 +81,11 @@ int read_layer_alignment(const Json &j) {
 
 struct Stage { size_t steps; double tau; };
 
-bool uniform_charge_seed(const std::string &pattern) {
-  return pattern == "uniform_x" || pattern == "uniform_y";
-}
-
 struct Algorithm {
   size_t rows, cols, measure_every, threads, charge_offset, spin_offset;
   std::string seed, charge_pattern;
   fs::path gate_cache_directory;
-  bool measure_initial, measure_stage_ends;
+  bool measure_initial, measure_stage_ends, bond_type_sweep;
   size_t checkpoint_every;
   int alignment;
   qlpeps::SimpleUpdateTruncateParams trunc;
@@ -107,6 +103,7 @@ struct Algorithm {
         gate_cache_directory(qlpeps::config::ReadString(j, "GateCacheDir", std::string())),
         measure_initial(qlpeps::config::ReadBool(j, "MeasureInitial", true)),
         measure_stage_ends(qlpeps::config::ReadBool(j, "MeasureStageEnds", true)),
+        bond_type_sweep(false),
         checkpoint_every(qlpeps::config::ReadSize(j, "CheckpointEvery", 0)),
         alignment(read_layer_alignment(j)),
         trunc(positive_size(j, "Dmin", 1), positive_size(j, "Dmax", 2),
@@ -115,7 +112,7 @@ struct Algorithm {
     static const std::vector<std::string> allowed{
         "Rows", "Cols", "MeasureEvery", "ThreadNum", "InitState", "LayerAlignment",
         "ChargePattern", "ChargeOffset", "SpinOffset", "GateCacheDir",
-        "MeasureInitial", "MeasureStageEnds", "CheckpointEvery",
+        "MeasureInitial", "MeasureStageEnds", "CheckpointEvery", "SweepOrder",
         "Dmin", "Dmax", "TruncErr", "InverseCutoff", "Chi", "MaxCTMSweeps",
         "MinCTMSweeps", "CTMTolerance", "CTMTruncErr", "CTMSVDCutoff", "Schedule"};
     for (auto it = j.begin(); it != j.end(); ++it) {
@@ -135,14 +132,19 @@ struct Algorithm {
     if (alignment != -1 && alignment != 1) {
       throw std::invalid_argument("LayerAlignment must be -1 or +1");
     }
-    if (uniform_charge_seed(charge_pattern)) {
+    if (is_uniform_charge_seed(charge_pattern)) {
       if (kConserveSpin || charge_offset > 1 || trunc.D_max < 2) {
         throw std::invalid_argument("Uniform density seeds require the N-only build, Dmax >= 2 and ChargeOffset 0 or 1");
       }
     } else if (charge_offset > 3 || (charge_pattern != "auto" &&
                charge_pattern != "stripe_x" && charge_pattern != "stripe_y")) {
-      throw std::invalid_argument("ChargePattern must be auto, stripe_x, stripe_y, uniform_x or uniform_y");
+      throw std::invalid_argument("Invalid ChargePattern or ChargeOffset");
     }
+    const auto sweep_order = qlpeps::config::ReadString(j, "SweepOrder", std::string("site"));
+    if (sweep_order != "site" && sweep_order != "bond_type") {
+      throw std::invalid_argument("SweepOrder must be site or bond_type");
+    }
+    bond_type_sweep = sweep_order == "bond_type";
     if (spin_offset > 3) throw std::invalid_argument("SpinOffset must be 0..3");
     if (threads > static_cast<size_t>(std::numeric_limits<int>::max())) {
       throw std::invalid_argument("ThreadNum exceeds the numeric backend range");
@@ -515,7 +517,7 @@ int main(int argc, char **argv) {
     write_json(run_directory / "algorithm.json", algorithm_json);
     auto state = [&]() {
       if (argc == 5) return State::LoadCheckpoint(argv[4]);
-      if (uniform_charge_seed(algorithm.charge_pattern)) {
+      if (is_uniform_charge_seed(algorithm.charge_pattern)) {
         return build_uniform_charge_state(algorithm.rows, algorithm.cols, algorithm.seed,
                                           algorithm.alignment, algorithm.charge_pattern,
                                           algorithm.charge_offset, algorithm.spin_offset);
@@ -525,6 +527,17 @@ int main(int argc, char **argv) {
                             algorithm.charge_pattern, algorithm.charge_offset, algorithm.spin_offset));
     }();
     require_geometry(state, algorithm);
+    auto bonds = state.GetGeometry().Bonds();
+    if (algorithm.bond_type_sweep) {
+      // Each orientation/type is a perfect matching of the checkerboard cell.
+      // Its disjoint projections preserve the symmetries of that bond group.
+      const auto slot = [](const auto &bond) {
+        return gate_slot(bond_type(bond), bond.orientation);
+      };
+      std::stable_sort(bonds.begin(), bonds.end(), [&](const auto &a, const auto &b) {
+        return slot(a) < slot(b);
+      });
+    }
     Json summary{{"status", "running"}, {"physics", physics_json}, {"algorithm", algorithm_json},
         {"measurements", Json::array()}, {"sweeps", Json::array()}};
     if (argc == 5) summary["restart_checkpoint"] = fs::absolute(argv[4]).string();
@@ -570,7 +583,7 @@ int main(int argc, char **argv) {
         const auto sweep_start = Clock::now();
         auto candidate = state.GetPEPS();
         double max_discarded_weight = 0;
-        for (const auto &bond : state.GetGeometry().Bonds()) {
+        for (const auto &bond : bonds) {
           const auto &gate = gates[gate_slot(bond_type(bond), bond.orientation)];
           const auto projection = qlpeps::NearestNeighborSiteProject(
               candidate, gate, bond.first, bond.orientation, algorithm.trunc);

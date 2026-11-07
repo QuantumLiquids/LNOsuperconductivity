@@ -60,20 +60,34 @@ inline Tensor build_dimer_gate(size_t layer) {
 
 }  // namespace uniform_seed_detail
 
+inline bool is_checkerboard_charge_seed(const std::string &charge_pattern) {
+  return charge_pattern == "uniform_type_x" || charge_pattern == "uniform_type_y";
+}
+
+inline bool is_uniform_charge_seed(const std::string &charge_pattern) {
+  return charge_pattern == "uniform_x" || charge_pattern == "uniform_y" ||
+         is_checkerboard_charge_seed(charge_pattern);
+}
+
 inline qlpeps::InfiniteSimpleUpdateState<double, QNT> build_uniform_charge_state(
     size_t rows, size_t cols, const std::string &spin_seed, int layer_alignment,
     const std::string &charge_pattern, size_t charge_offset, size_t spin_offset) {
   if (kConserveSpin) {
     throw std::invalid_argument("Uniform charge dimers require the N-only build");
   }
-  if (charge_pattern != "uniform_x" && charge_pattern != "uniform_y") {
-    throw std::invalid_argument("Expected uniform_x or uniform_y charge dimers");
+  if (!is_uniform_charge_seed(charge_pattern)) {
+    throw std::invalid_argument("Expected a uniform charge dimer pattern");
   }
   if (charge_offset > 1) {
     throw std::invalid_argument("Uniform charge dimer ChargeOffset must be 0 or 1");
   }
-  const bool horizontal = charge_pattern == "uniform_x";
+  const bool horizontal = charge_pattern == "uniform_x" || charge_pattern == "uniform_type_x";
   const auto orientation = horizontal ? qlpeps::HORIZONTAL : qlpeps::VERTICAL;
+  const bool checkerboard = is_checkerboard_charge_seed(charge_pattern);
+  const auto dimer_layer = [&](size_t row, size_t col) {
+    const size_t coordinate = checkerboard ? row + col : (horizontal ? col : row);
+    return (coordinate + charge_offset) % 2;
+  };
   // Reuse the magnetic pattern only. Use an explicit temporary x stripe
   // where it fits, so an x-quarter spin seed also works on a two-row cell.
   auto labels = build_seed_labels(rows, cols, spin_seed, layer_alignment,
@@ -82,8 +96,7 @@ inline qlpeps::InfiniteSimpleUpdateState<double, QNT> build_uniform_charge_state
   for (size_t row = 0; row < rows; ++row) {
     for (size_t col = 0; col < cols; ++col) {
       uint16_t bits = basis()[labels[row][col]].bits & z_mask;
-      const size_t coordinate = horizontal ? col : row;
-      const size_t layer = (coordinate + charge_offset) % 2;
+      const size_t layer = dimer_layer(row, col);
       const size_t spin = detail::spin_z(bits, 2 * layer) < 0;
       bits |= uint16_t(1u << (4 * layer + 2 + spin));
       labels[row][col] = basis_coordinate(bits);
@@ -91,7 +104,8 @@ inline qlpeps::InfiniteSimpleUpdateState<double, QNT> build_uniform_charge_state
   }
 
   // Offset the two layer coverings by one bond so every virtual edge carries
-  // at most one dimer. Each dimer has exactly one x electron and Schmidt rank 2.
+  // at most one dimer. The checkerboard variant uses one Hamiltonian bond type
+  // per layer. Each dimer has exactly one x electron and Schmidt rank 2.
   using State = qlpeps::InfiniteSimpleUpdateState<double, QNT>;
   auto peps = State::ProductState(physical_index(), rows, cols, labels).GetPEPS();
   const qlpeps::SimpleUpdateTruncateParams exact_projection(2, 2, 0.0, 1e-14);
@@ -99,8 +113,7 @@ inline qlpeps::InfiniteSimpleUpdateState<double, QNT> build_uniform_charge_state
     const auto gate = uniform_seed_detail::build_dimer_gate(layer);
     for (size_t row = 0; row < rows; ++row) {
       for (size_t col = 0; col < cols; ++col) {
-        const size_t coordinate = horizontal ? col : row;
-        if ((coordinate + charge_offset) % 2 != layer) continue;
+        if (dimer_layer(row, col) != layer) continue;
         const auto result = qlpeps::NearestNeighborSiteProject(
             peps, gate, {row, col}, orientation, exact_projection);
         if (result.bond_dim != 2 || !(result.norm > 0) || !std::isfinite(result.norm) ||

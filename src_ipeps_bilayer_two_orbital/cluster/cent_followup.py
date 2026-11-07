@@ -68,7 +68,8 @@ def positive_integer(value, name):
 
 def effective_algorithm(case):
     algorithm = dict(case["algorithm"])
-    uniform_seed = algorithm.get("ChargePattern") in {"uniform_x", "uniform_y"}
+    uniform_seed = algorithm.get("ChargePattern") in {
+        "uniform_x", "uniform_y", "uniform_type_x", "uniform_type_y"}
     measure_initial = (case["kind"] == "evolve" and not case.get("restart_checkpoint")
                        and uniform_seed and algorithm.get("MeasureInitial", False))
     algorithm.update(ThreadNum=1, MeasureInitial=measure_initial, MeasureStageEnds=False, CheckpointEvery=5)
