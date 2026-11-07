@@ -24,6 +24,7 @@
 #include "qlpeps/two_dim_tn/ipeps/infinite_simple_update_state.h"
 #include "model.h"
 #include "gate_builder.h"
+#include "uniform_seed.h"
 
 #ifndef LNO_IPEPS_ENERGY_COMPONENTS
 #define LNO_IPEPS_ENERGY_COMPONENTS 0
@@ -80,6 +81,10 @@ int read_layer_alignment(const Json &j) {
 
 struct Stage { size_t steps; double tau; };
 
+bool uniform_charge_seed(const std::string &pattern) {
+  return pattern == "uniform_x" || pattern == "uniform_y";
+}
+
 struct Algorithm {
   size_t rows, cols, measure_every, threads, charge_offset, spin_offset;
   std::string seed, charge_pattern;
@@ -130,9 +135,13 @@ struct Algorithm {
     if (alignment != -1 && alignment != 1) {
       throw std::invalid_argument("LayerAlignment must be -1 or +1");
     }
-    if (charge_offset > 3 || (charge_pattern != "auto" &&
-        charge_pattern != "stripe_x" && charge_pattern != "stripe_y")) {
-      throw std::invalid_argument("ChargePattern must be auto, stripe_x or stripe_y; ChargeOffset must be 0..3");
+    if (uniform_charge_seed(charge_pattern)) {
+      if (kConserveSpin || charge_offset > 1 || trunc.D_max < 2) {
+        throw std::invalid_argument("Uniform density seeds require the N-only build, Dmax >= 2 and ChargeOffset 0 or 1");
+      }
+    } else if (charge_offset > 3 || (charge_pattern != "auto" &&
+               charge_pattern != "stripe_x" && charge_pattern != "stripe_y")) {
+      throw std::invalid_argument("ChargePattern must be auto, stripe_x, stripe_y, uniform_x or uniform_y");
     }
     if (spin_offset > 3) throw std::invalid_argument("SpinOffset must be 0..3");
     if (threads > static_cast<size_t>(std::numeric_limits<int>::max())) {
@@ -504,10 +513,17 @@ int main(int argc, char **argv) {
     created_run_directory = true;
     write_json(run_directory / "physics.json", physics_json);
     write_json(run_directory / "algorithm.json", algorithm_json);
-    auto state = argc == 5 ? State::LoadCheckpoint(argv[4]) : State::ProductState(
-        physical_index(), algorithm.rows, algorithm.cols,
-        build_seed_labels(algorithm.rows, algorithm.cols, algorithm.seed, algorithm.alignment,
-                          algorithm.charge_pattern, algorithm.charge_offset, algorithm.spin_offset));
+    auto state = [&]() {
+      if (argc == 5) return State::LoadCheckpoint(argv[4]);
+      if (uniform_charge_seed(algorithm.charge_pattern)) {
+        return build_uniform_charge_state(algorithm.rows, algorithm.cols, algorithm.seed,
+                                          algorithm.alignment, algorithm.charge_pattern,
+                                          algorithm.charge_offset, algorithm.spin_offset);
+      }
+      return State::ProductState(physical_index(), algorithm.rows, algorithm.cols,
+          build_seed_labels(algorithm.rows, algorithm.cols, algorithm.seed, algorithm.alignment,
+                            algorithm.charge_pattern, algorithm.charge_offset, algorithm.spin_offset));
+    }();
     require_geometry(state, algorithm);
     Json summary{{"status", "running"}, {"physics", physics_json}, {"algorithm", algorithm_json},
         {"measurements", Json::array()}, {"sweeps", Json::array()}};

@@ -68,7 +68,10 @@ def positive_integer(value, name):
 
 def effective_algorithm(case):
     algorithm = dict(case["algorithm"])
-    algorithm.update(ThreadNum=1, MeasureInitial=False, MeasureStageEnds=False, CheckpointEvery=5)
+    uniform_seed = algorithm.get("ChargePattern") in {"uniform_x", "uniform_y"}
+    measure_initial = (case["kind"] == "evolve" and not case.get("restart_checkpoint")
+                       and uniform_seed and algorithm.get("MeasureInitial", False))
+    algorithm.update(ThreadNum=1, MeasureInitial=measure_initial, MeasureStageEnds=False, CheckpointEvery=5)
     if case["kind"] == "measure":
         algorithm["Schedule"] = []  # Explicitly discarded: native --measure never evolves.
         algorithm["MeasureEvery"] = 1
@@ -252,6 +255,16 @@ def run_case(deployment, manifest_path, index):
                               checkpoint_step=latest["step"])
                 if latest["step"] == planned_steps:
                     final_checkpoint = Path(latest["checkpoint"])
+            if algorithm["MeasureInitial"]:
+                initial = read_json(state / "checkpoint_step00000000.json")
+                targets = {"n_top": 1.5, "n_bottom": 1.5, "n_top_x": .5, "n_bottom_x": .5,
+                           "n_top_z": 1., "n_bottom_z": 1.}
+                if (initial["step"] != 0 or initial["bond_dimension_max"] != 2
+                        or len(initial["sites"]) != algorithm["Rows"] * algorithm["Cols"]
+                        or any(not math.isclose(site[key], value, rel_tol=0, abs_tol=1e-7)
+                               for site in initial["sites"] for key, value in targets.items())):
+                    raise ValueError("Measured initial state does not have uniform per-layer orbital density")
+                record["initial_measurement"] = initial
             if code == 0:
                 summary = read_json(state / "summary.json")
                 if summary["status"] != "schedule_completed" or summary["executed_steps"] != planned_steps or final_checkpoint is None:

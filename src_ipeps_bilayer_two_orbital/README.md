@@ -85,8 +85,20 @@ Smaller validation cells use a balanced alternative charge seed.
 period four in that direction. Use both orientations and offsets for multiple
 starts: at small D and short projection time, the initial charge pattern can
 substantially change the energy ranking of magnetic seeds.
-The cell has three electrons/rung, or 1.5/Ni. Charge and Sz
-are conserved by the tensor symmetry; orbital occupation can evolve.
+For an initially uniform density on each Ni, the N-only target accepts
+`ChargePattern=uniform_x` or `uniform_y` with `Dmax >= 2`. Each layer has
+one x electron per nearest-neighbor dimer in an equal-weight superposition
+over its two ends. The layer coverings are shifted by one bond so each
+virtual edge carries at most one dimer. `ChargeOffset` 0 or 1 shifts both
+coverings. This gives exactly one z electron and mean x occupation 0.5 at
+every Ni and fixes each layer's initial electron count. The x spin aligns
+with the local z spin in either branch of a dimer, so a dimer across
+opposite moments can superpose different total Sz values. The initial
+bond correlations depend on the covering direction. The subsequent
+evolution allows all site densities to relax.
+The cell averages three electrons/rung, or 1.5/Ni. Both targets conserve
+total charge, and the default two-U1 target also constrains Sz. Orbital
+occupation can evolve.
 
 | InitState | top-layer spin sign | wavevector |
 |---|---|---|
