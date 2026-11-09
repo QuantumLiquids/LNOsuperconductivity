@@ -93,6 +93,8 @@ and exchange-point comparisons at D=3 and 4. Paired axial and diagonal
 starts rotate the spin pattern, dimer covering and gate order together.
 The grouped order `bond_type_y_first` visits V1, V2, H1 and H2, the
 rotation of `bond_type`. Both orders also work in the bilayer driver.
+The first matched comparison is recorded in
+[the single-layer results](Note/single_layer_20261109.md).
 
 ## Unit cells and seeds
 

@@ -13,6 +13,10 @@ from prepare_opposite_txz import checked_physics, d3_cases
 POINTS = {
     "table": ("table_opposite_txz", {}),
     "r030": ("boundary_r030_s100_opposite_txz", {"Jxz1": .0585, "Jxz2": .01755}),
+    "near": ("near_lam010_s100_opposite_txz",
+             {"Jx1": .060125, "Jx2": .0585525, "Jxz1": .05465, "Jxz2": .02479}),
+    "half": ("near_lam000_s050_opposite_txz",
+             {"Jx1": .0325, "Jx2": .03165, "Jxz1": .01925, "Jxz2": .0134}),
 }
 
 # Each pair is (x-covering seed, phase, rotated y-covering seed, phase).
@@ -81,13 +85,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
     parser.add_argument("--d", action="append", type=int, help="Bond-dimension cap; repeat to select several")
-    parser.add_argument("--point", action="append", choices=POINTS, help="Parameter point; repeat to select both")
+    parser.add_argument("--point", action="append", choices=POINTS,
+                        help="Parameter point; repeat to select several (default table and r030)")
     parser.add_argument("--campaign", default="single_layer_opposite_txz_20261109")
     args = parser.parse_args()
     dimensions = sorted(set(args.d or (3, 4)))
     if any(d < 2 for d in dimensions):
         parser.error("The uniform-density dimer seed requires D >= 2")
-    points = list(dict.fromkeys(args.point or POINTS))
+    points = list(dict.fromkeys(args.point or ("table", "r030")))
     manifest = prepare_campaign(args.campaign, dimensions, points)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     try:
