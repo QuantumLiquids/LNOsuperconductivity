@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Infinite, periodically repeated bilayer-rung PEPS: cached NN simple update
+// Infinite projected two-orbital PEPS: cached NN simple update
 // followed by physical CTMRG measurements. SU normalization is never an energy.
 #include <algorithm>
 #include <array>
@@ -23,8 +23,12 @@
 #include "qlpeps/algorithm/simple_update/simple_update_projection.h"
 #include "qlpeps/two_dim_tn/ipeps/infinite_simple_update_state.h"
 #include "model.h"
-#include "gate_builder.h"
 #include "uniform_seed.h"
+#if defined(LNO_IPEPS_SINGLE_LAYER)
+#include "single_layer_seed.h"
+#else
+#include "gate_builder.h"
+#endif
 
 #ifndef LNO_IPEPS_ENERGY_COMPONENTS
 #define LNO_IPEPS_ENERGY_COMPONENTS 0
@@ -38,6 +42,42 @@ namespace fs = std::filesystem;
 using namespace bilayer_ipeps;
 using State = qlpeps::InfiniteSimpleUpdateState<double, QNT>;
 using Clock = std::chrono::steady_clock;
+
+#if defined(LNO_IPEPS_SINGLE_LAYER)
+namespace model = single_layer_ipeps;
+constexpr int kSitesPerTensor = 1;
+constexpr const char *kGeometryName = "single-layer Ni";
+constexpr const char *kCacheBasis = "projected_ni9_IN_v1_";
+
+class EvolutionGateBuilder {
+ public:
+  explicit EvolutionGateBuilder(const PhysicsParams &physics) {
+    for (size_t slot = 0; slot < kGateSlots; ++slot) {
+      hamiltonians_[slot] = model::build_bond_hamiltonian(
+          model::physical_index(), model::physical_index(), physics,
+          gate_type(slot), gate_orientation(slot));
+    }
+  }
+
+  std::array<Tensor, kGateSlots> build(double tau) const {
+    std::array<Tensor, kGateSlots> gates;
+    for (size_t slot = 0; slot < kGateSlots; ++slot) {
+      gates[slot] = qlpeps::BuildImaginaryTimeGate(hamiltonians_[slot], tau).gate;
+    }
+    return gates;
+  }
+
+ private:
+  std::array<Tensor, kGateSlots> hamiltonians_;
+};
+#else
+namespace model = bilayer_ipeps;
+constexpr int kSitesPerTensor = 2;
+constexpr const char *kGeometryName = "bilayer-rung";
+constexpr const char *kCacheBasis = "projected_rung81_IN_v1_";
+#endif
+constexpr size_t kDimension = model::kPhysicalDimension;
+constexpr double kTargetDensity = 1.5 * kSitesPerTensor;
 
 double seconds_since(Clock::time_point start) {
   return std::chrono::duration<double>(Clock::now() - start).count();
@@ -83,9 +123,9 @@ struct Stage { size_t steps; double tau; };
 
 struct Algorithm {
   size_t rows, cols, measure_every, threads, charge_offset, spin_offset;
-  std::string seed, charge_pattern;
+  std::string seed, charge_pattern, sweep_order;
   fs::path gate_cache_directory;
-  bool measure_initial, measure_stage_ends, bond_type_sweep;
+  bool measure_initial, measure_stage_ends;
   size_t checkpoint_every;
   int alignment;
   qlpeps::SimpleUpdateTruncateParams trunc;
@@ -100,10 +140,10 @@ struct Algorithm {
         spin_offset(qlpeps::config::ReadSize(j, "SpinOffset", 0)),
         seed(qlpeps::config::ReadString(j, "InitState", std::string("diagonal_plus"))),
         charge_pattern(qlpeps::config::ReadString(j, "ChargePattern", std::string("auto"))),
+        sweep_order(qlpeps::config::ReadString(j, "SweepOrder", std::string("site"))),
         gate_cache_directory(qlpeps::config::ReadString(j, "GateCacheDir", std::string())),
         measure_initial(qlpeps::config::ReadBool(j, "MeasureInitial", true)),
         measure_stage_ends(qlpeps::config::ReadBool(j, "MeasureStageEnds", true)),
-        bond_type_sweep(false),
         checkpoint_every(qlpeps::config::ReadSize(j, "CheckpointEvery", 0)),
         alignment(read_layer_alignment(j)),
         trunc(positive_size(j, "Dmin", 1), positive_size(j, "Dmax", 2),
@@ -140,11 +180,9 @@ struct Algorithm {
                charge_pattern != "stripe_x" && charge_pattern != "stripe_y")) {
       throw std::invalid_argument("Invalid ChargePattern or ChargeOffset");
     }
-    const auto sweep_order = qlpeps::config::ReadString(j, "SweepOrder", std::string("site"));
-    if (sweep_order != "site" && sweep_order != "bond_type") {
-      throw std::invalid_argument("SweepOrder must be site or bond_type");
+    if (sweep_order != "site" && sweep_order != "bond_type" && sweep_order != "bond_type_y_first") {
+      throw std::invalid_argument("SweepOrder must be site, bond_type or bond_type_y_first");
     }
-    bond_type_sweep = sweep_order == "bond_type";
     if (spin_offset > 3) throw std::invalid_argument("SpinOffset must be 0..3");
     if (threads > static_cast<size_t>(std::numeric_limits<int>::max())) {
       throw std::invalid_argument("ThreadNum exceeds the numeric backend range");
@@ -193,7 +231,7 @@ std::array<Tensor, kGateSlots> prepare_gates(
         {"gate_slots", {"H1", "H2", "V1", "V2"}},
         {"txz_orientation_signs", {{"horizontal", 1}, {"vertical", physics.txz_y_sign}}},
         {"build", std::string(__DATE__) + " " + __TIME__},
-        {"basis", std::string("projected_rung81_IN_v1_") + kSymmetryName}};
+        {"basis", std::string(kCacheBasis) + kSymmetryName}};
     const auto metadata = directory / "metadata.json";
     if (fs::exists(directory)) {
       if (!fs::exists(metadata) || read_json(metadata) != identity) {
@@ -211,8 +249,9 @@ std::array<Tensor, kGateSlots> prepare_gates(
     }
     if (std::all_of(paths.begin(), paths.end(), [](const auto &path) { return fs::exists(path); })) {
       std::array<Tensor, kGateSlots> result;
-      const std::vector<IndexT> indexes{qlten::InverseIndex(physical_index()),
-          qlten::InverseIndex(physical_index()), physical_index(), physical_index()};
+      const auto &physical = model::physical_index();
+      const std::vector<IndexT> indexes{qlten::InverseIndex(physical),
+          qlten::InverseIndex(physical), physical, physical};
       for (size_t i = 0; i < kGateSlots; ++i) {
         std::ifstream input(paths[i], std::ios::binary);
         input.exceptions(std::ios::failbit | std::ios::badbit);
@@ -245,12 +284,18 @@ int bond_type(const qlpeps::UnitCellBond &bond) {
   return bilayer_ipeps::bond_type(bond.first.row(), bond.first.col(), bond.orientation);
 }
 
+#if defined(LNO_IPEPS_SINGLE_LAYER)
+const std::array<std::string, 6> kObservables{
+    "n_total", "n_z", "n_x", "sz_total", "sz_z", "sz_x"};
+const std::array<std::string, 3> kTransverseObservables{"sx_total", "sx_z", "sx_x"};
+#else
 const std::array<std::string, 18> kObservables{
     "n_total", "n_z", "n_x", "n_top", "n_bottom", "n_top_z", "n_top_x",
     "n_bottom_z", "n_bottom_x", "sz_total", "sz_z", "sz_x", "sz_top",
     "sz_bottom", "sz_top_z", "sz_top_x", "sz_bottom_z", "sz_bottom_x"};
 const std::array<std::string, 9> kTransverseObservables{
     "sx_total", "sx_z", "sx_x", "sx_top", "sx_bottom", "sx_top_z", "sx_top_x", "sx_bottom_z", "sx_bottom_x"};
+#endif
 
 Json symmetry_sector(const State &state) {
   long long particles = 0, sz2 = 0;
@@ -319,10 +364,12 @@ Json measure_state(const State &state, const PhysicsParams &physics,
   std::array<std::vector<double>, kTransverseObservables.size()> transverse_values;
   struct LocalEntry { size_t input, output; double value; };
   std::array<std::vector<LocalEntry>, kTransverseObservables.size()> transverse_entries;
-  for (size_t o = 0; o < kObservables.size(); ++o) diagonals[o] = diagonal_observable(kObservables[o]);
+  for (size_t o = 0; o < kObservables.size(); ++o) {
+    diagonals[o] = model::diagonal_observable(kObservables[o]);
+  }
   for (size_t o = 0; o < kTransverseObservables.size(); ++o) {
-    const auto matrix = transverse_spin_matrix(kTransverseObservables[o]);
-    for (size_t input = 0; input < 81; ++input) for (size_t output = 0; output < 81; ++output) {
+    const auto matrix = model::transverse_spin_matrix(kTransverseObservables[o]);
+    for (size_t input = 0; input < kDimension; ++input) for (size_t output = 0; output < kDimension; ++output) {
       if (matrix[output][input] != 0) transverse_entries[o].push_back({input, output, matrix[output][input]});
     }
   }
@@ -330,11 +377,11 @@ Json measure_state(const State &state, const PhysicsParams &physics,
   for (size_t row = 0; row < state.rows(); ++row) for (size_t col = 0; col < state.cols(); ++col) {
     const auto rho = environment.OneSiteDensityMatrix(network, {row, col});
     double normalization = 0;
-    for (size_t i = 0; i < 81; ++i) normalization += rho.GetElem({i, i});
+    for (size_t i = 0; i < kDimension; ++i) normalization += rho.GetElem({i, i});
     Json site{{"row", row}, {"col", col}};
     for (size_t o = 0; o < kObservables.size(); ++o) {
       double numerator = 0;
-      for (size_t i = 0; i < 81; ++i) numerator += rho.GetElem({i, i}) * diagonals[o][i];
+      for (size_t i = 0; i < kDimension; ++i) numerator += rho.GetElem({i, i}) * diagonals[o][i];
       const double value = checked_ratio(numerator, normalization, kObservables[o]);
       site[kObservables[o]] = value;
       values[o].push_back(value);
@@ -359,8 +406,8 @@ Json measure_state(const State &state, const PhysicsParams &physics,
     const int type = gate_type(slot);
     const auto orientation = gate_orientation(slot);
     auto &entries = sparse_hamiltonians[slot];
-    for (size_t a = 0; a < 81; ++a) for (size_t b = 0; b < 81; ++b) {
-      for (const auto &transition : bond_transitions(a, b, physics, type, orientation)) {
+    for (size_t a = 0; a < kDimension; ++a) for (size_t b = 0; b < kDimension; ++b) {
+      for (const auto &transition : model::bond_transitions(a, b, physics, type, orientation)) {
         entries.push_back({a, b, transition.output_first, transition.output_second, transition.value});
       }
 #if LNO_IPEPS_ENERGY_COMPONENTS
@@ -380,7 +427,7 @@ Json measure_state(const State &state, const PhysicsParams &physics,
     double numerator = 0, normalization = 0;
     const int type = bond_type(bond);
     const size_t slot = gate_slot(type, bond.orientation);
-    for (size_t a = 0; a < 81; ++a) for (size_t b = 0; b < 81; ++b) {
+    for (size_t a = 0; a < kDimension; ++a) for (size_t b = 0; b < kDimension; ++b) {
       normalization += rho.GetElem({a, b, a, b});
     }
     for (const auto &entry : sparse_hamiltonians[slot]) {
@@ -420,17 +467,23 @@ Json measure_state(const State &state, const PhysicsParams &physics,
   const double density = means.at("n_total").get<double>();
   const double physical_energy = energy / count + physics.mu * density;
   const auto dimensions = state.GetPEPS().GetMinMaxBondDimension();
-  Json result{{"grand_energy_per_rung", energy / count},
-      {"physical_energy_per_rung", physical_energy},
-      {"physical_energy_per_ni", physical_energy / 2},
+  Json result{{"physical_energy_per_ni", physical_energy / kSitesPerTensor},
       {"means", means}, {"exact_symmetry_sector", symmetry_sector(state)},
       {"measured_spin_components", {"x", "z"}}, {"real_ansatz_sy_expectation", 0.0},
-      {"density_deviation_from_three_per_rung", density - 3},
       {"sites", sites}, {"bonds", bonds}, {"fourier", fourier},
       {"fourier_definition", "abs(sum_r <O_r> exp(i q.r)/N); qx=col, qy=row; not a structure factor"},
       {"bond_dimension_min", dimensions.first}, {"bond_dimension_max", dimensions.second},
       {"ctm_converged", true}, {"ctm_sweeps", ctm.diagnostics.iterations},
       {"chi", algorithm.ctm.max_bond_dim}, {"measurement_seconds", seconds_since(start)}};
+  if constexpr (kSitesPerTensor == 1) {
+    result["sites_per_tensor"] = 1;
+    result["grand_energy_per_ni"] = energy / count;
+    result["density_deviation_from_one_point_five_per_ni"] = density - kTargetDensity;
+  } else {
+    result["grand_energy_per_rung"] = energy / count;
+    result["physical_energy_per_rung"] = physical_energy;
+    result["density_deviation_from_three_per_rung"] = density - kTargetDensity;
+  }
   result["txz_orientation_signs"] = {{"horizontal", 1}, {"vertical", physics.txz_y_sign}};
 #if LNO_IPEPS_ENERGY_COMPONENTS
   Json components = Json::object();
@@ -464,14 +517,14 @@ void require_geometry(const State &state, const Algorithm &algorithm) {
     throw std::invalid_argument("Checkpoint geometry does not match Rows/Cols");
   }
   for (size_t row = 0; row < state.rows(); ++row) for (size_t col = 0; col < state.cols(); ++col) {
-    if (state.GetPEPS().Gamma({row, col}).GetIndex(4) != physical_index()) {
-      throw std::invalid_argument("Checkpoint physical index does not match the projected rung basis");
+    if (state.GetPEPS().Gamma({row, col}).GetIndex(4) != model::physical_index()) {
+      throw std::invalid_argument("Checkpoint physical index does not match this projected basis");
     }
   }
   const auto sector = symmetry_sector(state);
-  const auto expected_particles = 3LL * static_cast<long long>(state.rows()) * state.cols();
+  const auto expected_particles = 3LL * kSitesPerTensor * static_cast<long long>(state.rows() * state.cols()) / 2;
   if (sector.at("particles_per_cell").get<long long>() != expected_particles) {
-    throw std::invalid_argument("Checkpoint particle sector differs from three electrons per rung");
+    throw std::invalid_argument("Checkpoint particle sector differs from 1.5 electrons per Ni");
   }
 }
 }  // namespace
@@ -493,7 +546,7 @@ int main(int argc, char **argv) {
     const auto physics_json = read_json(argv[1 + offset]);
     const auto algorithm_json = read_json(argv[2 + offset]);
     const auto physics = PhysicsParams::from_json(physics_json);
-    validate_physics(physics);
+    model::validate_physics(physics);
     const Algorithm algorithm(algorithm_json, measurement_only);
     qlten::hp_numeric::SetCpuNumericsThreads(static_cast<int>(algorithm.threads));
     std::cout << std::setprecision(12) << std::unitbuf;
@@ -505,8 +558,9 @@ int main(int argc, char **argv) {
       const auto result = measure_state(state, physics, algorithm);
       write_json(output, {{"physics", physics_json}, {"algorithm", algorithm_json},
           {"checkpoint", fs::absolute(argv[4]).string()}, {"measurement", result}});
-      std::cout << "CTMRG physical energy/rung=" << result.at("physical_energy_per_rung")
-                << " n/rung=" << result.at("means").at("n_total") << '\n';
+      std::cout << "CTMRG physical energy/" << (kSitesPerTensor == 1 ? "Ni=" : "rung=")
+                << result.at(kSitesPerTensor == 1 ? "physical_energy_per_ni" : "physical_energy_per_rung")
+                << (kSitesPerTensor == 1 ? " n/Ni=" : " n/rung=") << result.at("means").at("n_total") << '\n';
       return 0;
     }
     run_directory = argv[3];
@@ -517,22 +571,29 @@ int main(int argc, char **argv) {
     write_json(run_directory / "algorithm.json", algorithm_json);
     auto state = [&]() {
       if (argc == 5) return State::LoadCheckpoint(argv[4]);
+#if defined(LNO_IPEPS_SINGLE_LAYER)
+      return model::build_seed_state(algorithm.rows, algorithm.cols, algorithm.seed,
+                                     algorithm.charge_pattern, algorithm.charge_offset,
+                                     algorithm.spin_offset);
+#else
       if (is_uniform_charge_seed(algorithm.charge_pattern)) {
         return build_uniform_charge_state(algorithm.rows, algorithm.cols, algorithm.seed,
                                           algorithm.alignment, algorithm.charge_pattern,
                                           algorithm.charge_offset, algorithm.spin_offset);
       }
-      return State::ProductState(physical_index(), algorithm.rows, algorithm.cols,
+      return State::ProductState(model::physical_index(), algorithm.rows, algorithm.cols,
           build_seed_labels(algorithm.rows, algorithm.cols, algorithm.seed, algorithm.alignment,
                             algorithm.charge_pattern, algorithm.charge_offset, algorithm.spin_offset));
+#endif
     }();
     require_geometry(state, algorithm);
     auto bonds = state.GetGeometry().Bonds();
-    if (algorithm.bond_type_sweep) {
+    if (algorithm.sweep_order != "site") {
       // Each orientation/type is a perfect matching of the checkerboard cell.
       // Its disjoint projections preserve the symmetries of that bond group.
-      const auto slot = [](const auto &bond) {
-        return gate_slot(bond_type(bond), bond.orientation);
+      const size_t offset = algorithm.sweep_order == "bond_type_y_first" ? 2 : 0;
+      const auto slot = [offset](const auto &bond) {
+        return (gate_slot(bond_type(bond), bond.orientation) + offset) % kGateSlots;
       };
       std::stable_sort(bonds.begin(), bonds.end(), [&](const auto &a, const auto &b) {
         return slot(a) < slot(b);
@@ -556,13 +617,16 @@ int main(int argc, char **argv) {
       summary["measurements"].push_back(record);
       summary["elapsed_seconds"] = seconds_since(run_start);
       write_json(run_directory / "summary.json", summary);
-      std::cout << "measurement step=" << step << " physical_energy/rung="
-                << record.at("physical_energy_per_rung") << " n/rung="
+      std::cout << "measurement step=" << step
+                << (kSitesPerTensor == 1 ? " physical_energy/Ni=" : " physical_energy/rung=")
+                << record.at(kSitesPerTensor == 1 ? "physical_energy_per_ni" : "physical_energy_per_rung")
+                << (kSitesPerTensor == 1 ? " n/Ni=" : " n/rung=")
                 << record.at("means").at("n_total") << " D="
                 << record.at("bond_dimension_max") << " CTM_sweeps="
                 << record.at("ctm_sweeps") << " seconds=" << record.at("measurement_seconds") << '\n';
     };
-    std::cout << algorithm.rows << 'x' << algorithm.cols << " infinite bilayer-rung cell, d=81, Dmax="
+    std::cout << algorithm.rows << 'x' << algorithm.cols << " infinite " << kGeometryName
+              << " cell, d=" << kDimension << ", Dmax="
               << algorithm.trunc.D_max << ", symmetry=" << kSymmetryName << ", seed=" << algorithm.seed << '\n';
     if (algorithm.measure_initial) measure(0, 0);
     else {

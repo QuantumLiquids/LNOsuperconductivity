@@ -70,6 +70,30 @@ selected energetically at those parameters. The blocked-rung representation
 also shares a D=2 variational budget between the two layers, which is more
 restrictive than two independent single-layer D=2 calculations.
 
+### Single-layer calculation at zero interlayer coupling
+
+`ipeps_single_layer_simple_update_u1` uses one Ni per tensor with physical
+dimension 9. It keeps both projected orbitals, the Hund term and the
+orientation-dependent hoppings. It accepts the same physics JSON and
+requires both `TzPerp` and `JzPerp` to be zero. The N-only sector fixes
+1.5 electrons/Ni, or N=24 on the 4x4 cell. The single-layer checkpoint
+and gate cache use the nine-state basis.
+
+Build `ipeps_single_layer_simple_update_u1` and
+`ipeps_single_layer_validate_model_u1` in `build/`. The validator compares
+the bond Hamiltonians with independent projected Fock matrices and
+checks the exact fermionic factorization of the decoupled bilayer.
+The solver takes the same physics JSON, algorithm JSON and new run
+directory as the bilayer target. The `--measure` form contracts an
+existing single-layer checkpoint. Output energies and occupations are
+per Ni, with `sites_per_tensor=1`.
+
+`cluster/prepare_single_layer.py` generates the matched original-table
+and exchange-point comparisons at D=3 and 4. Paired axial and diagonal
+starts rotate the spin pattern, dimer covering and gate order together.
+The grouped order `bond_type_y_first` visits V1, V2, H1 and H2, the
+rotation of `bond_type`. Both orders also work in the bilayer driver.
+
 ## Unit cells and seeds
 
 Coordinates are `x=col, y=row`, with wavevectors in the original square

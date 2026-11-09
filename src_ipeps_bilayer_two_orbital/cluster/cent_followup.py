@@ -26,6 +26,8 @@ from scan_exchange import characterize
 
 
 COMPLETE = {"complete", "complete_ctm_recovered"}
+BILAYER_EXECUTABLE = "ipeps_bilayer_simple_update_u1"
+SINGLE_LAYER_EXECUTABLE = "ipeps_single_layer_simple_update_u1"
 THREAD_KEYS = ("OMP_NUM_THREADS", "BLIS_NUM_THREADS", "OPENBLAS_NUM_THREADS",
                "MKL_NUM_THREADS", "GOTO_NUM_THREADS", "NUMEXPR_NUM_THREADS")
 
@@ -64,6 +66,25 @@ def positive_integer(value, name):
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise ValueError(f"{name} must be a positive integer")
     return value
+
+
+def sites_per_tensor(case):
+    return 1 if case.get("executable") == SINGLE_LAYER_EXECUTABLE else 2
+
+
+def characterize_single_layer(measurement):
+    fourier = measurement["fourier"]
+    sx, sz = fourier["sx_total"], fourier["sz_total"]
+    if not sx or sx.keys() != sz.keys():
+        raise ValueError("Inconsistent single-layer Fourier momenta")
+    scores = {q: number(sx[q]["abs_squared"], f"Sx power at {q}")
+                 + number(sz[q]["abs_squared"], f"Sz power at {q}") for q in sorted(sx)}
+    dominant = max(scores, key=scores.get)
+    amplitude = math.sqrt(scores[dominant])
+    return {"dominant_q": dominant if amplitude >= .05 else "weak_moment",
+            "largest_average_q": dominant, "spin_components": ["sz", "sx"],
+            "dominant_amplitude": amplitude,
+            "q_amplitudes": {q: math.sqrt(value) for q, value in scores.items()}}
 
 
 def effective_algorithm(case):
@@ -108,8 +129,8 @@ def validate_manifest(manifest):
         seen.add(case["id"])
         if case.get("kind") not in {"evolve", "measure"}:
             raise ValueError("Case kind must be evolve or measure")
-        executable = case.get("executable", "ipeps_bilayer_simple_update_u1")
-        if executable not in {"ipeps_bilayer_simple_update_u1", "ipeps_bilayer_components_u1"}:
+        executable = case.get("executable", BILAYER_EXECUTABLE)
+        if executable not in {BILAYER_EXECUTABLE, "ipeps_bilayer_components_u1", SINGLE_LAYER_EXECUTABLE}:
             raise ValueError("Unsupported follow-up executable")
         if executable == "ipeps_bilayer_components_u1" and case["kind"] != "measure":
             raise ValueError("Energy decomposition only measures an unchanged checkpoint")
@@ -117,6 +138,9 @@ def validate_manifest(manifest):
             raise ValueError("Case physics and algorithm must be objects")
         for key, value in case["physics"].items():
             number(value, key, minimum=-math.inf)
+        if sites_per_tensor(case) == 1 and any(case["physics"].get(key, 0.) != 0.
+                                               for key in ("TzPerp", "JzPerp")):
+            raise ValueError("Single-layer cases require zero interlayer couplings")
         if case["point"] in physics_by_point and physics_by_point[case["point"]] != case["physics"]:
             raise ValueError("Cases at a named point must have identical physics")
         physics_by_point[case["point"]] = case["physics"]
@@ -196,7 +220,7 @@ def run_case(deployment, manifest_path, index):
         raise IndexError("Case index outside the manifest")
     case = manifest["cases"][index]
     algorithm = effective_algorithm(case)
-    binary = deployment / "build" / case.get("executable", "ipeps_bilayer_simple_update_u1")
+    binary = deployment / "build" / case.get("executable", BILAYER_EXECUTABLE)
     binary_hash, manifest_hash = checksum(binary), checksum(manifest_path)
     affinity = one_cpu_affinity()
     environment = dict(os.environ, **{key: "1" for key in THREAD_KEYS}, OMP_DYNAMIC="FALSE", MKL_DYNAMIC="FALSE")
@@ -232,6 +256,7 @@ def run_case(deployment, manifest_path, index):
               "slurm_array_task_id": os.environ.get("SLURM_ARRAY_TASK_ID"), "attempts": []}
     write_json(result_path, record)
     started = time.monotonic()
+    ni_per_tensor = sites_per_tensor(case)
 
     def attempt(mode, settings_path, output_path, checkpoint=None, log_name="solver.log"):
         command = ([str(binary), "--measure", str(physics_path), str(settings_path), str(checkpoint), str(output_path)]
@@ -258,9 +283,11 @@ def run_case(deployment, manifest_path, index):
                     final_checkpoint = Path(latest["checkpoint"])
             if algorithm["MeasureInitial"]:
                 initial = read_json(state / "checkpoint_step00000000.json")
-                targets = {"n_top": 1.5, "n_bottom": 1.5, "n_top_x": .5, "n_bottom_x": .5,
-                           "n_top_z": 1., "n_bottom_z": 1.}
+                targets = ({"n_total": 1.5, "n_x": .5, "n_z": 1.} if ni_per_tensor == 1 else
+                           {"n_top": 1.5, "n_bottom": 1.5, "n_top_x": .5, "n_bottom_x": .5,
+                            "n_top_z": 1., "n_bottom_z": 1.})
                 if (initial["step"] != 0 or initial["bond_dimension_max"] != 2
+                        or initial.get("sites_per_tensor", 2) != ni_per_tensor
                         or len(initial["sites"]) != algorithm["Rows"] * algorithm["Cols"]
                         or any(not math.isclose(site[key], value, rel_tol=0, abs_tol=1e-7)
                                for site in initial["sites"] for key, value in targets.items())):
@@ -291,9 +318,11 @@ def run_case(deployment, manifest_path, index):
         if measurement is None:
             raise RuntimeError("Final CTM failed; no energy fallback is assigned. See solver/recovery logs.")
         sector = measurement["exact_symmetry_sector"]
-        expected_n = 3 * algorithm["Rows"] * algorithm["Cols"]
+        expected_n = 3 * ni_per_tensor * algorithm["Rows"] * algorithm["Cols"] // 2
         if sector != {"particles_per_cell": expected_n, "twice_sz_per_cell": None, "symmetry": "fU1QN(N)"}:
             raise ValueError("Measurement has an incompatible N-only particle sector")
+        if measurement.get("sites_per_tensor", 2) != ni_per_tensor:
+            raise ValueError("Measurement has an incompatible number of Ni sites per tensor")
         if measurement["chi"] != algorithm["Chi"] or measurement.get("ctm_converged") is not True:
             raise ValueError("Measurement differs from requested Chi or is unconverged")
         if "TxzYSign" in case["physics"] and measurement.get("txz_orientation_signs") != {
@@ -305,8 +334,9 @@ def run_case(deployment, manifest_path, index):
             raise ValueError("Measured bond dimension exceeds the case cap")
         if case["kind"] == "measure" and measurement["bond_dimension_max"] != algorithm["Dmax"]:
             raise ValueError("CTM-only case Dmax does not describe its unchanged checkpoint")
+        phase = characterize_single_layer(measurement) if ni_per_tensor == 1 else characterize(measurement)
         record.update(measurement=measurement, checkpoint=str(final_checkpoint),
-                      checkpoint_identity=checkpoint_identity(final_checkpoint, algorithm), **characterize(measurement))
+                      checkpoint_identity=checkpoint_identity(final_checkpoint, algorithm), **phase)
         if record["status"] != "complete_ctm_recovered":
             record["status"] = "complete"
     except Exception as error:
@@ -335,10 +365,18 @@ def collect(deployment, manifest_path, output):
                "source_checkpoint": (record.get("source_checkpoint") or {}).get("path")}
         if record["status"] in COMPLETE:
             measurement = record["measurement"]
-            row.update(energy_per_ni=measurement["physical_energy_per_ni"], n_per_ni=measurement["means"]["n_total"] / 2,
+            ni_per_tensor = sites_per_tensor(case)
+            row.update(energy_per_ni=measurement["physical_energy_per_ni"],
+                       n_per_ni=measurement["means"]["n_total"] / ni_per_tensor,
                        Dmin=measurement["bond_dimension_min"], Dmax=measurement["bond_dimension_max"],
-                       final_q=record["dominant_q"], top_q=record["layer_q"][0], bottom_q=record["layer_q"][1],
+                       final_q=record["dominant_q"],
                        amplitude=record["dominant_amplitude"], elapsed_seconds=record["elapsed_seconds"])
+            if ni_per_tensor == 1:
+                deviations = [site["n_total"] - 1.5 for site in measurement["sites"]]
+                row.update(max_site_density_deviation=max(map(abs, deviations)),
+                           rms_site_density_deviation=math.sqrt(math.fsum(x*x for x in deviations) / len(deviations)))
+            else:
+                row.update(top_q=record["layer_q"][0], bottom_q=record["layer_q"][1])
         rows.append(row)
     groups = {}
     hashes = {record["binary_sha256"] for record in records if record["status"] in COMPLETE}
@@ -367,6 +405,8 @@ def collect(deployment, manifest_path, output):
     columns = ["case_id", "kind", "point", "D", "chi", "inherited_time", "evolution_time", "planned_total_time",
                "status", "energy_per_ni", "n_per_ni", "Dmin", "Dmax", "final_q", "top_q", "bottom_q",
                "amplitude", "elapsed_seconds", "checkpoint", "source_checkpoint"]
+    if any(sites_per_tensor(case) == 1 for case in manifest["cases"]):
+        columns.extend(["max_site_density_deviation", "rms_site_density_deviation"])
     with output.with_suffix(".csv").open("w", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=columns)
         writer.writeheader()
